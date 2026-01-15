@@ -633,6 +633,15 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
+                  {/* System Settings Button */}
+                  <button 
+                    onClick={() => navigate('/admins')}
+                    className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold"
+                  >
+                    <Settings className="w-5 h-5 text-gray-600" />
+                    إعدادات النظام
+                  </button>
+
                   <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
