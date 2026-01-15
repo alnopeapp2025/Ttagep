@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key
+  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -85,12 +85,6 @@ export default function Dashboard() {
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPass, setNewEmpPass] = useState('');
   const [empSuccess, setEmpSuccess] = useState('');
-
-  // Delete My Data State
-  const [deleteMyDataOpen, setDeleteMyDataOpen] = useState(false);
-  
-  // Privacy Policy State
-  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   // User Profile & Change Password States
   const [profileOpen, setProfileOpen] = useState(false);
@@ -261,6 +255,8 @@ export default function Dashboard() {
   const canAccessPage = (page: keyof GlobalSettings['pagePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden user always access everything
+    if (userRole === 'golden') return true;
     // @ts-ignore
     return settings.pagePermissions[page].includes(userRole);
   };
@@ -268,6 +264,8 @@ export default function Dashboard() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden user always access everything
+    if (userRole === 'golden') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -290,7 +288,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen pb-10">
       
-      {/* Changed from yellow-400 to red-600, text-yellow-900 to text-white */}
       <div className="w-full bg-red-600 text-white py-2 mb-6 overflow-hidden shadow-sm border-b border-red-700/20">
         <div className="marquee-container">
           <div className="marquee-content font-bold text-sm sm:text-base">
@@ -306,7 +303,7 @@ export default function Dashboard() {
               برنامج حسابات مكاتب الخدمات
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
-              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 4</span>
+              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 1</span>
             </p>
           </div>
           
@@ -389,6 +386,18 @@ export default function Dashboard() {
                     </button>
                   )}
 
+                  {/* Links for Privacy and Delete Data */}
+                  <div className="flex flex-col gap-2 mt-2 px-4 text-center">
+                    <Link to="/privacy-policy" className="text-xs text-gray-500 hover:text-blue-600 underline transition-colors">
+                        سياسة الخصوصية
+                    </Link>
+                    <Link to="/delete-data" className="text-xs text-gray-500 hover:text-red-600 underline transition-colors">
+                        حذف بياناتي
+                    </Link>
+                  </div>
+
+                  <Separator className="my-2 bg-gray-300/50" />
+
                   <Dialog open={empLoginOpen} onOpenChange={setEmpLoginOpen}>
                     <DialogTrigger asChild>
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -427,7 +436,7 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
                   
-                  {/* ... Inquiry Dialog (No Changes) ... */}
+                  {/* ... Inquiry Dialog ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -605,7 +614,7 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* ... Request Code Dialog (No Changes) ... */}
+                  {/* ... Request Code Dialog ... */}
                   <Dialog open={requestCodeOpen} onOpenChange={setRequestCodeOpen}>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl text-center" dir="rtl">
                         <DialogHeader><DialogTitle className="text-xl font-bold text-gray-800">للاشتراك يرجى التحويل</DialogTitle></DialogHeader>
@@ -675,48 +684,6 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* ... Privacy & Delete My Data (No Changes) ... */}
-                  <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
-                    <DialogTrigger asChild>
-                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                            <Shield className="w-5 h-5 text-green-600" />
-                            سياسة الخصوصية
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
-                        <DialogHeader><DialogTitle>سياسة الخصوصية</DialogTitle></DialogHeader>
-                        <div className="text-gray-600 leading-relaxed py-4 space-y-4 text-sm">
-                            <p>نحن في نظام المعقب المحاسبي نولي اهتماماً كبيراً لخصوصية بياناتك. توضح هذه السياسة كيفية تعاملنا مع البيانات.</p>
-                            <h4 className="font-bold text-gray-800">1. جمع البيانات</h4>
-                            <p>يتم تخزين جميع البيانات (المعاملات، العملاء، الحسابات) محلياً على جهازك (Local Storage). نحن لا نقوم برفع أي بيانات لسيرفرات خارجية.</p>
-                            <h4 className="font-bold text-gray-800">2. استخدام البيانات</h4>
-                            <p>تستخدم البيانات فقط لغرض إدارة حساباتك وعرض التقارير داخل التطبيق.</p>
-                            <h4 className="font-bold text-gray-800">3. أمان البيانات</h4>
-                            <p>أنت المسؤول عن حماية جهازك. نوصي بعمل نسخ احتياطية دورية باستخدام ميزة النسخ الاحتياطي في التطبيق.</p>
-                        </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={deleteMyDataOpen} onOpenChange={setDeleteMyDataOpen}>
-                    <DialogTrigger asChild>
-                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                            <UserCheck className="w-5 h-5 text-gray-600" />
-                            حذف بياناتي
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d text-center" dir="rtl">
-                        <DialogHeader><DialogTitle className="text-center text-red-600">حذف الحساب والبيانات</DialogTitle></DialogHeader>
-                        <div className="py-6 flex flex-col items-center">
-                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-3xl">😢</div>
-                            <p className="font-bold text-gray-700 mb-2">يؤسفنا أنك تغادر ونأمل في عودتك قريباً..</p>
-                            <p className="text-sm text-gray-500 mb-6">لإرسال طلب حذف البيانات نهائياً، يرجى التواصل معنا:</p>
-                            <div className="bg-white p-3 rounded-xl shadow-3d-inset font-mono text-blue-600 select-all">
-                                Tageep2026@gmail.com
-                            </div>
-                        </div>
-                    </DialogContent>
-                  </Dialog>
-
                   <a href="mailto:Tageep2026@gmail.com" className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                     <Mail className="w-5 h-5 text-blue-500" />
                     اتصل بنا
@@ -726,7 +693,7 @@ export default function Dashboard() {
 
                 <div className="absolute bottom-8 left-0 w-full px-6">
                    <div className="text-center text-xs text-gray-400">
-                      الإصدار 4.0.0
+                      الإصدار 1.0.0
                    </div>
                 </div>
               </SheetContent>
@@ -887,7 +854,8 @@ export default function Dashboard() {
             </div>
         </div>
 
-        {/* ... Profile & Change Password Dialogs (No Changes) ... */}
+        {/* ... Profile & Change Password Dialogs ... */}
+        {/* (Kept as is, just ensuring structure is maintained) */}
         <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                 <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">الملف الشخصي</DialogTitle></DialogHeader>

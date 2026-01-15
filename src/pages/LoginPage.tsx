@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check } from 'lucide-react';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -369,6 +369,15 @@ export default function LoginPage() {
                 </DialogContent>
             </Dialog>
           </div>
+
+          {/* Guest Login Button */}
+          <button 
+            onClick={() => navigate('/')}
+            className="w-full py-3 mt-4 bg-gray-200 text-gray-600 rounded-xl font-bold shadow-sm hover:bg-gray-300 transition-all flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            دخول كضيف
+          </button>
         </div>
       </div>
     </div>

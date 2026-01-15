@@ -501,7 +501,7 @@ function AgentsPage() {
                                     className="flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700"
                                 >
                                     <Send className="w-4 h-4" />
-                                    إرسال المبلغ للمعقب
+                                    إشعار المعقب (تم التحويل)
                                 </button>
                                 <button 
                                     onClick={() => setSelectedAgent(null)}
