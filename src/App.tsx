@@ -14,8 +14,8 @@ import AdminPanel from './pages/AdminPanel';
 
 function App() {
   return (
-    // basename set to '/' for root domain
-    <Router basename="/">
+    // basename set to '/Ttagep' for GitHub Pages subdirectory
+    <Router basename="/Ttagep">
       <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
         <Routes>
           <Route path="/" element={<Dashboard />} />

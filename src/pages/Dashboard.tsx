@@ -290,7 +290,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen pb-10">
       
-      <div className="w-full bg-yellow-400 text-yellow-900 py-2 mb-6 overflow-hidden shadow-sm border-b border-yellow-500/20">
+      {/* Changed from yellow-400 to red-600, text-yellow-900 to text-white */}
+      <div className="w-full bg-red-600 text-white py-2 mb-6 overflow-hidden shadow-sm border-b border-red-700/20">
         <div className="marquee-container">
           <div className="marquee-content font-bold text-sm sm:text-base">
             مرحباً بكم في نظام المعقب المحاسبي
@@ -302,7 +303,7 @@ export default function Dashboard() {
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
-              برنامج حسابات المعقبين
+              برنامج حسابات مكاتب الخدمات
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
               لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 4</span>
