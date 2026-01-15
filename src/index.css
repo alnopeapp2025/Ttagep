@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Soft Gray Background for 3D effect visibility */
+    --background: 210 20% 96%; /* #f0f4f8 */
+    --foreground: 222.2 84% 4.9%;
+    
+    --card: 210 20% 96%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+ 
+    --radius: 1rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Cairo', sans-serif;
+    background-color: #eef2f6;
+  }
+}
+
+/* Custom 3D Classes */
+@layer utilities {
+  .shadow-3d {
+    box-shadow: 
+      8px 8px 16px #c8cdd6, 
+      -8px -8px 16px #ffffff;
+  }
+  
+  .shadow-3d-hover {
+    box-shadow: 
+      12px 12px 20px #c8cdd6, 
+      -12px -12px 20px #ffffff;
+    transform: translateY(-2px);
+  }
+
+  .shadow-3d-active {
+    box-shadow: 
+      inset 6px 6px 12px #c8cdd6, 
+      inset -6px -6px 12px #ffffff;
+    transform: translateY(0);
+  }
+
+  .shadow-3d-inset {
+    box-shadow: 
+      inset 4px 4px 8px #c8cdd6, 
+      inset -4px -4px 8px #ffffff;
+  }
+  
+  .text-shadow {
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  }
+
+  /* Marquee Animation */
+  .marquee-container {
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .marquee-content {
+    display: inline-block;
+    animation: marquee 15s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
