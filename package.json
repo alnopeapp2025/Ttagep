@@ -6,10 +6,10 @@
   "homepage": "https://manhobat.com",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll",
+    "build": "vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll && echo 'manhobat.com' > dist/CNAME",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "yarn run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
