@@ -64,15 +64,6 @@ export default function ReportsPage() {
     loadData();
   }, []);
 
-  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
-    if (!settings) return true;
-    const userRole = currentUser?.role || 'visitor';
-    // Golden and Employee always access everything
-    if (userRole === 'golden' || userRole === 'employee') return true;
-    // @ts-ignore
-    return settings.featurePermissions[feature].includes(userRole);
-  };
-
   const calculateStats = (txs: Transaction[]) => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -181,9 +172,6 @@ export default function ReportsPage() {
   };
 
   const handleEmployeeClick = (emp: User) => {
-      // Filter transactions where agent matches employee name (Assuming employee name is used as agent name in transactions)
-      // Note: In a real scenario, we should track createdBy user ID. Here we use agent name as proxy or just show all if not tracked.
-      // For this requirement, we will filter by agent name matching employee name as per common practice in this app structure.
       const empTxs = transactions.filter(t => t.agent === emp.officeName);
       setEmployeeTxs(empTxs);
       setSelectedEmployee(emp);
@@ -437,25 +425,33 @@ export default function ReportsPage() {
                         <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 animate-in fade-in slide-in-from-bottom-4">
                             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                 <FileText className="w-5 h-5 text-blue-600" />
-                                معاملات الموظف: {selectedEmployee.officeName}
+                                سجل حركات الموظف: {selectedEmployee.officeName}
                             </h3>
                             
                             {employeeTxs.length === 0 ? (
                                 <p className="text-center text-gray-500 py-8">لا توجد معاملات مسجلة باسم هذا الموظف (كمعقب).</p>
                             ) : (
-                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                                    {/* Header */}
+                                    <div className="grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 px-3 pb-2 border-b border-gray-200">
+                                        <div className="col-span-2">رقم</div>
+                                        <div className="col-span-4">النوع</div>
+                                        <div className="col-span-3">التاريخ</div>
+                                        <div className="col-span-3 text-left">الحالة</div>
+                                    </div>
+                                    
+                                    {/* Rows */}
                                     {employeeTxs.map(tx => (
-                                        <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
-                                            <div>
-                                                <p className="font-bold text-sm text-gray-700">{tx.type}</p>
-                                                <div className="flex gap-2 text-[10px] text-gray-500">
-                                                    <span>#{tx.serialNo}</span>
-                                                    <span>•</span>
-                                                    <span>{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-left">
-                                                <span className={`font-bold ${tx.status === 'completed' ? 'text-green-600' : tx.status === 'cancelled' ? 'text-red-600' : 'text-orange-500'}`}>
+                                        <div key={tx.id} className="grid grid-cols-12 gap-2 items-center bg-white/50 p-3 rounded-xl border border-white hover:bg-white transition-colors text-sm">
+                                            <div className="col-span-2 font-mono font-bold text-gray-600">#{tx.serialNo}</div>
+                                            <div className="col-span-4 font-bold text-gray-800 truncate">{tx.type}</div>
+                                            <div className="col-span-3 text-xs text-gray-500">{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</div>
+                                            <div className="col-span-3 text-left">
+                                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                                    tx.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                                                    tx.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
+                                                    'bg-orange-100 text-orange-700'
+                                                }`}>
                                                     {tx.status === 'completed' ? 'منجزة' : tx.status === 'cancelled' ? 'ملغاة' : 'نشطة'}
                                                 </span>
                                             </div>

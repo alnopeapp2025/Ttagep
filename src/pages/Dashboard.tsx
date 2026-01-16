@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, CreditCard, Calendar
+  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -315,6 +315,25 @@ export default function Dashboard() {
       }
   };
 
+  const monthlyBenefits = [
+      "معاملات لا محدودة",
+      "تقارير متكاملة",
+      "عملاء بلا حدود",
+      "معقبين بلا حدود",
+      "نسخ احتياطي مؤمن",
+      "10 أرقام معقبين منجزين",
+      "10 دروس تعليمية",
+      "حسابات تفصيلية للتحويلات"
+  ];
+
+  const annualBenefits = [
+      "جميع مزايا الباقة الشهرية",
+      "50 رقم معقب منجز",
+      "50 درس تعقيب خاص",
+      "أرقام مكاتب خدمات للتعاون",
+      "تقارير تفصيلية"
+  ];
+
   return (
     <div className="min-h-screen pb-10">
       
@@ -586,7 +605,7 @@ export default function Dashboard() {
                             </button>
                         </DialogTrigger>
                     )}
-                    <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-sm p-6" dir="rtl">
+                    <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-lg p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
                         <button 
                             onClick={() => setProOpen(false)}
                             className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"
@@ -646,29 +665,52 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
-                                {/* Step 2: Duration Selection */}
+                                {/* Step 2: Duration Selection (Updated UI) */}
                                 {subStep === 'duration' && (
                                     <div className="space-y-4 animate-in slide-in-from-right-4">
-                                        <h3 className="text-center font-bold text-lg">اختر مدة الاشتراك</h3>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <h3 className="text-center font-bold text-lg">اختر الباقة المناسبة</h3>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Monthly Plan */}
                                             <button 
                                                 onClick={() => setSelectedDuration('شهر')}
-                                                className={`p-4 rounded-xl border-2 transition-all text-center ${selectedDuration === 'شهر' ? 'bg-white text-yellow-700 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20'}`}
+                                                className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full ${selectedDuration === 'شهر' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}
                                             >
-                                                <div className="text-sm font-bold mb-1">شهري</div>
-                                                <div className="text-2xl font-black">59</div>
-                                                <div className="text-xs opacity-80">ريال</div>
+                                                <div className="text-center mb-2 border-b border-current pb-2 w-full">
+                                                    <div className="text-sm font-bold">باقة شهرية</div>
+                                                    <div className="text-3xl font-black">59 <span className="text-xs font-medium">ريال</span></div>
+                                                </div>
+                                                <ul className="space-y-1 text-[10px] w-full">
+                                                    {monthlyBenefits.map((b, i) => (
+                                                        <li key={i} className="flex items-start gap-1">
+                                                            <Check className="w-3 h-3 mt-0.5 shrink-0" />
+                                                            <span>{b}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </button>
+
+                                            {/* Annual Plan */}
                                             <button 
                                                 onClick={() => setSelectedDuration('سنة')}
-                                                className={`p-4 rounded-xl border-2 transition-all text-center relative overflow-hidden ${selectedDuration === 'سنة' ? 'bg-white text-yellow-700 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20'}`}
+                                                className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full relative overflow-hidden ${selectedDuration === 'سنة' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}
                                             >
-                                                <div className="absolute top-0 right-0 bg-red-500 text-white text-[8px] px-2 py-0.5 rounded-bl">وفر 50%</div>
-                                                <div className="text-sm font-bold mb-1">سنوي</div>
-                                                <div className="text-2xl font-black">299</div>
-                                                <div className="text-xs opacity-80">ريال</div>
+                                                <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">الأكثر توفيراً</div>
+                                                <div className="text-center mb-2 border-b border-current pb-2 w-full">
+                                                    <div className="text-sm font-bold">باقة سنوية</div>
+                                                    <div className="text-3xl font-black">299 <span className="text-xs font-medium">ريال</span></div>
+                                                </div>
+                                                <ul className="space-y-1 text-[10px] w-full">
+                                                    {annualBenefits.map((b, i) => (
+                                                        <li key={i} className="flex items-start gap-1">
+                                                            <Check className="w-3 h-3 mt-0.5 shrink-0" />
+                                                            <span>{b}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </button>
                                         </div>
+
                                         <div className="flex gap-2 mt-2">
                                             <button 
                                                 onClick={() => setSubStep('bank')}

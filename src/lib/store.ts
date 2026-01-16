@@ -185,6 +185,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   featurePermissions: {
     backup: ['golden', 'employee'],
     employeeLogin: ['golden', 'employee'],
+    // Updated: WhatsApp and Print available for all members
     whatsapp: ['member', 'golden', 'employee'],
     print: ['member', 'golden', 'employee'],
     transfer: ['golden', 'employee'],
@@ -249,6 +250,12 @@ export const getSubscriptionRequests = (): SubscriptionRequest[] => {
     } catch { return []; }
 };
 
+export const rejectSubscriptionRequest = (requestId: number) => {
+    let requests = getSubscriptionRequests();
+    requests = requests.filter(r => r.id !== requestId);
+    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
+};
+
 export interface GoldenUserRecord {
     userId: number;
     expiry: number;
@@ -283,7 +290,7 @@ export const approveSubscription = async (requestId: number) => {
         
         // Fallback or Local Storage Logic
         const goldenUsers = getGoldenUsers();
-        // Remove if exists then add
+        // Remove if exists then add (Update)
         const filtered = goldenUsers.filter(u => u.userId !== req.userId);
         filtered.push({ userId: req.userId, expiry: expiryDate, userName: req.userName });
         localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(filtered));
@@ -292,9 +299,9 @@ export const approveSubscription = async (requestId: number) => {
         console.error(e);
     }
 
-    // 2. Update Request Status
-    requests[reqIndex].status = 'approved';
-    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
+    // 2. Remove from requests (to avoid duplicates in list)
+    const updatedRequests = requests.filter(r => r.id !== requestId);
+    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(updatedRequests));
     
     return { success: true };
 };
@@ -315,7 +322,6 @@ export const cancelSubscription = async (userId: number) => {
         console.error(e);
     }
 
-    // 3. Update any pending requests if needed (optional)
     return { success: true };
 };
 
@@ -464,6 +470,7 @@ export const loginUser = async (phone: string, password: string) => {
   }
 };
 
+// ... [Rest of the file remains unchanged] ...
 export const changePassword = async (phone: string, oldPass: string, newPass: string) => {
   try {
     const oldHash = hashPassword(oldPass);

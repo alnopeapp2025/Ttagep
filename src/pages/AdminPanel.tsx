@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, ArrowRight, Trash2 } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { 
-    getGlobalSettings, saveGlobalSettings, GlobalSettings, 
+    getGlobalSettings, GlobalSettings, 
     getSubscriptionRequests, approveSubscription, SubscriptionRequest,
-    UserRole, getGoldenUsers, GoldenUserRecord, cancelSubscription
+    getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest
 } from '@/lib/store';
 
 export default function AdminPanel() {
@@ -17,7 +15,7 @@ export default function AdminPanel() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
-  const [settings, setSettings] = useState<GlobalSettings>(getGlobalSettings());
+  const [settings] = useState<GlobalSettings>(getGlobalSettings());
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [activeGolden, setActiveGolden] = useState<GoldenUserRecord[]>([]);
 
@@ -44,40 +42,19 @@ export default function AdminPanel() {
     }
   };
 
-  const handlePermissionChange = (
-    type: 'page' | 'feature', 
-    key: string, 
-    role: UserRole, 
-    checked: boolean
-  ) => {
-    const newSettings = { ...settings };
-    
-    if (type === 'page') {
-        const list = newSettings.pagePermissions[key as keyof GlobalSettings['pagePermissions']];
-        if (checked && !list.includes(role)) list.push(role);
-        if (!checked) {
-            const idx = list.indexOf(role);
-            if (idx > -1) list.splice(idx, 1);
-        }
-    } else {
-        const list = newSettings.featurePermissions[key as keyof GlobalSettings['featurePermissions']];
-        if (checked && !list.includes(role)) list.push(role);
-        if (!checked) {
-            const idx = list.indexOf(role);
-            if (idx > -1) list.splice(idx, 1);
-        }
-    }
-
-    setSettings(newSettings);
-    saveGlobalSettings(newSettings);
-  };
-
   const handleApprove = async (id: number) => {
     if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) {
         await approveSubscription(id);
         setRequests(getSubscriptionRequests()); // Refresh
         setActiveGolden(getGoldenUsers());
     }
+  };
+
+  const handleReject = (id: number) => {
+      if(confirm('هل أنت متأكد من رفض وحذف هذا الطلب؟')) {
+          rejectSubscriptionRequest(id);
+          setRequests(getSubscriptionRequests());
+      }
   };
 
   const handleCancelSub = async (userId: number) => {
@@ -135,39 +112,6 @@ export default function AdminPanel() {
     );
   }
 
-  const PermissionRow = ({ label, type, pKey }: { label: string, type: 'page' | 'feature', pKey: string }) => {
-    // @ts-ignore
-    const list = type === 'page' ? settings.pagePermissions[pKey] : settings.featurePermissions[pKey];
-    
-    return (
-        <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm border border-gray-100 text-sm">
-            <span className="font-bold text-gray-700">{label}</span>
-            <div className="flex gap-3">
-                <div className="flex items-center gap-1">
-                    <Label className="text-[10px] text-gray-500">زائر</Label>
-                    <Switch 
-                        checked={list.includes('visitor')}
-                        onCheckedChange={(c) => handlePermissionChange(type, pKey, 'visitor', c)}
-                        className="scale-75"
-                    />
-                </div>
-                <div className="flex items-center gap-1">
-                    <Label className="text-[10px] text-blue-500">عضو</Label>
-                    <Switch 
-                        checked={list.includes('member')}
-                        onCheckedChange={(c) => handlePermissionChange(type, pKey, 'member', c)}
-                        className="scale-75"
-                    />
-                </div>
-                <div className="flex items-center gap-1 opacity-50 cursor-not-allowed" title="العضوية الذهبية مفعلة دائماً">
-                    <Label className="text-[10px] text-yellow-600">ذهبي</Label>
-                    <Switch checked={true} disabled className="scale-75" />
-                </div>
-            </div>
-        </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
         <header className="max-w-5xl mx-auto mb-8 flex justify-between items-center">
@@ -189,9 +133,8 @@ export default function AdminPanel() {
         </header>
 
         <div className="max-w-5xl mx-auto">
-            <Tabs defaultValue="permissions" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
-                    <TabsTrigger value="permissions" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">التحكم في الصلاحيات</TabsTrigger>
+            <Tabs defaultValue="requests" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
@@ -200,43 +143,6 @@ export default function AdminPanel() {
                     </TabsTrigger>
                     <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="permissions" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-5 border border-white/50">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <ArrowRight className="w-4 h-4 text-blue-600" /> صلاحيات الصفحات
-                            </h3>
-                            <div className="space-y-2">
-                                <PermissionRow label="المعاملات" type="page" pKey="transactions" />
-                                <PermissionRow label="الحسابات" type="page" pKey="accounts" />
-                                <PermissionRow label="التقارير" type="page" pKey="reports" />
-                                <PermissionRow label="العملاء" type="page" pKey="clients" />
-                                <PermissionRow label="المعقبين" type="page" pKey="agents" />
-                                <PermissionRow label="المنجزين" type="page" pKey="achievers" />
-                                <PermissionRow label="المنصرفات" type="page" pKey="expenses" />
-                                <PermissionRow label="الحاسبة" type="page" pKey="calculator" />
-                            </div>
-                        </div>
-
-                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-5 border border-white/50">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <ArrowRight className="w-4 h-4 text-orange-600" /> صلاحيات الأزرار (PRO)
-                            </h3>
-                            <div className="space-y-2">
-                                <PermissionRow label="النسخ الاحتياطي" type="feature" pKey="backup" />
-                                <PermissionRow label="دخول الموظفين" type="feature" pKey="employeeLogin" />
-                                <PermissionRow label="واتساب للعميل" type="feature" pKey="whatsapp" />
-                                <PermissionRow label="الطباعة" type="feature" pKey="print" />
-                                <PermissionRow label="تحويل بنكي" type="feature" pKey="transfer" />
-                                <PermissionRow label="حذف مصروف" type="feature" pKey="deleteExpense" />
-                                <PermissionRow label="أرقام منجزين" type="feature" pKey="achieversNumbers" />
-                                <PermissionRow label="دروس تعليمية" type="feature" pKey="lessons" />
-                                <PermissionRow label="إحصائيات شهرية" type="feature" pKey="monthStats" />
-                            </div>
-                        </div>
-                    </div>
-                </TabsContent>
 
                 <TabsContent value="requests">
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
@@ -264,13 +170,22 @@ export default function AdminPanel() {
                                         </div>
                                         
                                         {req.status === 'pending' ? (
-                                            <button 
-                                                onClick={() => handleApprove(req.id)}
-                                                className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2 text-xs"
-                                            >
-                                                <CheckCircle2 className="w-3 h-3" />
-                                                تفعيل العضوية
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleApprove(req.id)}
+                                                    className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2 text-xs"
+                                                >
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    تفعيل العضوية
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleReject(req.id)}
+                                                    className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                    رفض
+                                                </button>
+                                            </div>
                                         ) : (
                                             <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-3 py-1 rounded-xl text-xs">
                                                 <CheckCircle2 className="w-4 h-4" />

@@ -478,20 +478,8 @@ export default function TransactionsPage() {
 
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
-  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
-    if (!settings) return true;
-    const userRole = currentUser?.role || 'visitor';
-    // Golden and Employee always access everything
-    if (userRole === 'golden' || userRole === 'employee') return true;
-    // @ts-ignore
-    return settings.featurePermissions[feature].includes(userRole);
-  };
-
   const handlePrint = (tx: Transaction) => {
-    if (!canAccessFeature('print')) {
-        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
-        return;
-    }
+    // Open for all
     setPrintTx(tx);
     setTimeout(() => {
         window.print();
@@ -500,10 +488,7 @@ export default function TransactionsPage() {
   };
 
   const handleWhatsApp = (tx: Transaction) => {
-    if (!canAccessFeature('whatsapp')) {
-        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
-        return;
-    }
+    // Open for all
     const client = clients.find(c => c.name === tx.clientName);
     const phoneNumber = client?.whatsapp || client?.phone;
 
