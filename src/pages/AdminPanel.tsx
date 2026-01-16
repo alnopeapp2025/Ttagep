@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, ArrowRight } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, ArrowRight, XCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { 
     getGlobalSettings, saveGlobalSettings, GlobalSettings, 
     getSubscriptionRequests, approveSubscription, SubscriptionRequest,
-    UserRole
+    UserRole, getGoldenUsers, GoldenUserRecord, cancelSubscription
 } from '@/lib/store';
 
 export default function AdminPanel() {
@@ -19,6 +19,7 @@ export default function AdminPanel() {
   
   const [settings, setSettings] = useState<GlobalSettings>(getGlobalSettings());
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
+  const [activeGolden, setActiveGolden] = useState<GoldenUserRecord[]>([]);
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -27,8 +28,10 @@ export default function AdminPanel() {
     // Refresh requests periodically
     const interval = setInterval(() => {
         setRequests(getSubscriptionRequests());
+        setActiveGolden(getGoldenUsers());
     }, 2000);
     setRequests(getSubscriptionRequests());
+    setActiveGolden(getGoldenUsers());
     return () => clearInterval(interval);
   }, []);
 
@@ -73,7 +76,26 @@ export default function AdminPanel() {
     if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) {
         await approveSubscription(id);
         setRequests(getSubscriptionRequests()); // Refresh
+        setActiveGolden(getGoldenUsers());
     }
+  };
+
+  const handleCancelSub = async (userId: number) => {
+      if(confirm('هل أنت متأكد من إلغاء اشتراك هذا العضو؟')) {
+          await cancelSubscription(userId);
+          setActiveGolden(getGoldenUsers());
+      }
+  };
+
+  const formatExpiry = (ts: number) => {
+      const date = new Date(ts);
+      return date.toLocaleDateString('ar-SA', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric', 
+          hour: 'numeric', 
+          minute: 'numeric' 
+      });
   };
 
   if (!isAuthenticated) {
@@ -169,7 +191,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="permissions" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
+                <TabsList className="grid w-full grid-cols-3 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
                     <TabsTrigger value="permissions" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">التحكم في الصلاحيات</TabsTrigger>
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
@@ -177,6 +199,7 @@ export default function AdminPanel() {
                             <span className="absolute top-2 left-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                         )}
                     </TabsTrigger>
+                    <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="permissions" className="space-y-6">
@@ -236,6 +259,7 @@ export default function AdminPanel() {
                                                 <div className="flex gap-2 text-[10px] mt-1">
                                                     <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">المدة: {req.duration}</span>
                                                     <span className="text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-SA')}</span>
+                                                    {req.bank && <span className="text-gray-500">({req.bank})</span>}
                                                 </div>
                                             </div>
                                         </div>
@@ -254,6 +278,43 @@ export default function AdminPanel() {
                                                 تم التفعيل
                                             </div>
                                         )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="active">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">الأعضاء الذهبيين النشطين</h3>
+                        
+                        {activeGolden.length === 0 ? (
+                            <div className="text-center py-10 text-gray-500 text-sm">لا يوجد أعضاء نشطين حالياً</div>
+                        ) : (
+                            <div className="space-y-3">
+                                {activeGolden.map(user => (
+                                    <div key={user.userId} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base bg-yellow-500 shadow-md">
+                                                {user.userName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-gray-800 text-sm">{user.userName}</h4>
+                                                <div className="flex flex-col text-[10px] mt-1 text-gray-500">
+                                                    <span>ينتهي في:</span>
+                                                    <span className="font-bold text-red-500">{formatExpiry(user.expiry)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={() => handleCancelSub(user.userId)}
+                                            className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"
+                                        >
+                                            <XCircle className="w-3 h-3" />
+                                            إلغاء الاشتراك
+                                        </button>
                                     </div>
                                 ))}
                             </div>

@@ -37,6 +37,7 @@ export interface User {
   role?: 'member' | 'golden' | 'employee'; // Added Roles
   parentId?: number; // For Employees linked to Golden Member
   permissions?: string[]; // Specific permissions for employees
+  subscriptionExpiry?: number; // Timestamp for subscription end
 }
 
 export interface Client {
@@ -109,6 +110,7 @@ export interface SubscriptionRequest {
   duration: 'شهر' | 'سنة';
   status: 'pending' | 'approved';
   createdAt: number;
+  bank?: string; // Bank selected by user
 }
 
 export interface GlobalSettings {
@@ -158,6 +160,7 @@ const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
 const SETTINGS_KEY = 'moaqeb_global_settings_v2'; // Updated key
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
+const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; // Updated to store object with expiry
 
 // --- User Management (Supabase Auth) ---
 
@@ -216,7 +219,7 @@ export const saveGlobalSettings = (settings: GlobalSettings) => {
 
 // --- Subscription Requests ---
 
-export const createSubscriptionRequest = (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة') => {
+export const createSubscriptionRequest = (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     const requests: SubscriptionRequest[] = getSubscriptionRequests();
     // Check if pending request exists
     if (requests.find(r => r.userId === userId && r.status === 'pending')) {
@@ -229,6 +232,7 @@ export const createSubscriptionRequest = (userId: number, userName: string, phon
         userName,
         phone,
         duration,
+        bank,
         status: 'pending',
         createdAt: Date.now()
     };
@@ -245,6 +249,19 @@ export const getSubscriptionRequests = (): SubscriptionRequest[] => {
     } catch { return []; }
 };
 
+export interface GoldenUserRecord {
+    userId: number;
+    expiry: number;
+    userName: string;
+}
+
+export const getGoldenUsers = (): GoldenUserRecord[] => {
+    try {
+        const stored = localStorage.getItem(GOLDEN_USERS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
 export const approveSubscription = async (requestId: number) => {
     const requests = getSubscriptionRequests();
     const reqIndex = requests.findIndex(r => r.id === requestId);
@@ -253,25 +270,24 @@ export const approveSubscription = async (requestId: number) => {
 
     const req = requests[reqIndex];
     
+    // Calculate Expiry
+    const durationMs = req.duration === 'سنة' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+    const expiryDate = Date.now() + durationMs;
+
     // 1. Update User Role in DB (Supabase)
     try {
         const { error } = await supabase
             .from('users')
-            .update({ role: 'golden' }) // Assuming 'role' column exists or we handle logic locally
+            .update({ role: 'golden' }) 
             .eq('id', req.userId);
         
-        // Note: Since we are using a custom auth table, we might need to ensure the column exists.
-        // If not, we can simulate by storing "Golden Users IDs" in local storage settings as a fallback.
-        if (error) {
-            // Fallback: Store in Local Settings
-            const currentSettings = getGlobalSettings();
-            // We'll use a separate list for golden users if DB fails or column missing
-            const goldenUsers = JSON.parse(localStorage.getItem('moaqeb_golden_users_v1') || '[]');
-            if (!goldenUsers.includes(req.userId)) {
-                goldenUsers.push(req.userId);
-                localStorage.setItem('moaqeb_golden_users_v1', JSON.stringify(goldenUsers));
-            }
-        }
+        // Fallback or Local Storage Logic
+        const goldenUsers = getGoldenUsers();
+        // Remove if exists then add
+        const filtered = goldenUsers.filter(u => u.userId !== req.userId);
+        filtered.push({ userId: req.userId, expiry: expiryDate, userName: req.userName });
+        localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(filtered));
+        
     } catch (e) {
         console.error(e);
     }
@@ -280,6 +296,26 @@ export const approveSubscription = async (requestId: number) => {
     requests[reqIndex].status = 'approved';
     localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
     
+    return { success: true };
+};
+
+export const cancelSubscription = async (userId: number) => {
+    // 1. Remove from Local Storage Golden List
+    const goldenUsers = getGoldenUsers();
+    const updatedGolden = goldenUsers.filter(u => u.userId !== userId);
+    localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(updatedGolden));
+
+    // 2. Update Supabase
+    try {
+        await supabase
+            .from('users')
+            .update({ role: 'member' })
+            .eq('id', userId);
+    } catch (e) {
+        console.error(e);
+    }
+
+    // 3. Update any pending requests if needed (optional)
     return { success: true };
 };
 
@@ -391,10 +427,19 @@ export const loginUser = async (phone: string, password: string) => {
         role: 'member' 
     };
     
-    // Check Local Golden Status Override
-    const goldenUsers = JSON.parse(localStorage.getItem('moaqeb_golden_users_v1') || '[]');
-    if (goldenUsers.includes(user.id)) {
-        user.role = 'golden';
+    // Check Local Golden Status Override & Expiry
+    const goldenUsers = getGoldenUsers();
+    const goldenRecord = goldenUsers.find(u => u.userId === user.id);
+    
+    if (goldenRecord) {
+        if (goldenRecord.expiry > Date.now()) {
+            user.role = 'golden';
+            user.subscriptionExpiry = goldenRecord.expiry;
+        } else {
+            // Expired
+            // Optionally remove from golden list here, or let admin handle
+            user.role = 'member';
+        }
     }
 
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
