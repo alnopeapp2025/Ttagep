@@ -121,7 +121,8 @@ export default function ExpensesPage() {
       title,
       amount: cost,
       bank: selectedBank,
-      date: Date.now()
+      date: Date.now(),
+      createdBy: currentUser?.officeName // Save creator
     };
 
     if (currentUser) {

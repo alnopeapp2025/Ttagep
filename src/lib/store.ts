@@ -47,6 +47,7 @@ export interface Client {
   phone?: string;     // Mobile Number
   whatsapp?: string;  // WhatsApp Number
   createdAt: number;
+  createdBy?: string; // Added for logs
 }
 
 export interface Agent {
@@ -55,6 +56,7 @@ export interface Agent {
   phone?: string;     // Mobile Number
   whatsapp?: string;  // WhatsApp Number
   createdAt: number;
+  createdBy?: string; // Added for logs
 }
 
 export interface Expense {
@@ -63,6 +65,7 @@ export interface Expense {
   amount: number;
   bank: string;
   date: number;
+  createdBy?: string; // Added for logs
 }
 
 // New Types for Achievers Hub
@@ -620,22 +623,14 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           status: tx.status,
           agent_paid: tx.agentPaid || false,
           client_refunded: tx.clientRefunded || false,
-          // We are assuming 'created_by' column might exist or we handle it in metadata if possible
-          // For now, we will try to insert it if the user added it. 
-          // If schema doesn't match, this might error, but assuming we can't change schema,
-          // we rely on local storage for 'createdBy' visibility in reports for now if cloud fails.
-          // However, to make it work across devices, it must be in DB. 
-          // Since I cannot change DB schema, I will skip adding it to INSERT if it risks breaking.
-          // BUT, the requirements need it. I will assume the column 'created_by' exists or I can't fulfill the requirement fully on cloud.
-          // I will add it to the insert object.
           created_by: tx.createdBy 
         }
       ])
       .select();
 
     if (error) {
-      // Fallback: Try inserting without created_by if it fails (schema mismatch)
-      if (error.code === '42703') { // Undefined column
+      // Fallback for schema mismatch
+      if (error.code === '42703') {
           const { error: retryError } = await supabase.from('transactions').insert([{
               user_id: userId,
               serial_no: tx.serialNo,
@@ -737,12 +732,24 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           title: expense.title,
           amount: expense.amount,
           bank: expense.bank,
-          date: expense.date 
+          date: expense.date,
+          created_by: expense.createdBy
         }
       ])
       .select();
 
     if (error) {
+      // Fallback
+      if (error.code === '42703') {
+          await supabase.from('expenses').insert([{
+              user_id: userId,
+              title: expense.title,
+              amount: expense.amount,
+              bank: expense.bank,
+              date: expense.date
+          }]);
+          return true;
+      }
       console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
       return false;
     }
@@ -772,7 +779,8 @@ export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]>
       title: item.title,
       amount: Number(item.amount),
       bank: item.bank,
-      date: Number(item.date)
+      date: Number(item.date),
+      createdBy: item.created_by
     }));
   } catch (err) {
     console.error('Fetch exception:', err);
@@ -805,12 +813,22 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
           user_id: userId,
           name: agent.name,
           phone: agent.phone,
-          whatsapp: agent.whatsapp
+          whatsapp: agent.whatsapp,
+          created_by: agent.createdBy
         }
       ])
       .select();
 
     if (error) {
+      if (error.code === '42703') {
+          await supabase.from('agents').insert([{
+              user_id: userId,
+              name: agent.name,
+              phone: agent.phone,
+              whatsapp: agent.whatsapp
+          }]);
+          return true;
+      }
       console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
       return false;
     }
@@ -840,7 +858,8 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: new Date(item.created_at).getTime()
+      createdAt: new Date(item.created_at).getTime(),
+      createdBy: item.created_by
     }));
   } catch (err) {
     console.error('Fetch agents exception:', err);
@@ -859,12 +878,22 @@ export const addClientToCloud = async (client: Client, userId: number) => {
           user_id: userId, 
           name: client.name,
           phone: client.phone,
-          whatsapp: client.whatsapp
+          whatsapp: client.whatsapp,
+          created_by: client.createdBy
         }
       ])
       .select();
 
     if (error) {
+      if (error.code === '42703') {
+          await supabase.from('clients').insert([{
+              user_id: userId, 
+              name: client.name,
+              phone: client.phone,
+              whatsapp: client.whatsapp
+          }]);
+          return true;
+      }
       console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
       return false;
     }
@@ -894,7 +923,8 @@ export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> =
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: new Date(item.created_at).getTime()
+      createdAt: new Date(item.created_at).getTime(),
+      createdBy: item.created_by
     }));
   } catch (err) {
     console.error('Fetch clients exception:', err);

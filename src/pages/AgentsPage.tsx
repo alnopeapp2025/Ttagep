@@ -166,7 +166,8 @@ function AgentsPage() {
       name: newAgentName,
       phone: newAgentPhone ? `966${newAgentPhone}` : '',
       whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      createdBy: currentUser?.officeName // Save creator
     };
 
     const updatedAgents = [newAgent, ...agents];
@@ -247,7 +248,8 @@ function AgentsPage() {
         amount: totalDue,
         bank: selectedBank,
         date: Date.now(),
-        transactionCount: paidTxIds.length
+        transactionCount: paidTxIds.length,
+        createdBy: currentUser?.officeName // Save creator
     };
     const transfers = getStoredAgentTransfers();
     saveStoredAgentTransfers([transferRecord, ...transfers]);

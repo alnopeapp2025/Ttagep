@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft } from 'lucide-react';
-import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud, getGlobalSettings, GlobalSettings, getStoredEmployees, User } from '@/lib/store';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft, UserPlus, Receipt } from 'lucide-react';
+import { 
+    getStoredTransactions, Transaction, 
+    getStoredAgentTransfers, AgentTransferRecord, 
+    getCurrentUser, fetchTransactionsFromCloud, 
+    getGlobalSettings, GlobalSettings, 
+    getStoredEmployees, User,
+    fetchClientsFromCloud, Client,
+    fetchAgentsFromCloud, Agent,
+    fetchExpensesFromCloud, Expense
+} from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from '@/lib/supabase';
 
 export default function ReportsPage() {
   const navigate = useNavigate();
@@ -31,6 +41,11 @@ export default function ReportsPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
   const [employeeTimeline, setEmployeeTimeline] = useState<any[]>([]);
 
+  // Additional Data for Employee Log
+  const [clients, setClients] = useState<Client[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
   // Details Modal
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTitle, setDetailTitle] = useState('');
@@ -45,7 +60,19 @@ export default function ReportsPage() {
         let txs: Transaction[] = [];
         if (user) {
             const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
-            txs = await fetchTransactionsFromCloud(targetId);
+            
+            // Parallel Fetching for performance
+            const [fetchedTxs, fetchedClients, fetchedAgents, fetchedExpenses] = await Promise.all([
+                fetchTransactionsFromCloud(targetId),
+                fetchClientsFromCloud(targetId),
+                fetchAgentsFromCloud(targetId),
+                fetchExpensesFromCloud(targetId)
+            ]);
+
+            txs = fetchedTxs;
+            setClients(fetchedClients);
+            setAgents(fetchedAgents);
+            setExpenses(fetchedExpenses);
             
             // Load employees for report
             const allEmps = getStoredEmployees();
@@ -63,6 +90,31 @@ export default function ReportsPage() {
     };
     loadData();
   }, []);
+
+  // Real-time Subscriptions for Employee Log Updates
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+
+    const channels = [
+        supabase.channel('reports-clients-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: `user_id=eq.${targetId}` }, () => fetchClientsFromCloud(targetId).then(setClients)).subscribe(),
+        supabase.channel('reports-agents-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'agents', filter: `user_id=eq.${targetId}` }, () => fetchAgentsFromCloud(targetId).then(setAgents)).subscribe(),
+        supabase.channel('reports-expenses-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${targetId}` }, () => fetchExpensesFromCloud(targetId).then(setExpenses)).subscribe(),
+        supabase.channel('reports-txs-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, () => fetchTransactionsFromCloud(targetId).then(setTransactions)).subscribe()
+    ];
+
+    return () => {
+        channels.forEach(c => supabase.removeChannel(c));
+    };
+  }, [currentUser]);
+
+  // Re-calculate timeline when any data changes if an employee is selected
+  useEffect(() => {
+      if (selectedEmployee) {
+          handleEmployeeClick(selectedEmployee);
+      }
+  }, [transactions, clients, agents, expenses, agentTransfers]);
 
   const calculateStats = (txs: Transaction[]) => {
     const now = new Date();
@@ -172,23 +224,36 @@ export default function ReportsPage() {
   };
 
   const handleEmployeeClick = (emp: User) => {
-      // Filter Transactions created by employee (or assigned to them as agent if we fallback)
-      // Note: 'createdBy' is the preferred way if available.
-      // If 'createdBy' is missing (old data), we might fallback to checking if agent name matches employee name
+      // 1. Transactions
       const empTxs = transactions.filter(t => 
           (t.createdBy && t.createdBy === emp.officeName) || 
           (!t.createdBy && t.agent === emp.officeName)
-      ).map(t => ({ ...t, kind: 'transaction' }));
+      ).map(t => ({ ...t, kind: 'transaction', displayType: 'إضافة معاملة' }));
 
-      // Filter Transfers performed by employee
+      // 2. Transfers
       const empTransfers = agentTransfers.filter(tr => 
           tr.createdBy === emp.officeName
-      ).map(tr => ({ ...tr, kind: 'transfer' }));
+      ).map(tr => ({ ...tr, kind: 'transfer', displayType: 'تحويل رصيد' }));
+
+      // 3. Clients Added
+      const empClients = clients.filter(c => 
+          c.createdBy === emp.officeName
+      ).map(c => ({ ...c, kind: 'client', displayType: 'إضافة عميل' }));
+
+      // 4. Agents Added
+      const empAgents = agents.filter(a => 
+          a.createdBy === emp.officeName
+      ).map(a => ({ ...a, kind: 'agent', displayType: 'إضافة معقب' }));
+
+      // 5. Expenses Added
+      const empExpenses = expenses.filter(e => 
+          e.createdBy === emp.officeName
+      ).map(e => ({ ...e, kind: 'expense', displayType: 'تسجيل مصروف' }));
 
       // Combine and sort by date descending
-      const combined = [...empTxs, ...empTransfers].sort((a, b) => {
-          const dateA = a.kind === 'transaction' ? (a as Transaction).createdAt : (a as AgentTransferRecord).date;
-          const dateB = b.kind === 'transaction' ? (b as Transaction).createdAt : (b as AgentTransferRecord).date;
+      const combined = [...empTxs, ...empTransfers, ...empClients, ...empAgents, ...empExpenses].sort((a, b) => {
+          const dateA = (a as any).date || (a as any).createdAt;
+          const dateB = (b as any).date || (b as any).createdAt;
           return dateB - dateA;
       });
 
@@ -454,34 +519,49 @@ export default function ReportsPage() {
                                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
                                     {/* Header */}
                                     <div className="grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 px-3 pb-2 border-b border-gray-200">
-                                        <div className="col-span-2">النوع</div>
-                                        <div className="col-span-5">التفاصيل</div>
+                                        <div className="col-span-3">النوع</div>
+                                        <div className="col-span-4">التفاصيل</div>
                                         <div className="col-span-3">التاريخ</div>
-                                        <div className="col-span-2 text-left">المبلغ</div>
+                                        <div className="col-span-2 text-left">المبلغ/الرقم</div>
                                     </div>
                                     
                                     {/* Rows */}
                                     {employeeTimeline.map((item, idx) => (
                                         <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white/50 p-3 rounded-xl border border-white hover:bg-white transition-colors text-sm">
-                                            <div className="col-span-2">
+                                            <div className="col-span-3">
                                                 {item.kind === 'transaction' ? (
-                                                    <span className="flex items-center gap-1 text-blue-600 font-bold text-xs"><FileText className="w-3 h-3" /> معاملة</span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-orange-600 font-bold text-xs"><ArrowRightLeft className="w-3 h-3" /> تحويل</span>
-                                                )}
+                                                    <span className="flex items-center gap-1 text-blue-600 font-bold text-[10px]"><FileText className="w-3 h-3" /> معاملة</span>
+                                                ) : item.kind === 'transfer' ? (
+                                                    <span className="flex items-center gap-1 text-orange-600 font-bold text-[10px]"><ArrowRightLeft className="w-3 h-3" /> تحويل</span>
+                                                ) : item.kind === 'client' ? (
+                                                    <span className="flex items-center gap-1 text-green-600 font-bold text-[10px]"><UserPlus className="w-3 h-3" /> عميل</span>
+                                                ) : item.kind === 'agent' ? (
+                                                    <span className="flex items-center gap-1 text-purple-600 font-bold text-[10px]"><UserCheck className="w-3 h-3" /> معقب</span>
+                                                ) : item.kind === 'expense' ? (
+                                                    <span className="flex items-center gap-1 text-red-600 font-bold text-[10px]"><Receipt className="w-3 h-3" /> مصروف</span>
+                                                ) : null}
                                             </div>
-                                            <div className="col-span-5 font-bold text-gray-800 truncate text-xs">
+                                            <div className="col-span-4 font-bold text-gray-800 truncate text-[10px]">
                                                 {item.kind === 'transaction' ? (
                                                     <span>{item.type} - {item.clientName}</span>
-                                                ) : (
-                                                    <span>تحويل للمعقب: {item.agentName}</span>
-                                                )}
+                                                ) : item.kind === 'transfer' ? (
+                                                    <span>للمعقب: {item.agentName}</span>
+                                                ) : item.kind === 'client' ? (
+                                                    <span>{item.name}</span>
+                                                ) : item.kind === 'agent' ? (
+                                                    <span>{item.name}</span>
+                                                ) : item.kind === 'expense' ? (
+                                                    <span>{item.title}</span>
+                                                ) : null}
                                             </div>
-                                            <div className="col-span-3 text-[10px] text-gray-500">
-                                                {new Date(item.kind === 'transaction' ? item.createdAt : item.date).toLocaleDateString('ar-SA')}
+                                            <div className="col-span-3 text-[9px] text-gray-500 flex flex-col">
+                                                <span>{new Date(item.date || item.createdAt).toLocaleDateString('ar-SA')}</span>
+                                                <span>{new Date(item.date || item.createdAt).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})}</span>
                                             </div>
-                                            <div className="col-span-2 text-left font-bold text-gray-700 text-xs">
-                                                {item.kind === 'transaction' ? item.clientPrice : item.amount}
+                                            <div className="col-span-2 text-left font-bold text-gray-700 text-[10px]">
+                                                {item.kind === 'transaction' ? item.clientPrice : 
+                                                 item.kind === 'transfer' ? item.amount : 
+                                                 item.kind === 'expense' ? item.amount : '-'}
                                             </div>
                                         </div>
                                     ))}

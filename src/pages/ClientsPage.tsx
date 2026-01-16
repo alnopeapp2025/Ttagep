@@ -168,7 +168,8 @@ function ClientsPage() {
       name: newClientName,
       phone: newClientPhone ? `966${newClientPhone}` : '',
       whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      createdBy: currentUser?.officeName // Save creator
     };
 
     const updatedClients = [newClient, ...clients];
@@ -244,7 +245,8 @@ function ClientsPage() {
         amount: totalRefundDue,
         bank: selectedBank,
         date: Date.now(),
-        transactionCount: refundedTxIds.length
+        transactionCount: refundedTxIds.length,
+        createdBy: currentUser?.officeName // Save creator
     };
     const refunds = getStoredClientRefunds();
     saveStoredClientRefunds([refundRecord, ...refunds]);
