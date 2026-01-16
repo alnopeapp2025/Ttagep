@@ -462,36 +462,21 @@ export default function Dashboard() {
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                             <UserCheck className="w-5 h-5 text-gray-600" />
                             دخول الموظفين
-                            {!canAccessFeature('employeeLogin') && <span className="text-[10px] text-yellow-900 bg-yellow-400 font-black ml-auto px-1 rounded">PRO</span>}
-                            {canAccessFeature('employeeLogin') && (
-                                <span className="absolute top-2 left-2 flex items-center gap-1 text-[10px] text-red-600 font-black animate-pulse">
-                                    <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                                    جديد
-                                </span>
-                            )}
                         </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
                         <DialogHeader><DialogTitle>دخول الموظفين</DialogTitle></DialogHeader>
-                        {canAccessFeature('employeeLogin') ? (
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>اسم الموظف</Label>
-                                    <Input className="bg-white shadow-3d-inset border-none" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>كلمة المرور</Label>
-                                    <Input type="password" className="bg-white shadow-3d-inset border-none" />
-                                </div>
-                                <button onClick={() => { alert('تم تسجيل الدخول بنجاح'); setEmpLoginOpen(false); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">دخول</button>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>اسم الموظف</Label>
+                                <Input className="bg-white shadow-3d-inset border-none" />
                             </div>
-                        ) : (
-                            <div className="py-8 text-center">
-                                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                                <h3 className="text-lg font-bold text-gray-700">هذه الميزة متاحة للأعضاء الذهبيين فقط</h3>
-                                <button onClick={() => { setEmpLoginOpen(false); setProOpen(true); }} className="mt-4 text-blue-600 font-bold underline">ترقية العضوية</button>
+                            <div className="space-y-2">
+                                <Label>كلمة المرور</Label>
+                                <Input type="password" className="bg-white shadow-3d-inset border-none" />
                             </div>
-                        )}
+                            <button onClick={() => { alert('تم تسجيل الدخول بنجاح'); setEmpLoginOpen(false); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">دخول</button>
+                        </div>
                     </DialogContent>
                   </Dialog>
                   
@@ -553,45 +538,36 @@ export default function Dashboard() {
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                         <Database className="w-5 h-5 text-orange-600" />
                         النسخ الاحتياطي
-                        {!canAccessFeature('backup') && <span className="text-[10px] text-yellow-900 bg-yellow-400 font-black ml-auto px-1 rounded">PRO</span>}
                       </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
                       <DialogHeader><DialogTitle>النسخ الاحتياطي والاستعادة</DialogTitle></DialogHeader>
-                      {canAccessFeature('backup') ? (
-                          <div className="space-y-6 py-4">
-                            {lastBackup && (
-                                <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-700 font-bold text-center">
-                                    آخر نسخة احتياطية كانت يوم: {formatBackupDate(lastBackup)}
-                                </div>
-                            )}
-                            <div className="space-y-2">
-                            <Label>إنشاء نسخة احتياطية</Label>
-                            <button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                                <Download className="w-4 h-4" /> إنشاء نسخة احتياطية (Create Backup)
-                            </button>
+                      <div className="space-y-6 py-4">
+                        {lastBackup && (
+                            <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-700 font-bold text-center">
+                                آخر نسخة احتياطية كانت يوم: {formatBackupDate(lastBackup)}
                             </div>
-                            <Separator />
-                            <div className="space-y-2">
-                            <Label>استعادة نسخة (لصق الكود)</Label>
-                            <textarea 
-                                className="w-full h-24 rounded-xl bg-white shadow-3d-inset border-none p-3 text-xs"
-                                placeholder="الصق كود النسخة الاحتياطية هنا..."
-                                value={restoreText}
-                                onChange={(e) => setRestoreText(e.target.value)}
-                            />
-                            <button onClick={handleRestoreBackup} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                                <Upload className="w-4 h-4" /> استرجاع نسخة احتياطية (Restore Backup)
-                            </button>
-                            </div>
+                        )}
+                        <div className="space-y-2">
+                        <Label>إنشاء نسخة احتياطية</Label>
+                        <button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
+                            <Download className="w-4 h-4" /> إنشاء نسخة احتياطية (Create Backup)
+                        </button>
                         </div>
-                      ) : (
-                        <div className="py-8 text-center">
-                            <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                            <h3 className="text-lg font-bold text-gray-700">ميزة النسخ الاحتياطي متاحة للأعضاء الذهبيين</h3>
-                            <button onClick={() => { setBackupOpen(false); setProOpen(true); }} className="mt-4 text-blue-600 font-bold underline">ترقية العضوية</button>
+                        <Separator />
+                        <div className="space-y-2">
+                        <Label>استعادة نسخة (لصق الكود)</Label>
+                        <textarea 
+                            className="w-full h-24 rounded-xl bg-white shadow-3d-inset border-none p-3 text-xs"
+                            placeholder="الصق كود النسخة الاحتياطية هنا..."
+                            value={restoreText}
+                            onChange={(e) => setRestoreText(e.target.value)}
+                        />
+                        <button onClick={handleRestoreBackup} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
+                            <Upload className="w-4 h-4" /> استرجاع نسخة احتياطية (Restore Backup)
+                        </button>
                         </div>
-                      )}
+                    </div>
                     </DialogContent>
                   </Dialog>
 

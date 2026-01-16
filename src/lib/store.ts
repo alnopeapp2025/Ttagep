@@ -115,6 +115,19 @@ export interface SubscriptionRequest {
 
 export interface GlobalSettings {
   adminPasswordHash: string; // Default: 1234 hashed
+  // Limits for Visitors and Members
+  limits: {
+      visitor: {
+          transactions: number;
+          clients: number;
+          agents: number;
+      };
+      member: {
+          transactions: number;
+          clients: number;
+          agents: number;
+      };
+  };
   // Page Access (Who can enter the page)
   pagePermissions: {
     transactions: UserRole[];
@@ -158,7 +171,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v2'; // Updated key
+const SETTINGS_KEY = 'moaqeb_global_settings_v3'; // Updated key
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; // Updated to store object with expiry
 
@@ -172,6 +185,10 @@ const hashPassword = (pwd: string) => {
 // Default Settings
 const DEFAULT_SETTINGS: GlobalSettings = {
   adminPasswordHash: hashPassword('1234'),
+  limits: {
+      visitor: { transactions: 5, clients: 3, agents: 2 },
+      member: { transactions: 20, clients: 10, agents: 5 }
+  },
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
     accounts: ['visitor', 'member', 'golden', 'employee'],
@@ -183,11 +200,12 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     calculator: ['visitor', 'member', 'golden', 'employee'],
   },
   featurePermissions: {
-    backup: ['golden', 'employee'],
-    employeeLogin: ['golden', 'employee'],
-    // Updated: WhatsApp and Print available for all members
-    whatsapp: ['member', 'golden', 'employee'],
-    print: ['member', 'golden', 'employee'],
+    // Open for all as requested
+    backup: ['visitor', 'member', 'golden', 'employee'],
+    employeeLogin: ['visitor', 'member', 'golden', 'employee'],
+    whatsapp: ['visitor', 'member', 'golden', 'employee'],
+    print: ['visitor', 'member', 'golden', 'employee'],
+    // Restricted features
     transfer: ['golden', 'employee'],
     deleteExpense: ['golden', 'employee'],
     achieversNumbers: ['golden', 'employee'],
@@ -205,7 +223,8 @@ export const getGlobalSettings = (): GlobalSettings => {
         return { 
             ...DEFAULT_SETTINGS, 
             ...parsed,
-            featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) }
+            featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) },
+            limits: { ...DEFAULT_SETTINGS.limits, ...(parsed.limits || {}) }
         };
     }
     return DEFAULT_SETTINGS;
@@ -216,6 +235,24 @@ export const getGlobalSettings = (): GlobalSettings => {
 
 export const saveGlobalSettings = (settings: GlobalSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+};
+
+export const checkLimit = (role: UserRole, type: 'transactions' | 'clients' | 'agents', currentCount: number): { allowed: boolean, message?: string } => {
+    const settings = getGlobalSettings();
+    
+    if (role === 'golden' || role === 'employee') return { allowed: true };
+
+    const limit = settings.limits[role as 'visitor' | 'member']?.[type];
+    
+    if (limit !== undefined && currentCount >= limit) {
+        if (role === 'visitor') {
+            return { allowed: false, message: 'عفواً، لقد تجاوزت الحد المسموح للزوار. يرجى التسجيل للاستفادة من مزايا التطبيق.' };
+        } else if (role === 'member') {
+            return { allowed: false, message: 'عفواً، لقد تجاوزت الحد المسموح لعضويتك. يرجى الترقية إلى العضوية الذهبية (PRO) لفتح حدود لا نهائية.' };
+        }
+    }
+
+    return { allowed: true };
 };
 
 // --- Subscription Requests ---

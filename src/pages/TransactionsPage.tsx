@@ -30,7 +30,7 @@ import {
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
   fetchAccountsFromCloud, updateAccountInCloud,
-  Transaction, getGlobalSettings, GlobalSettings
+  Transaction, getGlobalSettings, GlobalSettings, checkLimit
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
@@ -186,6 +186,16 @@ export default function TransactionsPage() {
     }
   };
 
+  const checkAddPermission = () => {
+      const role = currentUser?.role || 'visitor';
+      const check = checkLimit(role, 'transactions', transactions.length);
+      if (!check.allowed) {
+          alert(check.message);
+          return false;
+      }
+      return true;
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     let firstErrorField = null;
@@ -333,6 +343,14 @@ export default function TransactionsPage() {
   };
 
   const handleAddClientQuick = async () => {
+    // Limit Check
+    const role = currentUser?.role || 'visitor';
+    const check = checkLimit(role, 'clients', clients.length);
+    if (!check.allowed) {
+        alert(check.message);
+        return;
+    }
+
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -379,6 +397,14 @@ export default function TransactionsPage() {
   };
 
   const handleAddAgentQuick = async () => {
+    // Limit Check
+    const role = currentUser?.role || 'visitor';
+    const check = checkLimit(role, 'agents', agents.length);
+    if (!check.allowed) {
+        alert(check.message);
+        return;
+    }
+
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -553,7 +579,10 @@ export default function TransactionsPage() {
       </header>
 
       <div className="mb-6">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+            if(val && !checkAddPermission()) return;
+            setOpen(val);
+        }}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all w-full sm:w-auto justify-center">
               <div className="p-1 bg-blue-100 rounded-full">

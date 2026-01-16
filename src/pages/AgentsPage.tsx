@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact, AlertCircle } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, saveStoredTransactions, Transaction,
@@ -8,7 +8,7 @@ import {
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud
+  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -130,6 +130,16 @@ function AgentsPage() {
     } catch (ex) {
       console.error(ex);
     }
+  };
+
+  const checkAddPermission = () => {
+      const role = currentUser?.role || 'visitor';
+      const check = checkLimit(role, 'agents', agents.length);
+      if (!check.allowed) {
+          alert(check.message);
+          return false;
+      }
+      return true;
   };
 
   const handleAddAgent = async () => {
@@ -278,7 +288,10 @@ function AgentsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+            if(val && !checkAddPermission()) return;
+            setOpen(val);
+        }}>
             <DialogTrigger asChild>
                 <button className="bg-blue-600 text-white px-6 rounded-xl font-bold shadow-3d hover:bg-blue-700 flex items-center gap-2">
                     <Plus className="w-5 h-5" />
@@ -395,6 +408,7 @@ function AgentsPage() {
         ))}
       </div>
 
+      {/* ... (Rest of the component remains unchanged) ... */}
       <Dialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>

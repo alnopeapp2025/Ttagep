@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2 } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Lock, Unlock, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from '@/components/ui/label';
 import { 
-    getGlobalSettings, GlobalSettings, 
+    getGlobalSettings, GlobalSettings, saveGlobalSettings,
     getSubscriptionRequests, approveSubscription, SubscriptionRequest,
     getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest
 } from '@/lib/store';
@@ -15,9 +17,14 @@ export default function AdminPanel() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
-  const [settings] = useState<GlobalSettings>(getGlobalSettings());
+  const [settings, setSettings] = useState<GlobalSettings>(getGlobalSettings());
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [activeGolden, setActiveGolden] = useState<GoldenUserRecord[]>([]);
+
+  // Admin Password Change
+  const [newAdminPass, setNewAdminPass] = useState('');
+  const [confirmAdminPass, setConfirmAdminPass] = useState('');
+  const [passMsg, setPassMsg] = useState('');
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -72,6 +79,52 @@ export default function AdminPanel() {
           hour: 'numeric', 
           minute: 'numeric' 
       });
+  };
+
+  const handleFeatureToggle = (feature: keyof GlobalSettings['featurePermissions'], allowed: boolean) => {
+      const newSettings = { ...settings };
+      // If allowed, we add 'member' role (assuming visitors shouldn't access these anyway, or adjust as needed)
+      // Actually, the request says "PRO Page Access Permissions... lock and unlock".
+      // Let's assume locking means removing 'member' access, unlocking means adding it.
+      // Golden/Employee always have access.
+      
+      if (allowed) {
+          if (!newSettings.featurePermissions[feature].includes('member')) {
+              newSettings.featurePermissions[feature].push('member');
+          }
+      } else {
+          newSettings.featurePermissions[feature] = newSettings.featurePermissions[feature].filter(r => r !== 'member');
+      }
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+  };
+
+  const handleLimitChange = (role: 'visitor' | 'member', type: 'transactions' | 'clients' | 'agents', value: string) => {
+      const num = parseInt(value) || 0;
+      const newSettings = { ...settings };
+      if (!newSettings.limits) newSettings.limits = { visitor: { transactions: 5, clients: 3, agents: 2 }, member: { transactions: 20, clients: 10, agents: 5 } };
+      newSettings.limits[role][type] = num;
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+  };
+
+  const handleChangeAdminPassword = () => {
+      if (!newAdminPass || !confirmAdminPass) {
+          setPassMsg('يرجى ملء الحقول');
+          return;
+      }
+      if (newAdminPass !== confirmAdminPass) {
+          setPassMsg('كلمتا المرور غير متطابقتين');
+          return;
+      }
+      
+      const newSettings = { ...settings, adminPasswordHash: hashPassword(newAdminPass) };
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+      setPassMsg('تم تغيير كلمة المرور بنجاح');
+      setNewAdminPass('');
+      setConfirmAdminPass('');
+      setTimeout(() => setPassMsg(''), 3000);
   };
 
   if (!isAuthenticated) {
@@ -134,7 +187,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
+                <TabsList className="grid w-full grid-cols-3 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
@@ -142,6 +195,7 @@ export default function AdminPanel() {
                         )}
                     </TabsTrigger>
                     <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
+                    <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الإعدادات والصلاحيات</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="requests">
@@ -233,6 +287,156 @@ export default function AdminPanel() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="settings">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* PRO Features Permissions */}
+                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Lock className="w-5 h-5 text-blue-600" />
+                                صلاحيات الصفحات PRO
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">قفل وفتح الميزات للأعضاء العاديين (الأعضاء الذهبيين يملكون صلاحية كاملة دائماً)</p>
+                            
+                            <div className="space-y-4">
+                                {[
+                                    { key: 'transfer', label: 'تحويل بين البنوك' },
+                                    { key: 'deleteExpense', label: 'حذف مصروف' },
+                                    { key: 'achieversNumbers', label: 'أرقام معقبين منجزين' },
+                                    { key: 'lessons', label: 'دروس الخدمات العامة' },
+                                    { key: 'monthStats', label: 'إحصائيات الشهر' },
+                                ].map((feature) => (
+                                    <div key={feature.key} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm">
+                                        <span className="text-sm font-bold text-gray-700">{feature.label}</span>
+                                        <div className="flex items-center gap-2">
+                                            <Switch 
+                                                checked={settings.featurePermissions[feature.key as keyof GlobalSettings['featurePermissions']].includes('member')}
+                                                onCheckedChange={(checked) => handleFeatureToggle(feature.key as keyof GlobalSettings['featurePermissions'], checked)}
+                                            />
+                                            {settings.featurePermissions[feature.key as keyof GlobalSettings['featurePermissions']].includes('member') ? 
+                                                <Unlock className="w-4 h-4 text-green-500" /> : 
+                                                <Lock className="w-4 h-4 text-red-500" />
+                                            }
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Limits Settings */}
+                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Settings className="w-5 h-5 text-orange-600" />
+                                حدود الإضافة
+                            </h3>
+                            
+                            <div className="space-y-6">
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-600 mb-2">حدود الزوار</h4>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <Label className="text-[10px]">معاملات</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.visitor?.transactions || 0}
+                                                onChange={(e) => handleLimitChange('visitor', 'transactions', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-[10px]">عملاء</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.visitor?.clients || 0}
+                                                onChange={(e) => handleLimitChange('visitor', 'clients', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-[10px]">معقبين</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.visitor?.agents || 0}
+                                                onChange={(e) => handleLimitChange('visitor', 'agents', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h4 className="text-sm font-bold text-gray-600 mb-2">حدود الأعضاء</h4>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <Label className="text-[10px]">معاملات</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.member?.transactions || 0}
+                                                onChange={(e) => handleLimitChange('member', 'transactions', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-[10px]">عملاء</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.member?.clients || 0}
+                                                onChange={(e) => handleLimitChange('member', 'clients', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-[10px]">معقبين</Label>
+                                            <Input 
+                                                type="number" 
+                                                className="bg-white h-8 text-center" 
+                                                value={settings.limits?.member?.agents || 0}
+                                                onChange={(e) => handleLimitChange('member', 'agents', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Admin Password */}
+                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 md:col-span-2">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Key className="w-5 h-5 text-red-600" />
+                                تغيير كلمة مرور الأدمن
+                            </h3>
+                            <div className="flex flex-col md:flex-row gap-4 items-end">
+                                <div className="flex-1 w-full space-y-2">
+                                    <Label>كلمة المرور الجديدة</Label>
+                                    <Input 
+                                        type="password" 
+                                        className="bg-white" 
+                                        value={newAdminPass}
+                                        onChange={(e) => setNewAdminPass(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex-1 w-full space-y-2">
+                                    <Label>تأكيد كلمة المرور</Label>
+                                    <Input 
+                                        type="password" 
+                                        className="bg-white" 
+                                        value={confirmAdminPass}
+                                        onChange={(e) => setConfirmAdminPass(e.target.value)}
+                                    />
+                                </div>
+                                <button 
+                                    onClick={handleChangeAdminPassword}
+                                    className="w-full md:w-auto px-6 py-2 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900"
+                                >
+                                    حفظ
+                                </button>
+                            </div>
+                            {passMsg && <p className="text-green-600 font-bold text-sm mt-2">{passMsg}</p>}
+                        </div>
+
                     </div>
                 </TabsContent>
             </Tabs>

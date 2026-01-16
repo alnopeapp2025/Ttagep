@@ -8,7 +8,7 @@ import {
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud
+  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -132,6 +132,16 @@ function ClientsPage() {
     } catch (ex) {
       console.error(ex);
     }
+  };
+
+  const checkAddPermission = () => {
+      const role = currentUser?.role || 'visitor';
+      const check = checkLimit(role, 'clients', clients.length);
+      if (!check.allowed) {
+          alert(check.message);
+          return false;
+      }
+      return true;
   };
 
   const handleAddClient = async () => {
@@ -276,7 +286,10 @@ function ClientsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+            if(val && !checkAddPermission()) return;
+            setOpen(val);
+        }}>
             <DialogTrigger asChild>
                 <button className="bg-blue-600 text-white px-6 rounded-xl font-bold shadow-3d hover:bg-blue-700 flex items-center gap-2">
                     <Plus className="w-5 h-5" />
@@ -393,6 +406,7 @@ function ClientsPage() {
         ))}
       </div>
 
+      {/* ... (Rest of the component remains unchanged) ... */}
       <Dialog open={!!selectedClient} onOpenChange={(open) => !open && setSelectedClient(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>
