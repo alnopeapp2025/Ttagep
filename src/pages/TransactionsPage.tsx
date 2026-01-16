@@ -259,7 +259,8 @@ export default function TransactionsPage() {
       targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
       status: 'active',
       agentPaid: false,
-      clientRefunded: false
+      clientRefunded: false,
+      createdBy: currentUser?.officeName // Save who created it
     };
 
     // Financial Update: Add Client Price to Pending
@@ -1005,6 +1006,9 @@ export default function TransactionsPage() {
                             <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">العميل</span><span className="font-bold">{tx.clientName || '-'}</span></div>
                             <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">السعر</span><span className="font-bold text-blue-600">{tx.clientPrice} ر.س</span></div>
                             <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">المعقب</span><span className="font-bold">{tx.agent}</span></div>
+                            {tx.createdBy && (
+                                <div className="bg-white/50 p-3 rounded-xl col-span-2"><span className="text-gray-500 block text-xs">تم الإنشاء بواسطة</span><span className="font-bold text-purple-600">{tx.createdBy}</span></div>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">

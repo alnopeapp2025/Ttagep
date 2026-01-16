@@ -265,13 +265,13 @@ export default function Dashboard() {
     return settings.pagePermissions[page].includes(userRole);
   };
 
-  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
-    if (!settings) return true;
-    const userRole = currentUser?.role || 'visitor';
-    // Golden and Employee always access everything
-    if (userRole === 'golden' || userRole === 'employee') return true;
-    // @ts-ignore
-    return settings.featurePermissions[feature].includes(userRole);
+  const handlePageClick = (page: string, path: string) => {
+      // @ts-ignore
+      if (canAccessPage(page)) {
+          navigate(path);
+      } else {
+          setProOpen(true);
+      }
   };
 
   const handleSubscribe = () => {
@@ -803,71 +803,63 @@ export default function Dashboard() {
         {/* Main Grid with Permission Checks */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-5 sm:gap-8">
           
-          {canAccessPage('transactions') && (
-            <DashboardButton 
-                icon={FileText} 
-                label="المعاملات" 
-                onClick={() => navigate('/transactions')}
-            />
-          )}
+          <DashboardButton 
+              icon={FileText} 
+              label="المعاملات" 
+              locked={!canAccessPage('transactions')}
+              onClick={() => handlePageClick('transactions', '/transactions')}
+          />
 
-          {canAccessPage('accounts') && (
-            <DashboardButton 
-                icon={Wallet} 
-                label="الحسابات" 
-                onClick={() => navigate('/accounts')}
-            />
-          )}
+          <DashboardButton 
+              icon={Wallet} 
+              label="الحسابات" 
+              locked={!canAccessPage('accounts')}
+              onClick={() => handlePageClick('accounts', '/accounts')}
+          />
 
-          {canAccessPage('reports') && (
-            <DashboardButton 
-                icon={BarChart3} 
-                label="التقارير" 
-                onClick={() => navigate('/reports')}
-            />
-          )}
+          <DashboardButton 
+              icon={BarChart3} 
+              label="التقارير" 
+              locked={!canAccessPage('reports')}
+              onClick={() => handlePageClick('reports', '/reports')}
+          />
 
-          {canAccessPage('clients') && (
-            <DashboardButton 
-                icon={Users} 
-                label="العملاء" 
-                onClick={() => navigate('/clients')}
-            />
-          )}
+          <DashboardButton 
+              icon={Users} 
+              label="العملاء" 
+              locked={!canAccessPage('clients')}
+              onClick={() => handlePageClick('clients', '/clients')}
+          />
 
-          {canAccessPage('agents') && (
-            <DashboardButton 
-                icon={UserCheck} 
-                label="المعقبين" 
-                onClick={() => navigate('/agents')}
-            />
-          )}
+          <DashboardButton 
+              icon={UserCheck} 
+              label="المعقبين" 
+              locked={!canAccessPage('agents')}
+              onClick={() => handlePageClick('agents', '/agents')}
+          />
 
-          {canAccessPage('achievers') && (
-            <DashboardButton 
-                icon={Award} 
-                label="المنجزين" 
-                variant="primary"
-                onClick={() => navigate('/achievers')}
-            />
-          )}
+          <DashboardButton 
+              icon={Award} 
+              label="المنجزين" 
+              variant="primary"
+              locked={!canAccessPage('achievers')}
+              onClick={() => handlePageClick('achievers', '/achievers')}
+          />
 
-          {canAccessPage('expenses') && (
-            <DashboardButton 
-                icon={Receipt} 
-                label="المنصرفات" 
-                variant="danger" 
-                onClick={() => navigate('/expenses')}
-            />
-          )}
+          <DashboardButton 
+              icon={Receipt} 
+              label="المنصرفات" 
+              variant="danger" 
+              locked={!canAccessPage('expenses')}
+              onClick={() => handlePageClick('expenses', '/expenses')}
+          />
 
-          {canAccessPage('calculator') && (
-            <DashboardButton 
-                icon={Calculator} 
-                label="الحاسبة" 
-                onClick={() => navigate('/calculator')}
-            />
-          )}
+          <DashboardButton 
+              icon={Calculator} 
+              label="الحاسبة" 
+              locked={!canAccessPage('calculator')}
+              onClick={() => handlePageClick('calculator', '/calculator')}
+          />
 
         </div>
 

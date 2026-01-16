@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft } from 'lucide-react';
 import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud, getGlobalSettings, GlobalSettings, getStoredEmployees, User } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,7 +29,7 @@ export default function ReportsPage() {
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [employees, setEmployees] = useState<User[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
-  const [employeeTxs, setEmployeeTxs] = useState<Transaction[]>([]);
+  const [employeeTimeline, setEmployeeTimeline] = useState<any[]>([]);
 
   // Details Modal
   const [detailOpen, setDetailOpen] = useState(false);
@@ -172,8 +172,27 @@ export default function ReportsPage() {
   };
 
   const handleEmployeeClick = (emp: User) => {
-      const empTxs = transactions.filter(t => t.agent === emp.officeName);
-      setEmployeeTxs(empTxs);
+      // Filter Transactions created by employee (or assigned to them as agent if we fallback)
+      // Note: 'createdBy' is the preferred way if available.
+      // If 'createdBy' is missing (old data), we might fallback to checking if agent name matches employee name
+      const empTxs = transactions.filter(t => 
+          (t.createdBy && t.createdBy === emp.officeName) || 
+          (!t.createdBy && t.agent === emp.officeName)
+      ).map(t => ({ ...t, kind: 'transaction' }));
+
+      // Filter Transfers performed by employee
+      const empTransfers = agentTransfers.filter(tr => 
+          tr.createdBy === emp.officeName
+      ).map(tr => ({ ...tr, kind: 'transfer' }));
+
+      // Combine and sort by date descending
+      const combined = [...empTxs, ...empTransfers].sort((a, b) => {
+          const dateA = a.kind === 'transaction' ? (a as Transaction).createdAt : (a as AgentTransferRecord).date;
+          const dateB = b.kind === 'transaction' ? (b as Transaction).createdAt : (b as AgentTransferRecord).date;
+          return dateB - dateA;
+      });
+
+      setEmployeeTimeline(combined);
       setSelectedEmployee(emp);
   };
 
@@ -350,6 +369,7 @@ export default function ReportsPage() {
                                         <span>•</span>
                                         <span>{record.bank}</span>
                                     </div>
+                                    {record.createdBy && <p className="text-[9px] text-gray-400 mt-1">بواسطة: {record.createdBy}</p>}
                                 </div>
                             </div>
                             <span className="font-bold text-blue-600 text-base">{record.amount.toLocaleString()} ر.س</span>
@@ -420,7 +440,7 @@ export default function ReportsPage() {
                         ))}
                     </div>
 
-                    {/* Employee Details */}
+                    {/* Employee Detailed Report */}
                     {selectedEmployee && (
                         <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 animate-in fade-in slide-in-from-bottom-4">
                             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -428,32 +448,40 @@ export default function ReportsPage() {
                                 سجل حركات الموظف: {selectedEmployee.officeName}
                             </h3>
                             
-                            {employeeTxs.length === 0 ? (
-                                <p className="text-center text-gray-500 py-8">لا توجد معاملات مسجلة باسم هذا الموظف (كمعقب).</p>
+                            {employeeTimeline.length === 0 ? (
+                                <p className="text-center text-gray-500 py-8">لا توجد حركات مسجلة لهذا الموظف.</p>
                             ) : (
                                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
                                     {/* Header */}
                                     <div className="grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 px-3 pb-2 border-b border-gray-200">
-                                        <div className="col-span-2">رقم</div>
-                                        <div className="col-span-4">النوع</div>
+                                        <div className="col-span-2">النوع</div>
+                                        <div className="col-span-5">التفاصيل</div>
                                         <div className="col-span-3">التاريخ</div>
-                                        <div className="col-span-3 text-left">الحالة</div>
+                                        <div className="col-span-2 text-left">المبلغ</div>
                                     </div>
                                     
                                     {/* Rows */}
-                                    {employeeTxs.map(tx => (
-                                        <div key={tx.id} className="grid grid-cols-12 gap-2 items-center bg-white/50 p-3 rounded-xl border border-white hover:bg-white transition-colors text-sm">
-                                            <div className="col-span-2 font-mono font-bold text-gray-600">#{tx.serialNo}</div>
-                                            <div className="col-span-4 font-bold text-gray-800 truncate">{tx.type}</div>
-                                            <div className="col-span-3 text-xs text-gray-500">{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</div>
-                                            <div className="col-span-3 text-left">
-                                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                                                    tx.status === 'completed' ? 'bg-green-100 text-green-700' : 
-                                                    tx.status === 'cancelled' ? 'bg-red-100 text-red-700' : 
-                                                    'bg-orange-100 text-orange-700'
-                                                }`}>
-                                                    {tx.status === 'completed' ? 'منجزة' : tx.status === 'cancelled' ? 'ملغاة' : 'نشطة'}
-                                                </span>
+                                    {employeeTimeline.map((item, idx) => (
+                                        <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white/50 p-3 rounded-xl border border-white hover:bg-white transition-colors text-sm">
+                                            <div className="col-span-2">
+                                                {item.kind === 'transaction' ? (
+                                                    <span className="flex items-center gap-1 text-blue-600 font-bold text-xs"><FileText className="w-3 h-3" /> معاملة</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-orange-600 font-bold text-xs"><ArrowRightLeft className="w-3 h-3" /> تحويل</span>
+                                                )}
+                                            </div>
+                                            <div className="col-span-5 font-bold text-gray-800 truncate text-xs">
+                                                {item.kind === 'transaction' ? (
+                                                    <span>{item.type} - {item.clientName}</span>
+                                                ) : (
+                                                    <span>تحويل للمعقب: {item.agentName}</span>
+                                                )}
+                                            </div>
+                                            <div className="col-span-3 text-[10px] text-gray-500">
+                                                {new Date(item.kind === 'transaction' ? item.createdAt : item.date).toLocaleDateString('ar-SA')}
+                                            </div>
+                                            <div className="col-span-2 text-left font-bold text-gray-700 text-xs">
+                                                {item.kind === 'transaction' ? item.clientPrice : item.amount}
                                             </div>
                                         </div>
                                     ))}
