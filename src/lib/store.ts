@@ -329,12 +329,18 @@ export const approveSubscription = async (requestId: number) => {
     try {
         const { error } = await supabase
             .from('users')
-            .update({ role: 'golden' }) 
+            .update({ 
+                role: 'golden',
+                subscription_expiry: new Date(expiryDate).toISOString() 
+            }) 
             .eq('id', req.userId);
         
-        // Fallback or Local Storage Logic
+        if (error) {
+            console.error("Supabase update error:", error);
+        }
+
+        // Fallback or Local Storage Logic (Keep local sync as well)
         const goldenUsers = getGoldenUsers();
-        // Remove if exists then add (Update)
         const filtered = goldenUsers.filter(u => u.userId !== req.userId);
         filtered.push({ userId: req.userId, expiry: expiryDate, userName: req.userName });
         localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(filtered));
@@ -343,7 +349,7 @@ export const approveSubscription = async (requestId: number) => {
         console.error(e);
     }
 
-    // 2. Remove from requests (to avoid duplicates in list)
+    // 2. Remove from requests
     const updatedRequests = requests.filter(r => r.id !== requestId);
     localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(updatedRequests));
     
@@ -360,7 +366,10 @@ export const cancelSubscription = async (userId: number) => {
     try {
         await supabase
             .from('users')
-            .update({ role: 'member' })
+            .update({ 
+                role: 'member',
+                subscription_expiry: null 
+            })
             .eq('id', userId);
     } catch (e) {
         console.error(e);
@@ -368,8 +377,6 @@ export const cancelSubscription = async (userId: number) => {
 
     return { success: true };
 };
-
-// ... [Rest of existing functions: registerUser, loginUser, etc. remain unchanged] ...
 
 export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
   try {
@@ -399,6 +406,8 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
           password_hash: passwordHash,
           security_question: user.securityQuestion,
           security_answer: user.securityAnswer,
+          role: role,
+          subscription_expiry: null
         }
       ]);
 
@@ -455,6 +464,7 @@ export const loginUser = async (phone: string, password: string) => {
   try {
     const passwordHash = hashPassword(password);
 
+    // 1. Check Employees (Local)
     const employees = getStoredEmployees();
     const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash);
     if (emp) {
@@ -463,13 +473,14 @@ export const loginUser = async (phone: string, password: string) => {
          const parentGolden = goldenUsers.find(u => u.userId === emp.parentId);
          if (parentGolden && parentGolden.expiry > Date.now()) {
              emp.subscriptionExpiry = parentGolden.expiry;
-             emp.role = 'employee'; // Keep as employee but treat as golden for permissions
+             emp.role = 'employee'; 
          }
 
          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(emp));
          return { success: true, user: emp };
     }
 
+    // 2. Check Database Users
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -481,6 +492,19 @@ export const loginUser = async (phone: string, password: string) => {
       return { success: false, message: 'بيانات الدخول غير صحيحة' };
     }
 
+    // Parse Expiry
+    let expiry = null;
+    if (data.subscription_expiry) {
+        expiry = new Date(data.subscription_expiry).getTime();
+    }
+
+    // Determine Role based on DB + Expiry
+    let role = data.role || 'member';
+    if (role === 'golden' && expiry && expiry < Date.now()) {
+        role = 'member'; // Expired
+        // Optionally update DB here to reflect expiration
+    }
+
     const user: User = {
         id: data.id,
         officeName: data.office_name,
@@ -489,20 +513,16 @@ export const loginUser = async (phone: string, password: string) => {
         securityQuestion: data.security_question,
         securityAnswer: data.security_answer,
         createdAt: new Date(data.created_at).getTime(),
-        role: 'member' 
+        role: role as any,
+        subscriptionExpiry: expiry || undefined
     };
     
-    // Check Local Golden Status Override & Expiry
-    const goldenUsers = getGoldenUsers();
-    const goldenRecord = goldenUsers.find(u => u.userId === user.id);
-    
-    if (goldenRecord) {
-        if (goldenRecord.expiry > Date.now()) {
-            user.role = 'golden';
-            user.subscriptionExpiry = goldenRecord.expiry;
-        } else {
-            // Expired
-            user.role = 'member';
+    // Sync Local Golden List (Backup)
+    if (role === 'golden' && expiry) {
+        const goldenUsers = getGoldenUsers();
+        if (!goldenUsers.find(u => u.userId === user.id)) {
+            goldenUsers.push({ userId: user.id, expiry: expiry, userName: user.officeName });
+            localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(goldenUsers));
         }
     }
 
