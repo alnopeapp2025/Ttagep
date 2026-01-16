@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, ArrowRight, XCircle } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, ArrowRight, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,7 +81,7 @@ export default function AdminPanel() {
   };
 
   const handleCancelSub = async (userId: number) => {
-      if(confirm('هل أنت متأكد من إلغاء اشتراك هذا العضو؟')) {
+      if(confirm('هل أنت متأكد من حذف اشتراك هذا العضو؟ سيتم إلغاء صلاحياته فوراً.')) {
           await cancelSubscription(userId);
           setActiveGolden(getGoldenUsers());
       }
@@ -90,9 +90,8 @@ export default function AdminPanel() {
   const formatExpiry = (ts: number) => {
       const date = new Date(ts);
       return date.toLocaleDateString('ar-SA', { 
-          year: 'numeric', 
-          month: 'long', 
           day: 'numeric', 
+          month: 'numeric', 
           hour: 'numeric', 
           minute: 'numeric' 
       });
@@ -312,8 +311,8 @@ export default function AdminPanel() {
                                             onClick={() => handleCancelSub(user.userId)}
                                             className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"
                                         >
-                                            <XCircle className="w-3 h-3" />
-                                            إلغاء الاشتراك
+                                            <Trash2 className="w-3 h-3" />
+                                            حذف
                                         </button>
                                     </div>
                                 ))}

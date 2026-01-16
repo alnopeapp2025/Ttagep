@@ -100,7 +100,7 @@ export interface ClientRefundRecord {
 }
 
 // --- Admin & Settings Types ---
-export type UserRole = 'visitor' | 'member' | 'golden';
+export type UserRole = 'visitor' | 'member' | 'golden' | 'employee';
 
 export interface SubscriptionRequest {
   id: number;
@@ -173,25 +173,25 @@ const hashPassword = (pwd: string) => {
 const DEFAULT_SETTINGS: GlobalSettings = {
   adminPasswordHash: hashPassword('1234'),
   pagePermissions: {
-    transactions: ['visitor', 'member', 'golden'],
-    accounts: ['visitor', 'member', 'golden'],
-    reports: ['visitor', 'member', 'golden'],
-    clients: ['visitor', 'member', 'golden'],
-    agents: ['visitor', 'member', 'golden'],
-    achievers: ['visitor', 'member', 'golden'],
-    expenses: ['visitor', 'member', 'golden'],
-    calculator: ['visitor', 'member', 'golden'],
+    transactions: ['visitor', 'member', 'golden', 'employee'],
+    accounts: ['visitor', 'member', 'golden', 'employee'],
+    reports: ['visitor', 'member', 'golden', 'employee'],
+    clients: ['visitor', 'member', 'golden', 'employee'],
+    agents: ['visitor', 'member', 'golden', 'employee'],
+    achievers: ['visitor', 'member', 'golden', 'employee'],
+    expenses: ['visitor', 'member', 'golden', 'employee'],
+    calculator: ['visitor', 'member', 'golden', 'employee'],
   },
   featurePermissions: {
-    backup: ['golden'],
-    employeeLogin: ['golden'],
-    whatsapp: ['member', 'golden'],
-    print: ['member', 'golden'],
-    transfer: ['golden'],
-    deleteExpense: ['golden'],
-    achieversNumbers: ['golden'],
-    lessons: ['golden'],
-    monthStats: ['golden'],
+    backup: ['golden', 'employee'],
+    employeeLogin: ['golden', 'employee'],
+    whatsapp: ['member', 'golden', 'employee'],
+    print: ['member', 'golden', 'employee'],
+    transfer: ['golden', 'employee'],
+    deleteExpense: ['golden', 'employee'],
+    achieversNumbers: ['golden', 'employee'],
+    lessons: ['golden', 'employee'],
+    monthStats: ['golden', 'employee'],
   }
 };
 
@@ -365,6 +365,14 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
 };
 
 export const createEmployee = async (employeeData: { name: string, password: string, permissions: string[] }, parentUser: User) => {
+    // Check limit (Max 2)
+    const employees = getStoredEmployees();
+    const myEmployees = employees.filter(e => e.parentId === parentUser.id);
+    
+    if (myEmployees.length >= 2) {
+        return { success: false, message: 'عذراً، الحد الأقصى المسموح به هو موظفين اثنين (2) فقط.' };
+    }
+
     const fakePhone = `EMP-${parentUser.id}-${Math.floor(Math.random() * 1000)}`;
     
     const newUser: User = {
@@ -380,7 +388,6 @@ export const createEmployee = async (employeeData: { name: string, password: str
         permissions: employeeData.permissions
     };
 
-    const employees = getStoredEmployees();
     employees.push(newUser);
     localStorage.setItem('moaqeb_employees_v1', JSON.stringify(employees));
     
@@ -401,6 +408,14 @@ export const loginUser = async (phone: string, password: string) => {
     const employees = getStoredEmployees();
     const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash);
     if (emp) {
+         // Employee inherits subscription expiry from Parent if parent is Golden
+         const goldenUsers = getGoldenUsers();
+         const parentGolden = goldenUsers.find(u => u.userId === emp.parentId);
+         if (parentGolden && parentGolden.expiry > Date.now()) {
+             emp.subscriptionExpiry = parentGolden.expiry;
+             emp.role = 'employee'; // Keep as employee but treat as golden for permissions
+         }
+
          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(emp));
          return { success: true, user: emp };
     }
@@ -437,7 +452,6 @@ export const loginUser = async (phone: string, password: string) => {
             user.subscriptionExpiry = goldenRecord.expiry;
         } else {
             // Expired
-            // Optionally remove from golden list here, or let admin handle
             user.role = 'member';
         }
     }

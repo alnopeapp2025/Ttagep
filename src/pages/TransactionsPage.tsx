@@ -126,11 +126,12 @@ export default function TransactionsPage() {
     setSettings(getGlobalSettings());
 
     if (user) {
-        fetchTransactionsFromCloud(user.id).then(data => setTransactions(data));
-        fetchClientsFromCloud(user.id).then(data => setClients(data));
-        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
+        const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+        fetchTransactionsFromCloud(targetId).then(data => setTransactions(data));
+        fetchClientsFromCloud(targetId).then(data => setClients(data));
+        fetchAgentsFromCloud(targetId).then(data => setAgents(data));
         // Fetch Accounts for integrated logic
-        fetchAccountsFromCloud(user.id).then(data => {
+        fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
             setPendingBalances(data.pending);
             updateBalancesDisplay(data.balances);
@@ -261,9 +262,10 @@ export default function TransactionsPage() {
     setTransactions(updatedTxs);
     
     if (currentUser) {
-        await addTransactionToCloud(newTx, currentUser.id);
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        await addTransactionToCloud(newTx, targetId);
         // Update Account in Cloud
-        await updateAccountInCloud(currentUser.id, bank, balances[bank] || 0, newPending[bank]);
+        await updateAccountInCloud(targetId, bank, balances[bank] || 0, newPending[bank]);
     } else {
         saveStoredTransactions(updatedTxs);
         saveStoredPendingBalances(newPending);
@@ -361,7 +363,8 @@ export default function TransactionsPage() {
     setClients(updated);
     
     if (currentUser) {
-        await addClientToCloud(newClient, currentUser.id);
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        await addClientToCloud(newClient, targetId);
     } else {
         saveStoredClients(updated);
     }
@@ -407,7 +410,8 @@ export default function TransactionsPage() {
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
     if (currentUser) {
-        await addAgentToCloud(newAgent, currentUser.id);
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        await addAgentToCloud(newAgent, targetId);
     } else {
         saveStoredAgents(updatedAgents);
     }
@@ -462,8 +466,9 @@ export default function TransactionsPage() {
     setTransactions(updatedTxs);
 
     if (currentUser) {
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await updateTransactionStatusInCloud(id, { status: newStatus });
-        await updateAccountInCloud(currentUser.id, bank, newBalances[bank] || 0, newPending[bank] || 0);
+        await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, newPending[bank] || 0);
     } else {
         saveStoredTransactions(updatedTxs);
         saveStoredPendingBalances(newPending);
@@ -476,6 +481,8 @@ export default function TransactionsPage() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -989,25 +996,15 @@ export default function TransactionsPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <button 
                                 onClick={() => handlePrint(tx)} 
-                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden ${
-                                    canAccessFeature('print') 
-                                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
+                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-gray-200 text-gray-700 hover:bg-gray-300`}
                             >
                                 <Printer className="w-4 h-4" /> طباعة
-                                {!canAccessFeature('print') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
                             </button>
                             <button 
                                 onClick={() => handleWhatsApp(tx)} 
-                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden ${
-                                    canAccessFeature('whatsapp') 
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
+                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-green-100 text-green-700 hover:bg-green-200`}
                             >
                                 <Send className="w-4 h-4" /> واتساب للعميل
-                                {!canAccessFeature('whatsapp') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
                             </button>
                         </div>
 

@@ -1,9 +1,38 @@
-# Project Setup
-    
-    To run this project, follow these steps:
-    
-    1. Extract the zip file.
-    2. Run `npm install` to install dependencies.
-    3. Run `npm run dev` to start the development server.
-    
-    This project was generated through Alpha. For more information, visit [dualite.dev](https://dualite.dev).
+# برنامج حسابات المعقبين (Ttagep)
+
+نظام إدارة متكامل لمكاتب الخدمات العامة والمعقبين.
+
+## إعداد المشروع (Project Setup)
+
+لتشغيل المشروع على جهازك:
+
+1. قم بفك الضغط عن الملفات.
+2. ثبت المكتبات:
+   ```bash
+   yarn install
+   ```
+3. شغل السيرفر المحلي:
+   ```bash
+   yarn run dev
+   ```
+
+## النشر على GitHub Pages (Deployment)
+
+بما أن بيئة التطوير السحابية قد لا تدعم Git، يفضل النشر من جهازك المحلي:
+
+1. تأكد من تثبيت Git على جهازك.
+2. تأكد من أن رابط المستودع في `package.json` صحيح:
+   ```json
+   "homepage": "https://username.github.io/Ttagep"
+   ```
+3. نفذ الأوامر التالية لرفع التعديلات والنشر:
+   ```bash
+   yarn run build
+   yarn run deploy
+   ```
+
+## الميزات
+- لوحة تحكم شاملة.
+- إدارة المعاملات والعملاء والمعقبين.
+- تقارير مالية دقيقة.
+- نظام صلاحيات (عضو، ذهبي، موظف).

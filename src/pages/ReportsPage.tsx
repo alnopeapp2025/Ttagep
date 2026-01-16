@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock } from 'lucide-react';
-import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud, getGlobalSettings, GlobalSettings } from '@/lib/store';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck } from 'lucide-react';
+import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud, getGlobalSettings, GlobalSettings, getStoredEmployees, User } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -27,6 +27,9 @@ export default function ReportsPage() {
   const [refunds, setRefunds] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
+  const [employeeTxs, setEmployeeTxs] = useState<Transaction[]>([]);
 
   // Details Modal
   const [detailOpen, setDetailOpen] = useState(false);
@@ -41,7 +44,14 @@ export default function ReportsPage() {
     const loadData = async () => {
         let txs: Transaction[] = [];
         if (user) {
-            txs = await fetchTransactionsFromCloud(user.id);
+            const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+            txs = await fetchTransactionsFromCloud(targetId);
+            
+            // Load employees for report
+            const allEmps = getStoredEmployees();
+            const myEmps = allEmps.filter(e => e.parentId === targetId);
+            setEmployees(myEmps);
+
         } else {
             txs = getStoredTransactions();
         }
@@ -57,6 +67,8 @@ export default function ReportsPage() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -168,6 +180,15 @@ export default function ReportsPage() {
     setDetailOpen(true);
   };
 
+  const handleEmployeeClick = (emp: User) => {
+      // Filter transactions where agent matches employee name (Assuming employee name is used as agent name in transactions)
+      // Note: In a real scenario, we should track createdBy user ID. Here we use agent name as proxy or just show all if not tracked.
+      // For this requirement, we will filter by agent name matching employee name as per common practice in this app structure.
+      const empTxs = transactions.filter(t => t.agent === emp.officeName);
+      setEmployeeTxs(empTxs);
+      setSelectedEmployee(emp);
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText, detailType, restricted }: any) => (
     <div className={`bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50 relative group ${restricted ? 'opacity-70' : ''}`}>
@@ -181,12 +202,6 @@ export default function ReportsPage() {
         </h3>
         {subText && <p className="text-[8px] text-gray-400">{subText}</p>}
       </div>
-
-      {restricted && (
-          <div className="absolute top-2 left-2">
-              <Lock className="w-3 h-3 text-yellow-500" />
-          </div>
-      )}
 
       {/* Eye Icon Overlay */}
       {detailType && !restricted && (
@@ -218,10 +233,11 @@ export default function ReportsPage() {
       </header>
 
       <Tabs defaultValue="general" className="w-full" dir="rtl">
-        <TabsList className="grid w-full grid-cols-3 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1">
-            <TabsTrigger value="general" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">عام</TabsTrigger>
-            <TabsTrigger value="agent-transfers" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">تحويلات المعقبين</TabsTrigger>
-            <TabsTrigger value="refunds" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">مسترجعات العملاء</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 overflow-x-auto">
+            <TabsTrigger value="general" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">عام</TabsTrigger>
+            <TabsTrigger value="agent-transfers" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تحويلات المعقبين</TabsTrigger>
+            <TabsTrigger value="refunds" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">مسترجعات العملاء</TabsTrigger>
+            <TabsTrigger value="employees" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تقرير الموظفين</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -270,7 +286,6 @@ export default function ReportsPage() {
                     icon={Calendar} 
                     colorClass="text-purple-500" 
                     detailType="month"
-                    restricted={!canAccessFeature('monthStats')}
                 />
                 <StatCard 
                     title="أرباح الشهر الصافية" 
@@ -279,7 +294,6 @@ export default function ReportsPage() {
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
                     detailType="month"
-                    restricted={!canAccessFeature('monthStats')}
                 />
                  <StatCard 
                     title="تم الإنجاز" 
@@ -317,8 +331,7 @@ export default function ReportsPage() {
                 </div>
                 <div className="bg-indigo-600 text-white rounded-2xl shadow-3d p-4 text-center relative overflow-hidden">
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الشهر</p>
-                    <h2 className="text-xl font-black">{canAccessFeature('monthStats') ? `${stats.monthValue.toLocaleString()} ر.س` : '---'}</h2>
-                    {!canAccessFeature('monthStats') && <Lock className="absolute top-2 right-2 w-4 h-4 text-white/50" />}
+                    <h2 className="text-xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
                 </div>
                 <div className="bg-gray-800 text-white rounded-2xl shadow-3d p-4 text-center">
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة كل المعاملات</p>
@@ -387,6 +400,73 @@ export default function ReportsPage() {
                     ))
                 )}
             </div>
+        </TabsContent>
+
+        <TabsContent value="employees">
+            {employees.length === 0 ? (
+                <div className="text-center py-12 bg-[#eef2f6] rounded-2xl shadow-3d-inset border border-white/50">
+                    <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-gray-700">لا يوجد موظفين</h3>
+                    <p className="text-sm text-gray-500 mt-2">اضغط على ملفك الشخصي وأضف موظف</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {/* Employee List */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {employees.map(emp => (
+                            <div 
+                                key={emp.id} 
+                                onClick={() => handleEmployeeClick(emp)}
+                                className={`p-4 rounded-2xl shadow-3d border border-white/50 cursor-pointer transition-all ${selectedEmployee?.id === emp.id ? 'bg-blue-50 border-blue-200' : 'bg-[#eef2f6] hover:bg-white'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
+                                        {emp.officeName.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-800">{emp.officeName}</h3>
+                                        <p className="text-xs text-gray-500 font-mono">{emp.phone}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Employee Details */}
+                    {selectedEmployee && (
+                        <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 animate-in fade-in slide-in-from-bottom-4">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-blue-600" />
+                                معاملات الموظف: {selectedEmployee.officeName}
+                            </h3>
+                            
+                            {employeeTxs.length === 0 ? (
+                                <p className="text-center text-gray-500 py-8">لا توجد معاملات مسجلة باسم هذا الموظف (كمعقب).</p>
+                            ) : (
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                                    {employeeTxs.map(tx => (
+                                        <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
+                                            <div>
+                                                <p className="font-bold text-sm text-gray-700">{tx.type}</p>
+                                                <div className="flex gap-2 text-[10px] text-gray-500">
+                                                    <span>#{tx.serialNo}</span>
+                                                    <span>•</span>
+                                                    <span>{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-left">
+                                                <span className={`font-bold ${tx.status === 'completed' ? 'text-green-600' : tx.status === 'cancelled' ? 'text-red-600' : 'text-orange-500'}`}>
+                                                    {tx.status === 'completed' ? 'منجزة' : tx.status === 'cancelled' ? 'ملغاة' : 'نشطة'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </TabsContent>
 
       </Tabs>

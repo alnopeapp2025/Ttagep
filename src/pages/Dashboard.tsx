@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [selectedBank, setSelectedBank] = useState('');
   const [selectedDuration, setSelectedDuration] = useState<'شهر' | 'سنة' | ''>('');
   const [subSuccess, setSubSuccess] = useState('');
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
   // Employee Login State
   const [empLoginOpen, setEmpLoginOpen] = useState(false);
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPass, setNewEmpPass] = useState('');
   const [empSuccess, setEmpSuccess] = useState('');
+  const [empError, setEmpError] = useState('');
 
   // User Profile & Change Password States
   const [profileOpen, setProfileOpen] = useState(false);
@@ -110,7 +112,9 @@ export default function Dashboard() {
     const loadData = async () => {
         let txs: Transaction[] = [];
         if (user) {
-            txs = await fetchTransactionsFromCloud(user.id);
+            // If employee, use parentId for data fetching, else use id
+            const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+            txs = await fetchTransactionsFromCloud(targetId);
         } else {
             txs = getStoredTransactions();
         }
@@ -147,12 +151,15 @@ export default function Dashboard() {
   };
 
   const handleCreateEmployee = async () => {
+    setEmpError('');
     if (!currentUser || !newEmpName || !newEmpPass) return;
     const res = await createEmployee({ name: newEmpName, password: newEmpPass, permissions: [] }, currentUser);
     if (res.success) {
-        setEmpSuccess(`تم إنشاء حساب الموظف بنجاح. اسم الدخول: ${newEmpName}`);
+        setEmpSuccess(`تم إنشاء حساب الموظف بنجاح. اسم الدخول: ${res.username}`);
         setNewEmpName('');
         setNewEmpPass('');
+    } else {
+        setEmpError(res.message || 'فشل إنشاء الموظف');
     }
   };
 
@@ -252,8 +259,8 @@ export default function Dashboard() {
   const canAccessPage = (page: keyof GlobalSettings['pagePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
-    // Golden user always access everything
-    if (userRole === 'golden') return true;
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.pagePermissions[page].includes(userRole);
   };
@@ -261,8 +268,8 @@ export default function Dashboard() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
-    // Golden user always access everything
-    if (userRole === 'golden') return true;
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -292,6 +299,12 @@ export default function Dashboard() {
 
   const resetSubModal = (open: boolean) => {
       setProOpen(open);
+      if(open && currentUser?.role === 'golden' && currentUser.subscriptionExpiry && currentUser.subscriptionExpiry > Date.now()) {
+          setAlreadySubscribed(true);
+      } else {
+          setAlreadySubscribed(false);
+      }
+      
       if(!open) {
           setTimeout(() => {
             setSubStep('bank');
@@ -343,7 +356,14 @@ export default function Dashboard() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-[#eef2f6] shadow-3d border-none rounded-xl" align="end" dir="rtl">
                     <DropdownMenuLabel className="text-center font-bold text-gray-700">{currentUser.officeName}</DropdownMenuLabel>
-                    <DropdownMenuLabel className="text-center text-xs text-blue-600">{currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}</DropdownMenuLabel>
+                    <div className="text-center">
+                        <span className="text-xs text-blue-600 font-bold">{currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}</span>
+                        {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (
+                            <span className="block text-[10px] text-red-500 mt-1">
+                                ينتهي: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
+                            </span>
+                        )}
+                    </div>
                     <DropdownMenuSeparator className="bg-gray-200" />
                     <DropdownMenuItem 
                         className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
@@ -581,7 +601,15 @@ export default function Dashboard() {
                             </DialogTitle>
                         </DialogHeader>
                         
-                        {subSuccess ? (
+                        {alreadySubscribed ? (
+                             <div className="py-10 text-center animate-in zoom-in">
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg">
+                                    <CheckCircle2 className="w-8 h-8" />
+                                </div>
+                                <h3 className="text-xl font-bold">أنت مشترك مسبقاً</h3>
+                                <p className="text-sm mt-2 opacity-90">استمتع بمميزات العضوية الذهبية</p>
+                            </div>
+                        ) : subSuccess ? (
                             <div className="py-10 text-center animate-in zoom-in">
                                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg">
                                     <CheckCircle2 className="w-8 h-8" />
@@ -915,7 +943,14 @@ export default function Dashboard() {
                                 <UserCircle className="w-10 h-10" />
                             </div>
                             <h3 className="text-xl font-black text-gray-800">{currentUser.officeName}</h3>
-                            <p className="text-gray-500 text-sm">عضو مسجل</p>
+                            <p className="text-gray-500 text-sm">
+                                {currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو مسجل'}
+                            </p>
+                            {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (
+                                <p className="text-xs text-red-500 font-bold mt-1">
+                                    ينتهي الاشتراك: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
+                                </p>
+                            )}
                         </div>
                         
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3">
@@ -1022,6 +1057,11 @@ export default function Dashboard() {
                     </div>
                 ) : (
                     <div className="py-4 space-y-4">
+                        {empError && (
+                            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100 shadow-sm">
+                                {empError}
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label>اسم الموظف</Label>
                             <Input 

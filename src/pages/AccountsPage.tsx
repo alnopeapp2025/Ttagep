@@ -58,8 +58,9 @@ export default function AccountsPage() {
     setSettings(getGlobalSettings());
 
     if (user) {
-        // Load from Cloud
-        fetchAccountsFromCloud(user.id).then(data => {
+        // If employee, use parentId
+        const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+        fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
             setPendingBalances(data.pending);
             calculateTotals(data.balances, data.pending);
@@ -89,7 +90,6 @@ export default function AccountsPage() {
           filter: `user_id=eq.${currentUser.id}`
         },
         (payload) => {
-          // Re-fetch on change
           fetchAccountsFromCloud(currentUser.id).then(data => {
             setBalances(data.balances);
             setPendingBalances(data.pending);
@@ -114,6 +114,8 @@ export default function AccountsPage() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -149,9 +151,9 @@ export default function AccountsPage() {
     calculateTotals(newBalances, pendingBalances);
 
     if (currentUser) {
-        // Update Cloud
-        await updateAccountInCloud(currentUser.id, transferFrom, newBalances[transferFrom], pendingBalances[transferFrom] || 0);
-        await updateAccountInCloud(currentUser.id, transferTo, newBalances[transferTo], pendingBalances[transferTo] || 0);
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        await updateAccountInCloud(targetId, transferFrom, newBalances[transferFrom], pendingBalances[transferFrom] || 0);
+        await updateAccountInCloud(targetId, transferTo, newBalances[transferTo], pendingBalances[transferTo] || 0);
     } else {
         // Update Local Storage
         saveStoredBalances(newBalances);
@@ -176,9 +178,9 @@ export default function AccountsPage() {
         calculateTotals(zeroed, zeroed);
 
         if (currentUser) {
-            // Update Cloud for ALL banks
+            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
             for (const bank of BANKS_LIST) {
-                await updateAccountInCloud(currentUser.id, bank, 0, 0);
+                await updateAccountInCloud(targetId, bank, 0, 0);
             }
         } else {
             saveStoredBalances(zeroed);
@@ -247,13 +249,10 @@ export default function AccountsPage() {
                   alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
               }
           }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all relative overflow-hidden ${
-              canAccessFeature('transfer') ? 'bg-[#eef2f6] text-blue-600' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all relative overflow-hidden bg-[#eef2f6] text-blue-600`}
         >
           <ArrowLeftRight className="w-5 h-5" />
           تحويل بين البنوك
-          {!canAccessFeature('transfer') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
         </button>
         <button 
           onClick={() => setZeroOpen(true)}

@@ -43,8 +43,9 @@ export default function ExpensesPage() {
     setBalances(getStoredBalances());
 
     if (user) {
-        // Fetch from Cloud if logged in
-        fetchExpensesFromCloud(user.id).then(data => {
+        // If employee, use parentId
+        const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+        fetchExpensesFromCloud(targetId).then(data => {
             setExpenses(data);
         });
     } else {
@@ -87,6 +88,8 @@ export default function ExpensesPage() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
+    // Golden and Employee always access everything
+    if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
   };
@@ -122,8 +125,9 @@ export default function ExpensesPage() {
     };
 
     if (currentUser) {
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         // 1. Save to Cloud
-        const success = await addExpenseToCloud(newExp, currentUser.id);
+        const success = await addExpenseToCloud(newExp, targetId);
         if (success) {
             // Success: Realtime subscription will automatically update the list
             console.log('Expense saved to cloud, waiting for realtime update...');
@@ -276,20 +280,13 @@ export default function ExpensesPage() {
                 <div className="flex items-center gap-4">
                     <span className="font-bold text-red-600 text-lg">-{exp.amount.toLocaleString()} ر.س</span>
                     
-                    {canAccessFeature('deleteExpense') ? (
-                        <button 
-                            onClick={() => handleDeleteExpense(exp.id)}
-                            className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
-                            title="حذف المصروف"
-                        >
-                            <Trash2 className="w-5 h-5" />
-                        </button>
-                    ) : (
-                        <div className="relative group/pro">
-                            <Trash2 className="w-5 h-5 text-gray-300 cursor-not-allowed" />
-                            <span className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black rounded">PRO</span>
-                        </div>
-                    )}
+                    <button 
+                        onClick={() => handleDeleteExpense(exp.id)}
+                        className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                        title="حذف المصروف"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
         ))}
