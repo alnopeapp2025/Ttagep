@@ -1,12 +1,37 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Mail } from 'lucide-react';
+import { ArrowRight, Trash2, Phone, Lock, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function DeleteDataPage() {
   const navigate = useNavigate();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    setError('');
+    
+    if (!phone || !password) {
+      setError('يرجى تعبئة رقم الجوال وكلمة المرور');
+      return;
+    }
+
+    setLoading(true);
+
+    // محاكاة عملية إرسال الطلب للسيرفر
+    setTimeout(() => {
+      setLoading(false);
+      setSuccess(true);
+    }, 1500);
+  };
 
   return (
     <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
-      <div className="max-w-2xl mx-auto text-center">
+      <div className="max-w-md mx-auto">
         <header className="mb-8 flex items-center gap-4">
           <button 
             onClick={() => navigate('/')}
@@ -17,27 +42,82 @@ export default function DeleteDataPage() {
           <h1 className="text-2xl font-black text-gray-800 text-shadow">حذف بياناتي</h1>
         </header>
 
-        <div className="bg-[#eef2f6] p-8 rounded-3xl shadow-3d border border-white/50 flex flex-col items-center">
-            <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6 text-4xl shadow-inner">
-                😢
-            </div>
+        <div className="bg-[#eef2f6] p-8 rounded-3xl shadow-3d border border-white/50 relative overflow-hidden">
             
-            <h2 className="text-xl font-bold text-gray-800 mb-4">حذف الحساب والبيانات</h2>
-            <p className="text-gray-600 mb-6 max-w-md">
-                يؤسفنا أنك تفكر في المغادرة. يرجى العلم أن حذف البيانات من التطبيق يمكن أن يتم يدوياً عبر إعدادات النظام (تصفير النظام). أما إذا كنت ترغب في حذف حسابك المسجل لدينا نهائياً، يرجى اتباع التعليمات أدناه.
-            </p>
-
-            <div className="bg-white p-6 rounded-2xl shadow-3d-inset w-full mb-6">
-                <p className="text-sm text-gray-500 mb-3 font-bold">لإرسال طلب حذف البيانات نهائياً، يرجى التواصل معنا عبر البريد الإلكتروني:</p>
-                <div className="flex items-center justify-center gap-2 text-blue-600 font-mono font-bold text-lg select-all bg-blue-50 p-3 rounded-xl border border-blue-100">
-                    <Mail className="w-5 h-5" />
-                    Tageep2026@gmail.com
+            {success ? (
+                <div className="flex flex-col items-center justify-center text-center py-10 animate-in zoom-in duration-300">
+                    <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 shadow-3d border-4 border-green-50">
+                        <CheckCircle2 className="w-12 h-12" strokeWidth={3} />
+                    </div>
+                    <h2 className="text-xl font-black text-green-700 mb-2">تم ارسال البيانات بنجاح</h2>
+                    <p className="text-gray-600 font-medium">
+                        سيتم حذف بياناتك نهائياً من التطبيق خلال 24 ساعة.
+                    </p>
+                    <button 
+                        onClick={() => navigate('/')}
+                        className="mt-8 px-8 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all shadow-sm"
+                    >
+                        عودة للرئيسية
+                    </button>
                 </div>
-            </div>
+            ) : (
+                <div className="space-y-6">
+                    <div className="text-center">
+                        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 shadow-inner">
+                            <Trash2 className="w-10 h-10" />
+                        </div>
+                        <h2 className="text-xl font-black text-gray-800 mb-2">حذف حسابي والبيانات المرتبطه به</h2>
+                        <p className="text-sm text-gray-500 leading-relaxed">
+                            لحذف بياناتك وحسابك من تطبيق المعقب المحاسبي، يرجى تأكيد هويتك أدناه.
+                        </p>
+                    </div>
 
-            <p className="text-xs text-gray-400">
-                سيتم معالجة طلبك خلال 48 ساعة عمل.
-            </p>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="font-bold text-gray-600">رقم الجوال</Label>
+                            <div className="relative">
+                                <Input 
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
+                                    placeholder="05xxxxxxxx"
+                                />
+                                <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="font-bold text-gray-600">كلمة المرور</Label>
+                            <div className="relative">
+                                <Input 
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
+                                    placeholder="••••••••"
+                                />
+                                <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100 animate-in fade-in">
+                                <AlertCircle className="w-4 h-4" />
+                                {error}
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="w-full py-4 bg-red-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                            إرسال طلب الحذف
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
       </div>
     </div>
