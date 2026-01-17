@@ -192,7 +192,7 @@ export default function LoginPage() {
             <LogIn className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-2xl font-black text-gray-800 text-shadow">تسجيل الدخول</h1>
-          <p className="text-gray-500 text-sm mt-1">نظام المعقب المحاسبي</p>
+          <p className="text-gray-500 text-sm mt-1">تطبيق مان هويات</p>
         </div>
 
         {error && (

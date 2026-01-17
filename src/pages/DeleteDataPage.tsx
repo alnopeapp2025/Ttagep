@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Trash2, Phone, Lock, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowRight, Trash2, Phone, Lock, Send, CheckCircle2, AlertCircle, Loader2, Shield } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -122,6 +122,20 @@ export default function DeleteDataPage() {
                 </div>
             )}
         </div>
+
+        {/* Developer Info & Privacy Link */}
+        <div className="mt-8 text-center space-y-4">
+            <div className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d-inset border border-white/50">
+                <h3 className="font-bold text-gray-800 text-sm mb-1">تطبيق مان هويات لمكاتب الخدمات ومكاتب الاستقدام</h3>
+                <p className="text-xs text-gray-500 font-mono" dir="ltr">تم التطوير والتصميم بواسطة: ELTAIB HAMED ELTAIB</p>
+            </div>
+            
+            <Link to="/privacy-policy" className="inline-flex items-center gap-2 text-blue-600 font-bold text-sm hover:underline">
+                <Shield className="w-4 h-4" />
+                سياسة الخصوصية
+            </Link>
+        </div>
+
       </div>
     </div>
   );
