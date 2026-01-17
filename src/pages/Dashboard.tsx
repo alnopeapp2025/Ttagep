@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check
+  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -931,13 +931,24 @@ export default function Dashboard() {
 
             <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">هل تحتاج إلى مساعدة؟</p>
-                <button 
-                  onClick={() => navigate('/login')}
-                  className="px-8 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center gap-2"
-                >
-                    <LogOut className="w-5 h-5" />
-                    تسجيل الخروج
-                </button>
+                <div className="flex flex-col gap-3 w-full">
+                    <button 
+                        onClick={() => navigate('/login')}
+                        className="px-8 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        تسجيل الخروج
+                    </button>
+                    
+                    {/* Google Play Compliant Delete Link */}
+                    <Link 
+                        to="/delete-data"
+                        className="text-xs text-gray-400 hover:text-red-600 flex items-center justify-center gap-1 mt-2 transition-colors"
+                    >
+                        <Trash2 className="w-3 h-3" />
+                        طلب حذف الحساب والبيانات
+                    </Link>
+                </div>
             </div>
         </div>
 

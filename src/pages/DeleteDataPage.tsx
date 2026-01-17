@@ -49,9 +49,9 @@ export default function DeleteDataPage() {
                     <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 shadow-3d border-4 border-green-50">
                         <CheckCircle2 className="w-12 h-12" strokeWidth={3} />
                     </div>
-                    <h2 className="text-xl font-black text-green-700 mb-2">تم ارسال البيانات بنجاح</h2>
+                    <h2 className="text-xl font-black text-green-700 mb-2">تم ارسال طلب الحذف بنجاح</h2>
                     <p className="text-gray-600 font-medium">
-                        سيتم حذف بياناتك نهائياً من التطبيق خلال 24 ساعة.
+                        سيتم مراجعة الطلب وحذف حسابك وكافة البيانات المرتبطة به نهائياً خلال 24 ساعة.
                     </p>
                     <button 
                         onClick={() => navigate('/')}
@@ -66,15 +66,18 @@ export default function DeleteDataPage() {
                         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 shadow-inner">
                             <Trash2 className="w-10 h-10" />
                         </div>
-                        <h2 className="text-xl font-black text-gray-800 mb-2">حذف حسابي والبيانات المرتبطه به</h2>
+                        <h2 className="text-xl font-black text-gray-800 mb-2">طلب حذف الحساب والبيانات</h2>
                         <p className="text-sm text-gray-500 leading-relaxed">
-                            لحذف بياناتك وحسابك من تطبيق المعقب المحاسبي، يرجى تأكيد هويتك أدناه.
+                            لحذف حسابك وكافة البيانات المرتبطة به (المعاملات، العملاء، السجلات) من تطبيق المعقب المحاسبي نهائياً، يرجى تأكيد هويتك أدناه.
+                        </p>
+                        <p className="text-xs text-red-500 mt-2 font-bold">
+                            تنبيه: هذا الإجراء لا يمكن التراجع عنه.
                         </p>
                     </div>
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label className="font-bold text-gray-600">رقم الجوال</Label>
+                            <Label className="font-bold text-gray-600">رقم الجوال المسجل</Label>
                             <div className="relative">
                                 <Input 
                                     value={phone}
@@ -113,7 +116,7 @@ export default function DeleteDataPage() {
                             className="w-full py-4 bg-red-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                            إرسال طلب الحذف
+                            تأكيد وحذف الحساب
                         </button>
                     </div>
                 </div>

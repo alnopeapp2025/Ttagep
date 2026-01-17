@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User, Trash2, Shield } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -174,7 +174,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#eef2f6] rounded-3xl shadow-3d p-8 border border-white/50 relative">
         
         {/* Success Message Overlay */}
@@ -379,6 +379,21 @@ export default function LoginPage() {
             دخول كضيف
           </button>
         </div>
+      </div>
+
+      {/* Footer Links for Policy Compliance */}
+      <div className="mt-8 flex flex-col items-center gap-3 text-gray-500">
+        <div className="flex gap-6 text-xs font-bold">
+            <Link to="/privacy-policy" className="hover:text-blue-600 flex items-center gap-1 transition-colors">
+                <Shield className="w-3 h-3" />
+                سياسة الخصوصية
+            </Link>
+            <Link to="/delete-data" className="hover:text-red-600 flex items-center gap-1 transition-colors">
+                <Trash2 className="w-3 h-3" />
+                طلب حذف الحساب
+            </Link>
+        </div>
+        <p className="text-[10px] opacity-60">جميع الحقوق محفوظة © 2025</p>
       </div>
     </div>
   );
