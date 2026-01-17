@@ -6,7 +6,7 @@
   "homepage": "https://manhobat.com",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll",
+    "build": "vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll && mkdir -p dist/delete-data && cp dist/index.html dist/delete-data/index.html",
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "yarn run build",
