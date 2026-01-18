@@ -7,12 +7,14 @@ import {
   Expense, 
   getStoredBalances, 
   saveStoredBalances, 
+  getStoredPendingBalances, // Added
   BANKS_LIST,
   getCurrentUser,
   addExpenseToCloud,
   fetchExpensesFromCloud,
   deleteExpenseFromCloud,
-  fetchAccountsFromCloud, // Added to fetch latest balances
+  fetchAccountsFromCloud, 
+  updateAccountInCloud, // Added
   User,
   getGlobalSettings,
   GlobalSettings
@@ -30,7 +32,10 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
   const [open, setOpen] = useState(false);
+  
   const [balances, setBalances] = useState<Record<string, number>>({});
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({}); // Added state
+
   const [errorMsg, setErrorMsg] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,6 +49,7 @@ export default function ExpensesPage() {
     
     // Initial load from local storage
     setBalances(getStoredBalances());
+    setPendingBalances(getStoredPendingBalances());
 
     if (user) {
         const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
@@ -56,6 +62,7 @@ export default function ExpensesPage() {
         // Fetch Latest Balances (Important for the modal display)
         fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
+            setPendingBalances(data.pending);
         });
     } else {
         // Fetch from Local
@@ -97,7 +104,10 @@ export default function ExpensesPage() {
           filter: `user_id=eq.${targetId}`
         },
         (payload) => {
-           fetchAccountsFromCloud(targetId).then(data => setBalances(data.balances));
+           fetchAccountsFromCloud(targetId).then(data => {
+               setBalances(data.balances);
+               setPendingBalances(data.pending);
+           });
         }
       )
       .subscribe();
@@ -147,9 +157,16 @@ export default function ExpensesPage() {
         if (result.success) {
             // Optimistic update for balances
             const newBalances = { ...balances };
-            newBalances[selectedBank] = currentBalance - cost;
+            const newBalance = currentBalance - cost;
+            newBalances[selectedBank] = newBalance;
+            
             saveStoredBalances(newBalances);
             setBalances(newBalances);
+
+            // IMMEDIATE DEDUCTION: Update Cloud Account
+            const currentPending = pendingBalances[selectedBank] || 0;
+            await updateAccountInCloud(targetId, selectedBank, newBalance, currentPending);
+
         } else {
             setErrorMsg(`فشل حفظ المصروف: ${result.error}`);
             setLoading(false);
@@ -188,14 +205,21 @@ export default function ExpensesPage() {
     // Optimistic Refund
     const currentBalance = balances[expenseToDelete.bank] || 0;
     const newBalances = { ...balances };
-    newBalances[expenseToDelete.bank] = currentBalance + expenseToDelete.amount;
+    const newBalance = currentBalance + expenseToDelete.amount;
+    newBalances[expenseToDelete.bank] = newBalance;
+    
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
     if (currentUser) {
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const success = await deleteExpenseFromCloud(id);
         if(!success) {
             alert("فشل حذف المصروف من قاعدة البيانات");
+        } else {
+            // IMMEDIATE REFUND: Update Cloud Account
+            const currentPending = pendingBalances[expenseToDelete.bank] || 0;
+            await updateAccountInCloud(targetId, expenseToDelete.bank, newBalance, currentPending);
         }
     } else {
         const updatedExpenses = expenses.filter(e => e.id !== id);
