@@ -4,7 +4,7 @@ import {
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation(); // Hook to read URL params
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -145,6 +146,19 @@ export default function Dashboard() {
         clearInterval(interval);
     };
   }, []);
+
+  // Listen for URL params to open Pro modal from other pages
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('openPro') === 'true') {
+        setSubStep('duration'); // Ensure it starts at packages
+        setSelectedDuration('');
+        setSelectedBank('');
+        setProOpen(true);
+        // Clean URL without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location]);
 
   const handleLogout = () => {
     logoutUser();

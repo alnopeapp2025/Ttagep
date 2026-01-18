@@ -249,7 +249,8 @@ export default function AccountsPage() {
               if(canAccessFeature('transfer')) {
                   setTransferOpen(true);
               } else {
-                  alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+                  // Redirect to home with openPro param
+                  navigate('/?openPro=true');
               }
           }}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all relative overflow-hidden bg-[#eef2f6] text-blue-600`}

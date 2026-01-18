@@ -175,7 +175,8 @@ export default function ExpensesPage() {
 
   const handleDeleteExpense = async (id: number) => {
     if(!canAccessFeature('deleteExpense')) {
-        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+        // Redirect to home with openPro param
+        navigate('/?openPro=true');
         return;
     }
 

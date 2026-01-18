@@ -86,8 +86,11 @@ export default function AchieversHub() {
                 </div>
             </div>
         ) : (
-            <div className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50">
-                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <div 
+                onClick={() => navigate('/?openPro=true')}
+                className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50 cursor-pointer hover:bg-yellow-50/50 transition-colors group"
+            >
+                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
                 <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
                 <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
             </div>
@@ -116,8 +119,11 @@ export default function AchieversHub() {
                 </div>
             </div>
         ) : (
-            <div className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50">
-                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <div 
+                onClick={() => navigate('/?openPro=true')}
+                className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50 cursor-pointer hover:bg-yellow-50/50 transition-colors group"
+            >
+                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
                 <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
                 <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
             </div>
