@@ -854,14 +854,6 @@ export default function Dashboard() {
           />
 
           <DashboardButton 
-              icon={Award} 
-              label="المنجزين" 
-              variant="primary" 
-              locked={!canAccessPage('achievers')}
-              onClick={() => handlePageClick('achievers', '/achievers')}
-          />
-
-          <DashboardButton 
               icon={Receipt} 
               label="المنصرفات" 
               variant="danger" 
