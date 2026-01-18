@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User, Lock } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User } from 'lucide-react';
 import { 
     getStoredExtAgents, 
     getStoredLessons, 
@@ -15,7 +15,11 @@ export default function AchieversHub() {
   // Data State
   const [extAgents, setExtAgents] = useState<ExternalAgent[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  
+  // We keep these for consistency but don't use them for blocking anymore
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [settings, setSettings] = useState(getGlobalSettings());
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
   useEffect(() => {
@@ -24,13 +28,6 @@ export default function AchieversHub() {
     setSettings(getGlobalSettings());
     setCurrentUser(getCurrentUser());
   }, []);
-
-  // Permission Check
-  const canAccessFeature = (feature: 'achieversNumbers' | 'lessons') => {
-    const role = currentUser?.role || 'visitor';
-    // @ts-ignore
-    return settings.featurePermissions[feature].includes(role);
-  };
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -62,72 +59,50 @@ export default function AchieversHub() {
         </button>
       </div>
 
-      {/* Content */}
+      {/* Content - Unlocked for Everyone */}
       {activeTab === 'numbers' ? (
-        canAccessFeature('achieversNumbers') ? (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {extAgents.map(agent => (
-                        <div key={agent.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d border border-white/50 flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
-                                <User className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-800">{agent.name}</h3>
-                                <p className="text-gray-500 text-sm font-mono" dir="ltr">{agent.phone}</p>
-                            </div>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {extAgents.map(agent => (
+                    <div key={agent.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d border border-white/50 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
+                            <User className="w-6 h-6" />
                         </div>
-                    ))}
-                    {extAgents.length === 0 && (
-                        <div className="col-span-full text-center py-10 text-gray-400">
-                            لا توجد أرقام معقبين حالياً.
+                        <div>
+                            <h3 className="font-bold text-gray-800">{agent.name}</h3>
+                            <p className="text-gray-500 text-sm font-mono" dir="ltr">{agent.phone}</p>
                         </div>
-                    )}
-                </div>
+                    </div>
+                ))}
+                {extAgents.length === 0 && (
+                    <div className="col-span-full text-center py-10 text-gray-400">
+                        لا توجد أرقام معقبين حالياً.
+                    </div>
+                )}
             </div>
-        ) : (
-            <div 
-                onClick={() => navigate('/?openPro=true')}
-                className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50 cursor-pointer hover:bg-yellow-50/50 transition-colors group"
-            >
-                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
-                <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
-            </div>
-        )
+        </div>
       ) : (
-        canAccessFeature('lessons') ? (
-            <div className="space-y-6">
-                <div className="space-y-4">
-                    {lessons.map(lesson => (
-                        <div key={lesson.id} className="bg-[#eef2f6] p-6 rounded-2xl shadow-3d border border-white/50">
-                            <div className="flex items-center gap-3 mb-3">
-                                <BookOpen className="w-5 h-5 text-orange-600" />
-                                <h3 className="font-bold text-gray-800 text-lg">{lesson.title}</h3>
-                            </div>
-                            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
-                            <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-400">
-                                تم النشر: {new Date(lesson.createdAt).toLocaleDateString('ar-SA')}
-                            </div>
+        <div className="space-y-6">
+            <div className="space-y-4">
+                {lessons.map(lesson => (
+                    <div key={lesson.id} className="bg-[#eef2f6] p-6 rounded-2xl shadow-3d border border-white/50">
+                        <div className="flex items-center gap-3 mb-3">
+                            <BookOpen className="w-5 h-5 text-orange-600" />
+                            <h3 className="font-bold text-gray-800 text-lg">{lesson.title}</h3>
                         </div>
-                    ))}
-                    {lessons.length === 0 && (
-                        <div className="text-center py-10 text-gray-400">
-                            لا توجد دروس حالياً.
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{lesson.content}</p>
+                        <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-400">
+                            تم النشر: {new Date(lesson.createdAt).toLocaleDateString('ar-SA')}
                         </div>
-                    )}
-                </div>
+                    </div>
+                ))}
+                {lessons.length === 0 && (
+                    <div className="text-center py-10 text-gray-400">
+                        لا توجد دروس حالياً.
+                    </div>
+                )}
             </div>
-        ) : (
-            <div 
-                onClick={() => navigate('/?openPro=true')}
-                className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50 cursor-pointer hover:bg-yellow-50/50 transition-colors group"
-            >
-                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
-                <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
-            </div>
-        )
+        </div>
       )}
     </div>
   );
