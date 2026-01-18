@@ -618,7 +618,7 @@ export const logoutUser = () => {
 
 export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('transactions')
       .insert([
         {
@@ -636,16 +636,18 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           status: tx.status,
           agent_paid: tx.agentPaid || false,
           client_refunded: tx.clientRefunded || false,
-          created_by: tx.createdBy 
+          created_by: tx.createdBy || '' 
         }
-      ]);
+      ])
+      .select()
+      .single();
 
     if (error) {
       console.error('Supabase Insert Error (Transactions):', JSON.stringify(error, null, 2));
       return { success: false, error: error.message };
     }
     
-    return { success: true };
+    return { success: true, data };
   } catch (err: any) {
     console.error('Error syncing transaction (Exception):', err);
     return { success: false, error: err.message || 'Unknown error' };
@@ -757,7 +759,7 @@ export const updateTransactionStatusInCloud = async (id: number, updates: Partia
 
 export const addExpenseToCloud = async (expense: Expense, userId: number) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('expenses')
       .insert([
         {
@@ -766,16 +768,18 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           amount: expense.amount,
           bank: expense.bank,
           date: new Date(expense.date).toISOString(),
-          created_by: expense.createdBy
+          created_by: expense.createdBy || '' 
         }
-      ]);
+      ])
+      .select()
+      .single();
 
     if (error) {
       console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
       return { success: false, error: error.message };
     }
     
-    return { success: true };
+    return { success: true, data };
   } catch (err: any) {
     console.error('Error syncing expense (Exception):', err);
     return { success: false, error: err.message || 'Unknown error' };
@@ -827,7 +831,7 @@ export const deleteExpenseFromCloud = async (id: number) => {
 
 export const addAgentToCloud = async (agent: Agent, userId: number) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('agents')
       .insert([
         {
@@ -835,17 +839,19 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
           name: agent.name,
           phone: agent.phone,
           whatsapp: agent.whatsapp,
-          created_by: agent.createdBy,
+          created_by: agent.createdBy || '', 
           created_at: new Date(agent.createdAt).toISOString()
         }
-      ]);
+      ])
+      .select()
+      .single();
 
     if (error) {
       console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
       return { success: false, error: error.message };
     }
     
-    return { success: true };
+    return { success: true, data };
   } catch (err: any) {
     console.error('Error syncing agent (Exception):', err);
     return { success: false, error: err.message || 'Unknown error' };
@@ -919,7 +925,7 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
 
 export const addClientToCloud = async (client: Client, userId: number) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('clients')
       .insert([
         {
@@ -927,17 +933,19 @@ export const addClientToCloud = async (client: Client, userId: number) => {
           name: client.name,
           phone: client.phone,
           whatsapp: client.whatsapp,
-          created_by: client.createdBy,
+          created_by: client.createdBy || '',
           created_at: new Date(client.createdAt).toISOString()
         }
-      ]);
+      ])
+      .select()
+      .single();
 
     if (error) {
       console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
       return { success: false, error: error.message };
     }
     
-    return { success: true };
+    return { success: true, data };
   } catch (err: any) {
     console.error('Error syncing client (Exception):', err);
     return { success: false, error: err.message || 'Unknown error' };

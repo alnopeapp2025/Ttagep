@@ -154,6 +154,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     if (!currentUser) return;
+    const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
 
     const channel = supabase
       .channel('transactions-realtime')
@@ -163,10 +164,10 @@ export default function TransactionsPage() {
           event: '*',
           schema: 'public',
           table: 'transactions',
-          filter: `user_id=eq.${currentUser.id}`
+          filter: `user_id=eq.${targetId}`
         },
         (payload) => {
-          fetchTransactionsFromCloud(currentUser.id).then(data => {
+          fetchTransactionsFromCloud(targetId).then(data => {
             setTransactions(data);
           });
         }
@@ -347,6 +348,7 @@ export default function TransactionsPage() {
     setErrors({});
   };
 
+  // ... (Rest of the component remains unchanged)
   const handleEditTransaction = (tx: Transaction) => {
       setEditingTx(tx);
       const isStandardType = transactionTypesList.includes(tx.type);

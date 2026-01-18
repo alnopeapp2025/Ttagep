@@ -45,9 +45,10 @@ function AgentsPage() {
     setBalances(getStoredBalances());
     const loadData = async () => {
         if (user) {
-            const cloudAgents = await fetchAgentsFromCloud(user.id);
+            const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+            const cloudAgents = await fetchAgentsFromCloud(targetId);
             setAgents(cloudAgents);
-            const cloudTxs = await fetchTransactionsFromCloud(user.id);
+            const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs); 
         } else {
@@ -60,6 +61,7 @@ function AgentsPage() {
 
   useEffect(() => {
     if (!currentUser) return;
+    const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
     const channel = supabase
       .channel('agents-realtime')
       .on(
@@ -68,10 +70,10 @@ function AgentsPage() {
           event: '*',
           schema: 'public',
           table: 'agents',
-          filter: `user_id=eq.${currentUser.id}`
+          filter: `user_id=eq.${targetId}`
         },
         (payload) => {
-          fetchAgentsFromCloud(currentUser.id).then(data => {
+          fetchAgentsFromCloud(targetId).then(data => {
             setAgents(data);
           });
         }
@@ -190,7 +192,8 @@ function AgentsPage() {
         };
         
         if (currentUser) {
-            const result = await addAgentToCloud(newAgent, currentUser.id);
+            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+            const result = await addAgentToCloud(newAgent, targetId);
             if (!result.success) {
                 alert(`فشل إضافة المعقب: ${result.error}`);
                 setLoading(false);
@@ -214,6 +217,7 @@ function AgentsPage() {
     setEditingAgent(null);
   };
 
+  // ... (Rest of the component remains unchanged)
   const handleAgentClick = (agent: Agent) => {
     const filtered = allTransactions.filter(t => t.agent === agent.name);
     setAgentTxs(filtered); 

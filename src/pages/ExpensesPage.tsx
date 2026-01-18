@@ -57,6 +57,7 @@ export default function ExpensesPage() {
   // Realtime Subscription Effect
   useEffect(() => {
     if (!currentUser) return;
+    const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
 
     // Subscribe to changes in 'expenses' table for this user
     const channel = supabase
@@ -67,12 +68,11 @@ export default function ExpensesPage() {
           event: '*', // Listen to INSERT, DELETE, UPDATE
           schema: 'public',
           table: 'expenses',
-          filter: `user_id=eq.${currentUser.id}` // Only listen for current user's data
+          filter: `user_id=eq.${targetId}` // Only listen for current user's data
         },
         (payload) => {
-          console.log('Realtime change detected:', payload);
           // When a change is detected, re-fetch the list
-          fetchExpensesFromCloud(currentUser.id).then(data => {
+          fetchExpensesFromCloud(targetId).then(data => {
             setExpenses(data);
           });
         }
@@ -132,7 +132,6 @@ export default function ExpensesPage() {
             setBalances(newBalances);
             
             // Realtime subscription will automatically update the list
-            console.log('Expense saved to cloud, waiting for realtime update...');
         } else {
             // Show error if cloud save fails
             setErrorMsg(`فشل حفظ المصروف: ${result.error}`);
@@ -283,6 +282,7 @@ export default function ExpensesPage() {
                             <span>•</span>
                             <span className="flex items-center gap-1"><Wallet className="w-3 h-3"/> {exp.bank || 'غير محدد'}</span>
                         </div>
+                        {exp.createdBy && <p className="text-[10px] text-gray-400 mt-1">بواسطة: {exp.createdBy}</p>}
                     </div>
                 </div>
                 <div className="flex items-center gap-4">

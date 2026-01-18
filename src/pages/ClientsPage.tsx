@@ -46,15 +46,11 @@ function ClientsPage() {
     
     const loadData = async () => {
         if (user) {
-            // Determine the correct User ID (Target ID)
-            // If employee, use parentId. If owner/golden/member, use own id.
             const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
             
-            // Fetch Clients linked to this ID
             const cloudClients = await fetchClientsFromCloud(targetId);
             setClients(cloudClients);
             
-            // Fetch Transactions linked to this ID
             const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs);
@@ -79,7 +75,7 @@ function ClientsPage() {
           event: '*',
           schema: 'public',
           table: 'clients',
-          filter: `user_id=eq.${targetId}` // Filter by correct User ID
+          filter: `user_id=eq.${targetId}`
         },
         (payload) => {
           fetchClientsFromCloud(targetId).then(data => {
@@ -228,6 +224,7 @@ function ClientsPage() {
     setEditingClient(null);
   };
 
+  // ... (Rest of the component code remains the same)
   const handleClientClick = (client: Client) => {
     const filtered = allTransactions.filter(t => t.clientName === client.name);
     setClientTxs(filtered); 
