@@ -43,11 +43,19 @@ function ClientsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setPendingBalances(getStoredPendingBalances());
+    
     const loadData = async () => {
         if (user) {
-            const cloudClients = await fetchClientsFromCloud(user.id);
+            // Determine the correct User ID (Target ID)
+            // If employee, use parentId. If owner/golden/member, use own id.
+            const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+            
+            // Fetch Clients linked to this ID
+            const cloudClients = await fetchClientsFromCloud(targetId);
             setClients(cloudClients);
-            const cloudTxs = await fetchTransactionsFromCloud(user.id);
+            
+            // Fetch Transactions linked to this ID
+            const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs);
         } else {
@@ -60,6 +68,9 @@ function ClientsPage() {
 
   useEffect(() => {
     if (!currentUser) return;
+    
+    const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+
     const channel = supabase
       .channel('clients-realtime')
       .on(
@@ -68,10 +79,10 @@ function ClientsPage() {
           event: '*',
           schema: 'public',
           table: 'clients',
-          filter: `user_id=eq.${currentUser.id}`
+          filter: `user_id=eq.${targetId}` // Filter by correct User ID
         },
         (payload) => {
-          fetchClientsFromCloud(currentUser.id).then(data => {
+          fetchClientsFromCloud(targetId).then(data => {
             setClients(data);
           });
         }
@@ -190,12 +201,15 @@ function ClientsPage() {
         };
         
         if (currentUser) {
-            const result = await addClientToCloud(newClient, currentUser.id);
+            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+            const result = await addClientToCloud(newClient, targetId);
+            
             if (!result.success) {
                 alert(`فشل إضافة العميل: ${result.error}`);
                 setLoading(false);
                 return;
             }
+            // Realtime will update the list, but we can optimistically update
             const updatedClients = [newClient, ...clients];
             setClients(updatedClients);
         } else {
