@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, CheckCircle2, Send, X, Contact, ArrowDownLeft, AlertCircle } from 'lucide-react';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, CheckCircle2, Send, X, Contact, ArrowDownLeft, AlertCircle, Pencil, Trash2 } from 'lucide-react';
 import { 
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, saveStoredTransactions, Transaction,
@@ -8,7 +8,7 @@ import {
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit
+  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,9 @@ function ClientsPage() {
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+
+  // Edit Mode
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -120,7 +123,6 @@ function ClientsPage() {
       }
     } catch (ex) {
       console.error(ex);
-      // More friendly error message for APK users
       alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
     }
   };
@@ -149,26 +151,48 @@ function ClientsPage() {
     }
     setErrors(newErrors);
     if (hasError) return;
-    const newClient: Client = {
-      id: Date.now(),
-      name: newClientName,
-      phone: newClientPhone ? `966${newClientPhone}` : '',
-      whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
-      createdAt: Date.now(),
-      createdBy: currentUser?.officeName
-    };
-    const updatedClients = [newClient, ...clients];
-    setClients(updatedClients);
-    if (currentUser) {
-        await addClientToCloud(newClient, currentUser.id);
+
+    if (editingClient) {
+        // Update
+        const updatedClient: Client = {
+            ...editingClient,
+            name: newClientName,
+            phone: newClientPhone ? `966${newClientPhone}` : '',
+            whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : ''
+        };
+        const updatedClients = clients.map(c => c.id === editingClient.id ? updatedClient : c);
+        setClients(updatedClients);
+
+        if (currentUser) {
+            await updateClientInCloud(updatedClient);
+        } else {
+            saveStoredClients(updatedClients);
+        }
     } else {
-        saveStoredClients(updatedClients);
+        // Create
+        const newClient: Client = {
+            id: Date.now(),
+            name: newClientName,
+            phone: newClientPhone ? `966${newClientPhone}` : '',
+            whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
+            createdAt: Date.now(),
+            createdBy: currentUser?.officeName
+        };
+        const updatedClients = [newClient, ...clients];
+        setClients(updatedClients);
+        if (currentUser) {
+            await addClientToCloud(newClient, currentUser.id);
+        } else {
+            saveStoredClients(updatedClients);
+        }
     }
+
     setNewClientName('');
     setNewClientPhone('');
     setNewClientWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
+    setEditingClient(null);
   };
 
   const handleClientClick = (client: Client) => {
@@ -179,6 +203,35 @@ function ClientsPage() {
     setRefundError('');
     setSelectedBank('');
     setPendingBalances(getStoredPendingBalances());
+  };
+
+  const handleEditClient = (e: React.MouseEvent, client: Client) => {
+      e.stopPropagation();
+      setEditingClient(client);
+      setNewClientName(client.name);
+      
+      let phone = client.phone || '';
+      if(phone.startsWith('966')) phone = phone.substring(3);
+      setNewClientPhone(phone);
+
+      let wa = client.whatsapp || '';
+      if(wa.startsWith('966')) wa = wa.substring(3);
+      setNewClientWhatsapp(wa);
+
+      setOpen(true);
+  };
+
+  const handleDeleteClient = async (e: React.MouseEvent, id: number) => {
+      e.stopPropagation();
+      if(confirm('هل أنت متأكد من حذف هذا العميل؟')) {
+          const updatedClients = clients.filter(c => c.id !== id);
+          setClients(updatedClients);
+          if(currentUser) {
+              await deleteClientFromCloud(id);
+          } else {
+              saveStoredClients(updatedClients);
+          }
+      }
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -261,8 +314,14 @@ function ClientsPage() {
             />
         </div>
         <Dialog open={open} onOpenChange={(val) => {
-            if(val && !checkAddPermission()) return;
+            if(val && !checkAddPermission() && !editingClient) return;
             setOpen(val);
+            if(!val) {
+                setEditingClient(null);
+                setNewClientName('');
+                setNewClientPhone('');
+                setNewClientWhatsapp('');
+            }
         }}>
             <DialogTrigger asChild>
                 <button className="bg-blue-600 text-white px-6 rounded-xl font-bold shadow-3d hover:bg-blue-700 flex items-center gap-2">
@@ -271,14 +330,16 @@ function ClientsPage() {
                 </button>
             </DialogTrigger>
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
-                <DialogHeader><DialogTitle>إضافة عميل جديد</DialogTitle></DialogHeader>
-                <button 
-                    onClick={handleImportContact}
-                    className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
-                >
-                    <Contact className="w-4 h-4" />
-                    أو من الهاتف
-                </button>
+                <DialogHeader><DialogTitle>{editingClient ? 'تعديل بيانات العميل' : 'إضافة عميل جديد'}</DialogTitle></DialogHeader>
+                {!editingClient && (
+                    <button 
+                        onClick={handleImportContact}
+                        className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
+                    >
+                        <Contact className="w-4 h-4" />
+                        أو من الهاتف
+                    </button>
+                )}
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label>اسم العميل</Label>
@@ -328,7 +389,7 @@ function ClientsPage() {
                         onClick={handleAddClient} 
                         className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                     >
-                        حفظ
+                        {editingClient ? 'تحديث' : 'حفظ'}
                     </button>
                 </div>
             </DialogContent>
@@ -339,7 +400,7 @@ function ClientsPage() {
             <div 
                 key={client.id} 
                 onClick={() => handleClientClick(client)}
-                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50"
+                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50 relative group"
             >
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
@@ -353,20 +414,32 @@ function ClientsPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={(e) => handleEditClient(e, client)}
+                        className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-100"
+                    >
+                        <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={(e) => handleDeleteClient(e, client.id)}
+                        className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm hover:bg-red-100"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                     {client.phone && (
                         <button 
                             onClick={(e) => handlePhoneClick(e, client.phone)}
-                            className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                            className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
                         >
-                            <Phone className="w-5 h-5" />
+                            <Phone className="w-4 h-4" />
                         </button>
                     )}
                     {client.whatsapp && (
                         <button 
                             onClick={(e) => handleWhatsAppClick(e, client.whatsapp)}
-                            className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                            className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
                         >
-                            <MessageCircle className="w-5 h-5" />
+                            <MessageCircle className="w-4 h-4" />
                         </button>
                     )}
                 </div>

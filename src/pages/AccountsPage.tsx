@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { 
   BANKS_LIST, 
   getStoredBalances, 
@@ -45,6 +45,7 @@ export default function AccountsPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [zeroOpen, setZeroOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
+  const [zeroSuccess, setZeroSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Transfer Form
@@ -170,25 +171,27 @@ export default function AccountsPage() {
   };
 
   const handleZeroTreasury = async () => {
-    if (confirm("تحذير هام: سيتم حذف جميع الأرصدة وتصفير الخزينة نهائياً. هل أنت متأكد؟")) {
-        const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
-        
-        setBalances(zeroed);
-        setPendingBalances(zeroed);
-        calculateTotals(zeroed, zeroed);
+    const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
+    
+    setBalances(zeroed);
+    setPendingBalances(zeroed);
+    calculateTotals(zeroed, zeroed);
 
-        if (currentUser) {
-            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-            for (const bank of BANKS_LIST) {
-                await updateAccountInCloud(targetId, bank, 0, 0);
-            }
-        } else {
-            saveStoredBalances(zeroed);
-            saveStoredPendingBalances(zeroed);
+    if (currentUser) {
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        for (const bank of BANKS_LIST) {
+            await updateAccountInCloud(targetId, bank, 0, 0);
         }
-        
-        setZeroOpen(false);
+    } else {
+        saveStoredBalances(zeroed);
+        saveStoredPendingBalances(zeroed);
     }
+    
+    setZeroSuccess(true);
+    setTimeout(() => {
+        setZeroSuccess(false);
+        setZeroOpen(false);
+    }, 2000);
   };
 
   // Sort banks by balance (Highest first)
@@ -376,13 +379,22 @@ export default function AccountsPage() {
       <Dialog open={zeroOpen} onOpenChange={setZeroOpen}>
         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
             <DialogHeader><DialogTitle className="text-red-600">تصفير الخزينة</DialogTitle></DialogHeader>
-            <div className="py-6 text-center">
-                <p className="font-bold text-gray-700 mb-4">هل أنت متأكد من رغبتك في تصفير جميع الحسابات؟</p>
-                <div className="flex gap-3 justify-center">
-                    <button onClick={handleZeroTreasury} className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold shadow-lg">نعم، تصفير</button>
-                    <button onClick={() => setZeroOpen(false)} className="px-6 py-2 bg-gray-300 text-gray-700 rounded-xl font-bold">إلغاء</button>
+            {zeroSuccess ? (
+                <div className="py-10 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+                    <div className="w-20 h-20 bg-[#eef2f6] rounded-full shadow-3d flex items-center justify-center mb-4 text-green-500 border-4 border-green-100">
+                        <CheckCircle2 className="w-10 h-10" strokeWidth={3} />
+                    </div>
+                    <h3 className="text-xl font-bold text-green-600">تم تصفير الخزينة بنجاح</h3>
                 </div>
-            </div>
+            ) : (
+                <div className="py-6 text-center">
+                    <p className="font-bold text-gray-700 mb-4">هل أنت متأكد من رغبتك في تصفير جميع الحسابات؟</p>
+                    <div className="flex gap-3 justify-center">
+                        <button onClick={handleZeroTreasury} className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold shadow-lg">نعم، تصفير</button>
+                        <button onClick={() => setZeroOpen(false)} className="px-6 py-2 bg-gray-300 text-gray-700 rounded-xl font-bold">إلغاء</button>
+                    </div>
+                </div>
+            )}
         </DialogContent>
       </Dialog>
     </div>

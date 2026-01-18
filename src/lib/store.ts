@@ -24,39 +24,39 @@ export interface Transaction {
   status: 'active' | 'completed' | 'cancelled';
   agentPaid?: boolean;
   clientRefunded?: boolean;
-  createdBy?: string; // User who created this record
+  createdBy?: string; 
 }
 
 export interface User {
   id: number;
   officeName: string;
   phone: string;
-  passwordHash: string; // Hashed Password
+  passwordHash: string; 
   securityQuestion: string;
   securityAnswer: string;
   createdAt: number;
-  role?: 'member' | 'golden' | 'employee'; // Added Roles
-  parentId?: number; // For Employees linked to Golden Member
-  permissions?: string[]; // Specific permissions for employees
-  subscriptionExpiry?: number; // Timestamp for subscription end
+  role?: 'member' | 'golden' | 'employee'; 
+  parentId?: number; 
+  permissions?: string[]; 
+  subscriptionExpiry?: number; 
 }
 
 export interface Client {
   id: number;
   name: string;
-  phone?: string;     // Mobile Number
-  whatsapp?: string;  // WhatsApp Number
+  phone?: string;     
+  whatsapp?: string;  
   createdAt: number;
-  createdBy?: string; // Added for logs
+  createdBy?: string; 
 }
 
 export interface Agent {
   id: number;
   name: string;
-  phone?: string;     // Mobile Number
-  whatsapp?: string;  // WhatsApp Number
+  phone?: string;     
+  whatsapp?: string;  
   createdAt: number;
-  createdBy?: string; // Added for logs
+  createdBy?: string; 
 }
 
 export interface Expense {
@@ -65,10 +65,9 @@ export interface Expense {
   amount: number;
   bank: string;
   date: number;
-  createdBy?: string; // Added for logs
+  createdBy?: string; 
 }
 
-// New Types for Achievers Hub
 export interface ExternalAgent {
   id: number;
   name: string;
@@ -83,7 +82,6 @@ export interface Lesson {
   createdAt: number;
 }
 
-// New Type for Agent Transfers Report
 export interface AgentTransferRecord {
   id: number;
   agentName: string;
@@ -91,10 +89,9 @@ export interface AgentTransferRecord {
   bank: string;
   date: number;
   transactionCount: number;
-  createdBy?: string; // User who performed the transfer
+  createdBy?: string; 
 }
 
-// New Type for Client Refunds Report
 export interface ClientRefundRecord {
   id: number;
   clientName: string;
@@ -116,12 +113,11 @@ export interface SubscriptionRequest {
   duration: 'شهر' | 'سنة';
   status: 'pending' | 'approved';
   createdAt: number;
-  bank?: string; // Bank selected by user
+  bank?: string; 
 }
 
 export interface GlobalSettings {
-  adminPasswordHash: string; // Default: 1234 hashed
-  // Limits for Visitors and Members
+  adminPasswordHash: string; 
   limits: {
       visitor: {
           transactions: number;
@@ -134,7 +130,6 @@ export interface GlobalSettings {
           agents: number;
       };
   };
-  // Page Access (Who can enter the page)
   pagePermissions: {
     transactions: UserRole[];
     accounts: UserRole[];
@@ -145,17 +140,16 @@ export interface GlobalSettings {
     expenses: UserRole[];
     calculator: UserRole[];
   };
-  // Feature Access (Who can click specific buttons)
   featurePermissions: {
-    backup: UserRole[];         // النسخ الاحتياطي
-    employeeLogin: UserRole[];  // دخول الموظفين
-    whatsapp: UserRole[];       // واتساب للعميل
-    print: UserRole[];          // طباعة
-    transfer: UserRole[];       // تحويل بين البنوك
-    deleteExpense: UserRole[];  // حذف مصروف
-    achieversNumbers: UserRole[]; // أرقام معقبين منجزين
-    lessons: UserRole[];        // تعلم الخدمات العامة
-    monthStats: UserRole[];     // إحصائيات الشهر (معاملات/أرباح)
+    backup: UserRole[];         
+    employeeLogin: UserRole[];  
+    whatsapp: UserRole[];       
+    print: UserRole[];          
+    transfer: UserRole[];       
+    deleteExpense: UserRole[];  
+    achieversNumbers: UserRole[]; 
+    lessons: UserRole[];        
+    monthStats: UserRole[];     
   };
 }
 
@@ -175,20 +169,18 @@ const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
 const LESSONS_KEY = 'moaqeb_lessons_v1';
 const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
-const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
+const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v3'; // Updated key
+const SETTINGS_KEY = 'moaqeb_global_settings_v3'; 
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
-const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; // Updated to store object with expiry
+const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
 // --- User Management (Supabase Auth) ---
 
-// Simple Hash Function
 const hashPassword = (pwd: string) => {
   return btoa(pwd).split('').reverse().join(''); 
 };
 
-// Default Settings
 const DEFAULT_SETTINGS: GlobalSettings = {
   adminPasswordHash: hashPassword('1234'),
   limits: {
@@ -206,12 +198,10 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     calculator: ['visitor', 'member', 'golden', 'employee'],
   },
   featurePermissions: {
-    // Open for all as requested
     backup: ['visitor', 'member', 'golden', 'employee'],
     employeeLogin: ['visitor', 'member', 'golden', 'employee'],
     whatsapp: ['visitor', 'member', 'golden', 'employee'],
     print: ['visitor', 'member', 'golden', 'employee'],
-    // Restricted features
     transfer: ['golden', 'employee'],
     deleteExpense: ['golden', 'employee'],
     achieversNumbers: ['golden', 'employee'],
@@ -225,7 +215,6 @@ export const getGlobalSettings = (): GlobalSettings => {
     const stored = localStorage.getItem(SETTINGS_KEY);
     if (stored) {
         const parsed = JSON.parse(stored);
-        // Merge with default to ensure new keys exist
         return { 
             ...DEFAULT_SETTINGS, 
             ...parsed,
@@ -266,7 +255,6 @@ export const checkLimit = (role: UserRole, type: 'transactions' | 'clients' | 'a
 
 export const createSubscriptionRequest = (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     const requests: SubscriptionRequest[] = getSubscriptionRequests();
-    // Check if pending request exists
     if (requests.find(r => r.userId === userId && r.status === 'pending')) {
         return { success: false, message: 'لديك طلب قيد المراجعة بالفعل' };
     }
@@ -321,11 +309,9 @@ export const approveSubscription = async (requestId: number) => {
 
     const req = requests[reqIndex];
     
-    // Calculate Expiry
     const durationMs = req.duration === 'سنة' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
     const expiryDate = Date.now() + durationMs;
 
-    // 1. Update User Role in DB (Supabase)
     try {
         const { error } = await supabase
             .from('users')
@@ -339,7 +325,6 @@ export const approveSubscription = async (requestId: number) => {
             console.error("Supabase update error:", error);
         }
 
-        // Fallback or Local Storage Logic (Keep local sync as well)
         const goldenUsers = getGoldenUsers();
         const filtered = goldenUsers.filter(u => u.userId !== req.userId);
         filtered.push({ userId: req.userId, expiry: expiryDate, userName: req.userName });
@@ -349,7 +334,6 @@ export const approveSubscription = async (requestId: number) => {
         console.error(e);
     }
 
-    // 2. Remove from requests
     const updatedRequests = requests.filter(r => r.id !== requestId);
     localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(updatedRequests));
     
@@ -357,12 +341,10 @@ export const approveSubscription = async (requestId: number) => {
 };
 
 export const cancelSubscription = async (userId: number) => {
-    // 1. Remove from Local Storage Golden List
     const goldenUsers = getGoldenUsers();
     const updatedGolden = goldenUsers.filter(u => u.userId !== userId);
     localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(updatedGolden));
 
-    // 2. Update Supabase
     try {
         await supabase
             .from('users')
@@ -424,7 +406,6 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
 };
 
 export const createEmployee = async (employeeData: { name: string, password: string, permissions: string[] }, parentUser: User) => {
-    // Check limit (Max 2)
     const employees = getStoredEmployees();
     const myEmployees = employees.filter(e => e.parentId === parentUser.id);
     
@@ -437,7 +418,7 @@ export const createEmployee = async (employeeData: { name: string, password: str
     const newUser: User = {
         id: Date.now(),
         officeName: employeeData.name,
-        phone: fakePhone, // Internal ID
+        phone: fakePhone, 
         passwordHash: hashPassword(employeeData.password),
         securityQuestion: 'Employee',
         securityAnswer: 'Employee',
@@ -464,11 +445,9 @@ export const loginUser = async (phone: string, password: string) => {
   try {
     const passwordHash = hashPassword(password);
 
-    // 1. Check Employees (Local)
     const employees = getStoredEmployees();
     const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash);
     if (emp) {
-         // Employee inherits subscription expiry from Parent if parent is Golden
          const goldenUsers = getGoldenUsers();
          const parentGolden = goldenUsers.find(u => u.userId === emp.parentId);
          if (parentGolden && parentGolden.expiry > Date.now()) {
@@ -480,7 +459,6 @@ export const loginUser = async (phone: string, password: string) => {
          return { success: true, user: emp };
     }
 
-    // 2. Check Database Users
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -492,17 +470,14 @@ export const loginUser = async (phone: string, password: string) => {
       return { success: false, message: 'بيانات الدخول غير صحيحة' };
     }
 
-    // Parse Expiry
     let expiry = null;
     if (data.subscription_expiry) {
         expiry = new Date(data.subscription_expiry).getTime();
     }
 
-    // Determine Role based on DB + Expiry
     let role = data.role || 'member';
     if (role === 'golden' && expiry && expiry < Date.now()) {
-        role = 'member'; // Expired
-        // Optionally update DB here to reflect expiration
+        role = 'member'; 
     }
 
     const user: User = {
@@ -517,7 +492,6 @@ export const loginUser = async (phone: string, password: string) => {
         subscriptionExpiry: expiry || undefined
     };
     
-    // Sync Local Golden List (Backup)
     if (role === 'golden' && expiry) {
         const goldenUsers = getGoldenUsers();
         if (!goldenUsers.find(u => u.userId === user.id)) {
@@ -534,7 +508,6 @@ export const loginUser = async (phone: string, password: string) => {
   }
 };
 
-// ... [Rest of the file remains unchanged] ...
 export const changePassword = async (phone: string, oldPass: string, newPass: string) => {
   try {
     const oldHash = hashPassword(oldPass);
@@ -649,7 +622,6 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
       .select();
 
     if (error) {
-      // Fallback for schema mismatch
       if (error.code === '42703') {
           const { error: retryError } = await supabase.from('transactions').insert([{
               user_id: userId,
@@ -681,6 +653,48 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
   }
 };
 
+export const updateTransactionInCloud = async (tx: Transaction) => {
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update({
+                type: tx.type,
+                client_price: tx.clientPrice,
+                agent_price: tx.agentPrice,
+                agent: tx.agent,
+                client_name: tx.clientName,
+                duration: tx.duration,
+                payment_method: tx.paymentMethod,
+                target_date: tx.targetDate,
+                status: tx.status
+            })
+            .eq('id', tx.id);
+        
+        if (error) {
+            console.error('Update transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update transaction exception:', err);
+        return false;
+    }
+};
+
+export const deleteTransactionFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('transactions').delete().eq('id', id);
+        if (error) {
+            console.error('Delete transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete transaction exception:', err);
+        return false;
+    }
+};
+
 export const fetchTransactionsFromCloud = async (userId: number): Promise<Transaction[]> => {
   try {
     const { data, error } = await supabase
@@ -709,7 +723,7 @@ export const fetchTransactionsFromCloud = async (userId: number): Promise<Transa
       status: item.status,
       agentPaid: item.agent_paid,
       clientRefunded: item.client_refunded,
-      createdBy: item.created_by // Map back if exists
+      createdBy: item.created_by 
     }));
   } catch (err) {
     console.error('Fetch transactions exception:', err);
@@ -759,7 +773,6 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
       .select();
 
     if (error) {
-      // Fallback
       if (error.code === '42703') {
           await supabase.from('expenses').insert([{
               user_id: userId,
@@ -860,6 +873,42 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
   }
 };
 
+export const updateAgentInCloud = async (agent: Agent) => {
+    try {
+        const { error } = await supabase
+            .from('agents')
+            .update({
+                name: agent.name,
+                phone: agent.phone,
+                whatsapp: agent.whatsapp
+            })
+            .eq('id', agent.id);
+        
+        if (error) {
+            console.error('Update agent error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update agent exception:', err);
+        return false;
+    }
+};
+
+export const deleteAgentFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('agents').delete().eq('id', id);
+        if (error) {
+            console.error('Delete agent error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete agent exception:', err);
+        return false;
+    }
+};
+
 export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => {
   try {
     const { data, error } = await supabase
@@ -923,6 +972,42 @@ export const addClientToCloud = async (client: Client, userId: number) => {
     console.error('Error syncing client (Exception):', err);
     return false;
   }
+};
+
+export const updateClientInCloud = async (client: Client) => {
+    try {
+        const { error } = await supabase
+            .from('clients')
+            .update({
+                name: client.name,
+                phone: client.phone,
+                whatsapp: client.whatsapp
+            })
+            .eq('id', client.id);
+        
+        if (error) {
+            console.error('Update client error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update client exception:', err);
+        return false;
+    }
+};
+
+export const deleteClientFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('clients').delete().eq('id', id);
+        if (error) {
+            console.error('Delete client error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete client exception:', err);
+        return false;
+    }
 };
 
 export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> => {
@@ -1172,7 +1257,7 @@ export const calculateAchievers = (transactions: Transaction[]) => {
 
   return Object.entries(achievers)
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.total - a.total); // Sort by revenue
+    .sort((a, b) => b.total - a.total); 
 };
 
 // --- Backup & Restore & Delete ---

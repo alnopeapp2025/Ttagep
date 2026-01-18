@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact, AlertCircle } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact, AlertCircle, Pencil, Trash2 } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, saveStoredTransactions, Transaction,
@@ -8,7 +8,7 @@ import {
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit
+  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit, updateAgentInCloud, deleteAgentFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,9 @@ function AgentsPage() {
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  
+  // Edit Mode
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -120,7 +123,6 @@ function AgentsPage() {
       }
     } catch (ex) {
       console.error(ex);
-      // More friendly error message for APK users
       alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
     }
   };
@@ -149,26 +151,49 @@ function AgentsPage() {
     }
     setErrors(newErrors);
     if (hasError) return;
-    const newAgent: Agent = {
-      id: Date.now(),
-      name: newAgentName,
-      phone: newAgentPhone ? `966${newAgentPhone}` : '',
-      whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
-      createdAt: Date.now(),
-      createdBy: currentUser?.officeName
-    };
-    const updatedAgents = [newAgent, ...agents];
-    setAgents(updatedAgents);
-    if (currentUser) {
-        await addAgentToCloud(newAgent, currentUser.id);
+
+    if (editingAgent) {
+        // Update
+        const updatedAgent: Agent = {
+            ...editingAgent,
+            name: newAgentName,
+            phone: newAgentPhone ? `966${newAgentPhone}` : '',
+            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : ''
+        };
+        
+        const updatedAgents = agents.map(a => a.id === editingAgent.id ? updatedAgent : a);
+        setAgents(updatedAgents);
+
+        if (currentUser) {
+            await updateAgentInCloud(updatedAgent);
+        } else {
+            saveStoredAgents(updatedAgents);
+        }
     } else {
-        saveStoredAgents(updatedAgents);
+        // Create
+        const newAgent: Agent = {
+            id: Date.now(),
+            name: newAgentName,
+            phone: newAgentPhone ? `966${newAgentPhone}` : '',
+            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
+            createdAt: Date.now(),
+            createdBy: currentUser?.officeName
+        };
+        const updatedAgents = [newAgent, ...agents];
+        setAgents(updatedAgents);
+        if (currentUser) {
+            await addAgentToCloud(newAgent, currentUser.id);
+        } else {
+            saveStoredAgents(updatedAgents);
+        }
     }
+
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
+    setEditingAgent(null);
   };
 
   const handleAgentClick = (agent: Agent) => {
@@ -179,6 +204,35 @@ function AgentsPage() {
     setTransferError('');
     setSelectedBank('');
     setBalances(getStoredBalances());
+  };
+
+  const handleEditAgent = (e: React.MouseEvent, agent: Agent) => {
+      e.stopPropagation();
+      setEditingAgent(agent);
+      setNewAgentName(agent.name);
+      
+      let phone = agent.phone || '';
+      if(phone.startsWith('966')) phone = phone.substring(3);
+      setNewAgentPhone(phone);
+
+      let wa = agent.whatsapp || '';
+      if(wa.startsWith('966')) wa = wa.substring(3);
+      setNewAgentWhatsapp(wa);
+
+      setOpen(true);
+  };
+
+  const handleDeleteAgent = async (e: React.MouseEvent, id: number) => {
+      e.stopPropagation();
+      if(confirm('هل أنت متأكد من حذف هذا المعقب؟')) {
+          const updatedAgents = agents.filter(a => a.id !== id);
+          setAgents(updatedAgents);
+          if(currentUser) {
+              await deleteAgentFromCloud(id);
+          } else {
+              saveStoredAgents(updatedAgents);
+          }
+      }
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -265,8 +319,14 @@ function AgentsPage() {
             />
         </div>
         <Dialog open={open} onOpenChange={(val) => {
-            if(val && !checkAddPermission()) return;
+            if(val && !checkAddPermission() && !editingAgent) return;
             setOpen(val);
+            if(!val) {
+                setEditingAgent(null);
+                setNewAgentName('');
+                setNewAgentPhone('');
+                setNewAgentWhatsapp('');
+            }
         }}>
             <DialogTrigger asChild>
                 <button className="bg-blue-600 text-white px-6 rounded-xl font-bold shadow-3d hover:bg-blue-700 flex items-center gap-2">
@@ -275,14 +335,16 @@ function AgentsPage() {
                 </button>
             </DialogTrigger>
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
-                <DialogHeader><DialogTitle>إضافة معقب جديد</DialogTitle></DialogHeader>
-                <button 
-                    onClick={handleImportContact}
-                    className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
-                >
-                    <Contact className="w-4 h-4" />
-                    أو من الهاتف
-                </button>
+                <DialogHeader><DialogTitle>{editingAgent ? 'تعديل بيانات المعقب' : 'إضافة معقب جديد'}</DialogTitle></DialogHeader>
+                {!editingAgent && (
+                    <button 
+                        onClick={handleImportContact}
+                        className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
+                    >
+                        <Contact className="w-4 h-4" />
+                        أو من الهاتف
+                    </button>
+                )}
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label>اسم المعقب</Label>
@@ -332,7 +394,7 @@ function AgentsPage() {
                         onClick={handleAddAgent} 
                         className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                     >
-                        حفظ
+                        {editingAgent ? 'تحديث' : 'حفظ'}
                     </button>
                 </div>
             </DialogContent>
@@ -343,7 +405,7 @@ function AgentsPage() {
             <div 
                 key={agent.id} 
                 onClick={() => handleAgentClick(agent)}
-                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50"
+                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50 relative group"
             >
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shadow-sm">
@@ -357,26 +419,39 @@ function AgentsPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={(e) => handleEditAgent(e, agent)}
+                        className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-100"
+                    >
+                        <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={(e) => handleDeleteAgent(e, agent.id)}
+                        className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm hover:bg-red-100"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                     {agent.phone && (
                         <button 
                             onClick={(e) => handlePhoneClick(e, agent.phone)}
-                            className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                            className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
                         >
-                            <Phone className="w-5 h-5" />
+                            <Phone className="w-4 h-4" />
                         </button>
                     )}
                     {agent.whatsapp && (
                         <button 
                             onClick={(e) => handleWhatsAppClick(e, agent.whatsapp)}
-                            className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                            className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
                         >
-                            <MessageCircle className="w-5 h-5" />
+                            <MessageCircle className="w-4 h-4" />
                         </button>
                     )}
                 </div>
             </div>
         ))}
       </div>
+      {/* ... (Rest of the component remains unchanged) ... */}
       <Dialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ import {
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
   fetchAccountsFromCloud, updateAccountInCloud,
-  Transaction, getGlobalSettings, GlobalSettings, checkLimit
+  Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
@@ -102,6 +102,9 @@ export default function TransactionsPage() {
   const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
+  // Edit Mode State
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
   const [formData, setFormData] = useState({
     manualType: '',
     selectedType: '',
@@ -245,42 +248,69 @@ export default function TransactionsPage() {
     const clientP = parseFloat(formData.clientPrice) || 0;
     const agentP = formData.agent === 'إنجاز بنفسي' ? 0 : (parseFloat(formData.agentPrice) || 0);
     
-    const newTx: Transaction = {
-      id: Date.now(),
-      serialNo: String(transactions.length + 1).padStart(4, '0'),
-      type: finalType,
-      clientPrice: formData.clientPrice,
-      agentPrice: formData.agent === 'إنجاز بنفسي' ? '0' : formData.agentPrice,
-      agent: formData.agent,
-      clientName: formData.clientName || 'عميل عام',
-      duration: formData.duration,
-      paymentMethod: formData.paymentMethod,
-      createdAt: Date.now(),
-      targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
-      status: 'active',
-      agentPaid: false,
-      clientRefunded: false,
-      createdBy: currentUser?.officeName
-    };
+    if (editingTx) {
+        // Update Existing
+        const updatedTx: Transaction = {
+            ...editingTx,
+            type: finalType,
+            clientPrice: formData.clientPrice,
+            agentPrice: formData.agent === 'إنجاز بنفسي' ? '0' : formData.agentPrice,
+            agent: formData.agent,
+            clientName: formData.clientName || 'عميل عام',
+            duration: formData.duration,
+            paymentMethod: formData.paymentMethod,
+            targetDate: editingTx.createdAt + (durationDays * 24 * 60 * 60 * 1000), // Recalculate target based on original creation
+        };
 
-    const bank = formData.paymentMethod;
-    const newPending = { ...pendingBalances };
-    newPending[bank] = (newPending[bank] || 0) + clientP;
-    setPendingBalances(newPending);
+        const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
+        setTransactions(updatedTxs);
 
-    const updatedTxs = [newTx, ...transactions];
-    setTransactions(updatedTxs);
-    
-    if (currentUser) {
-        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        await addTransactionToCloud(newTx, targetId);
-        await updateAccountInCloud(targetId, bank, balances[bank] || 0, newPending[bank]);
+        if (currentUser) {
+            await updateTransactionInCloud(updatedTx);
+        } else {
+            saveStoredTransactions(updatedTxs);
+        }
+
     } else {
-        saveStoredTransactions(updatedTxs);
-        saveStoredPendingBalances(newPending);
+        // Create New
+        const newTx: Transaction = {
+            id: Date.now(),
+            serialNo: String(transactions.length + 1).padStart(4, '0'),
+            type: finalType,
+            clientPrice: formData.clientPrice,
+            agentPrice: formData.agent === 'إنجاز بنفسي' ? '0' : formData.agentPrice,
+            agent: formData.agent,
+            clientName: formData.clientName || 'عميل عام',
+            duration: formData.duration,
+            paymentMethod: formData.paymentMethod,
+            createdAt: Date.now(),
+            targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
+            status: 'active',
+            agentPaid: false,
+            clientRefunded: false,
+            createdBy: currentUser?.officeName
+        };
+
+        const bank = formData.paymentMethod;
+        const newPending = { ...pendingBalances };
+        newPending[bank] = (newPending[bank] || 0) + clientP;
+        setPendingBalances(newPending);
+
+        const updatedTxs = [newTx, ...transactions];
+        setTransactions(updatedTxs);
+        
+        if (currentUser) {
+            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+            await addTransactionToCloud(newTx, targetId);
+            await updateAccountInCloud(targetId, bank, balances[bank] || 0, newPending[bank]);
+        } else {
+            saveStoredTransactions(updatedTxs);
+            saveStoredPendingBalances(newPending);
+        }
     }
 
     setOpen(false);
+    setEditingTx(null);
     
     setFormData({
       manualType: '',
@@ -293,6 +323,37 @@ export default function TransactionsPage() {
       paymentMethod: ''
     });
     setErrors({});
+  };
+
+  const handleEditTransaction = (tx: Transaction) => {
+      setEditingTx(tx);
+      const isStandardType = transactionTypesList.includes(tx.type);
+      setInputTypeMode(isStandardType ? 'select' : 'manual');
+      
+      setFormData({
+          manualType: isStandardType ? '' : tx.type,
+          selectedType: isStandardType ? tx.type : '',
+          agentPrice: tx.agentPrice,
+          clientPrice: tx.clientPrice,
+          agent: tx.agent,
+          clientName: tx.clientName || '',
+          duration: tx.duration,
+          paymentMethod: tx.paymentMethod
+      });
+      setOpen(true);
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+      if(confirm('هل أنت متأكد من حذف هذه المعاملة نهائياً؟')) {
+          const updatedTxs = transactions.filter(t => t.id !== id);
+          setTransactions(updatedTxs);
+          
+          if(currentUser) {
+              await deleteTransactionFromCloud(id);
+          } else {
+              saveStoredTransactions(updatedTxs);
+          }
+      }
   };
 
   const validateSaudiNumber = (num: string) => {
@@ -490,12 +551,10 @@ export default function TransactionsPage() {
 
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
-  // FIX: Improved printing for Android WebView
   const handlePrint = (tx: Transaction) => {
     setPrintTx(tx);
     setTimeout(() => {
         try {
-            // Focus window before print to help some Android WebViews
             window.focus();
             window.print();
         } catch (e) {
@@ -570,8 +629,21 @@ export default function TransactionsPage() {
 
       <div className="mb-6">
         <Dialog open={open} onOpenChange={(val) => {
-            if(val && !checkAddPermission()) return;
+            if(val && !checkAddPermission() && !editingTx) return;
             setOpen(val);
+            if(!val) {
+                setEditingTx(null);
+                setFormData({
+                    manualType: '',
+                    selectedType: '',
+                    agentPrice: '',
+                    clientPrice: '',
+                    agent: '',
+                    clientName: '',
+                    duration: '',
+                    paymentMethod: ''
+                });
+            }
         }}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all w-full sm:w-auto justify-center">
@@ -584,7 +656,9 @@ export default function TransactionsPage() {
           
           <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg" dir="rtl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-gray-800 text-center mb-1">بيانات المعاملة</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-gray-800 text-center mb-1">
+                  {editingTx ? 'تعديل المعاملة' : 'بيانات المعاملة'}
+              </DialogTitle>
               <DialogDescription className="hidden">Form</DialogDescription>
             </DialogHeader>
 
@@ -630,6 +704,7 @@ export default function TransactionsPage() {
                     </div>
                  ) : (
                     <Select 
+                        value={formData.selectedType}
                         onValueChange={(val) => {
                             setFormData({...formData, selectedType: val});
                             if(errors.type) setErrors({...errors, type: ''});
@@ -893,6 +968,7 @@ export default function TransactionsPage() {
                 <div className="space-y-1">
                   <Label className="text-gray-700 font-bold text-xs">طريقة الدفع</Label>
                   <Select 
+                    value={formData.paymentMethod}
                     onValueChange={(val) => {
                         setFormData({...formData, paymentMethod: val});
                         if(errors.paymentMethod) setErrors({...errors, paymentMethod: ''});
@@ -920,7 +996,7 @@ export default function TransactionsPage() {
                 onClick={handleSave}
                 className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm"
               >
-                حفظ المعاملة
+                {editingTx ? 'تحديث' : 'حفظ المعاملة'}
               </button>
             </DialogFooter>
           </DialogContent>
@@ -987,7 +1063,17 @@ export default function TransactionsPage() {
                 
                 <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                     <DialogHeader>
-                        <DialogTitle className="text-center font-bold text-gray-800">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
+                        <div className="flex justify-between items-center mb-2">
+                            <DialogTitle className="text-center font-bold text-gray-800 flex-1">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleEditTransaction(tx)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors">
+                                    <Pencil className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleDeleteTransaction(tx.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
