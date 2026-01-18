@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Award, Plus, Phone, BookOpen, User, Lock } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from '@/components/ui/textarea';
+import { ArrowRight, Phone, BookOpen, User, Lock } from 'lucide-react';
 import { 
-    getStoredExtAgents, saveStoredExtAgents, 
-    getStoredLessons, saveStoredLessons, 
+    getStoredExtAgents, 
+    getStoredLessons, 
     ExternalAgent, Lesson,
     getGlobalSettings, getCurrentUser
 } from '@/lib/store';
@@ -22,52 +18,12 @@ export default function AchieversHub() {
   const [settings, setSettings] = useState(getGlobalSettings());
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
-  // Forms
-  const [newAgentName, setNewAgentName] = useState('');
-  const [newAgentPhone, setNewAgentPhone] = useState('');
-  const [newLessonTitle, setNewLessonTitle] = useState('');
-  const [newLessonContent, setNewLessonContent] = useState('');
-  const [openAgent, setOpenAgent] = useState(false);
-  const [openLesson, setOpenLesson] = useState(false);
-
   useEffect(() => {
     setExtAgents(getStoredExtAgents());
     setLessons(getStoredLessons());
     setSettings(getGlobalSettings());
     setCurrentUser(getCurrentUser());
   }, []);
-
-  const handleAddAgent = () => {
-    if(!newAgentName || !newAgentPhone) return;
-    const newAgent: ExternalAgent = {
-        id: Date.now(),
-        name: newAgentName,
-        phone: newAgentPhone,
-        createdAt: Date.now()
-    };
-    const updated = [newAgent, ...extAgents];
-    setExtAgents(updated);
-    saveStoredExtAgents(updated);
-    setNewAgentName('');
-    setNewAgentPhone('');
-    setOpenAgent(false);
-  };
-
-  const handleAddLesson = () => {
-    if(!newLessonTitle || !newLessonContent) return;
-    const newLesson: Lesson = {
-        id: Date.now(),
-        title: newLessonTitle,
-        content: newLessonContent,
-        createdAt: Date.now()
-    };
-    const updated = [newLesson, ...lessons];
-    setLessons(updated);
-    saveStoredLessons(updated);
-    setNewLessonTitle('');
-    setNewLessonContent('');
-    setOpenLesson(false);
-  };
 
   // Permission Check
   const canAccessFeature = (feature: 'achieversNumbers' | 'lessons') => {
@@ -110,28 +66,7 @@ export default function AchieversHub() {
       {activeTab === 'numbers' ? (
         canAccessFeature('achieversNumbers') ? (
             <div className="space-y-6">
-                <Dialog open={openAgent} onOpenChange={setOpenAgent}>
-                    <DialogTrigger asChild>
-                        <button className="w-full py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
-                            <Plus className="w-5 h-5" />
-                            أضف معقب منجز
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
-                        <DialogHeader><DialogTitle>إضافة معقب جديد</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>اسم المعقب</Label>
-                                <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} className="bg-white shadow-3d-inset border-none" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>رقم الهاتف</Label>
-                                <Input value={newAgentPhone} onChange={(e) => setNewAgentPhone(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="05xxxxxxxx" />
-                            </div>
-                            <button onClick={handleAddAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                {/* Add Button Removed Here */}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {extAgents.map(agent => (
@@ -145,6 +80,11 @@ export default function AchieversHub() {
                             </div>
                         </div>
                     ))}
+                    {extAgents.length === 0 && (
+                        <div className="col-span-full text-center py-10 text-gray-400">
+                            لا توجد أرقام معقبين حالياً.
+                        </div>
+                    )}
                 </div>
             </div>
         ) : (
@@ -157,33 +97,7 @@ export default function AchieversHub() {
       ) : (
         canAccessFeature('lessons') ? (
             <div className="space-y-6">
-                <Dialog open={openLesson} onOpenChange={setOpenLesson}>
-                    <DialogTrigger asChild>
-                        <button className="w-full py-4 rounded-2xl bg-[#eef2f6] text-orange-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
-                            <Plus className="w-5 h-5" />
-                            أضف درس جديد
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-lg" dir="rtl">
-                        <DialogHeader><DialogTitle>إضافة درس تعليمي</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>عنوان الدرس</Label>
-                                <Input value={newLessonTitle} onChange={(e) => setNewLessonTitle(e.target.value)} className="bg-white shadow-3d-inset border-none" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>نص الدرس</Label>
-                                <Textarea 
-                                    value={newLessonContent} 
-                                    onChange={(e) => setNewLessonContent(e.target.value)} 
-                                    className="bg-white shadow-3d-inset border-none h-40 resize-none" 
-                                    placeholder="اكتب تفاصيل الدرس هنا..."
-                                />
-                            </div>
-                            <button onClick={handleAddLesson} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg">نشر الدرس</button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                {/* Add Button Removed Here */}
 
                 <div className="space-y-4">
                     {lessons.map(lesson => (
@@ -198,6 +112,11 @@ export default function AchieversHub() {
                             </div>
                         </div>
                     ))}
+                    {lessons.length === 0 && (
+                        <div className="text-center py-10 text-gray-400">
+                            لا توجد دروس حالياً.
+                        </div>
+                    )}
                 </div>
             </div>
         ) : (
