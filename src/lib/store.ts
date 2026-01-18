@@ -767,7 +767,7 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           title: expense.title,
           amount: expense.amount,
           bank: expense.bank,
-          date: new Date(expense.date).toISOString(),
+          date: expense.date, // FIX: Send timestamp as number to match bigint column
           created_by: expense.createdBy || '' 
         }
       ])
