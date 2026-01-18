@@ -71,7 +71,9 @@ export interface Expense {
 export interface ExternalAgent {
   id: number;
   name: string;
-  phone: string;
+  phone: string; // Call number
+  whatsapp?: string; // WhatsApp number
+  services?: string; // Services provided
   createdAt: number;
 }
 
