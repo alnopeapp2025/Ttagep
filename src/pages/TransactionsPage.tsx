@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -82,6 +82,7 @@ export default function TransactionsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Financial State
   const [balances, setBalances] = useState<Record<string, number>>({});
@@ -243,6 +244,8 @@ export default function TransactionsPage() {
   const handleSave = async () => {
     if (!validateForm()) return;
 
+    setLoading(true);
+
     const finalType = inputTypeMode === 'manual' ? formData.manualType : formData.selectedType;
     const durationDays = parseInt(formData.duration) || 0;
     const clientP = parseFloat(formData.clientPrice) || 0;
@@ -262,12 +265,19 @@ export default function TransactionsPage() {
             targetDate: editingTx.createdAt + (durationDays * 24 * 60 * 60 * 1000), // Recalculate target based on original creation
         };
 
-        const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
-        setTransactions(updatedTxs);
-
         if (currentUser) {
-            await updateTransactionInCloud(updatedTx);
+            const success = await updateTransactionInCloud(updatedTx);
+            if (!success) {
+                alert("فشل تحديث المعاملة في قاعدة البيانات. يرجى التحقق من الاتصال.");
+                setLoading(false);
+                return;
+            }
+            // Update local state only after success
+            const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
+            setTransactions(updatedTxs);
         } else {
+            const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
+            setTransactions(updatedTxs);
             saveStoredTransactions(updatedTxs);
         }
 
@@ -294,21 +304,33 @@ export default function TransactionsPage() {
         const bank = formData.paymentMethod;
         const newPending = { ...pendingBalances };
         newPending[bank] = (newPending[bank] || 0) + clientP;
-        setPendingBalances(newPending);
-
-        const updatedTxs = [newTx, ...transactions];
-        setTransactions(updatedTxs);
         
         if (currentUser) {
             const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-            await addTransactionToCloud(newTx, targetId);
+            const result = await addTransactionToCloud(newTx, targetId);
+            
+            if (!result.success) {
+                alert(`فشل حفظ المعاملة في قاعدة البيانات: ${result.error || 'خطأ غير معروف'}`);
+                setLoading(false);
+                return;
+            }
+
+            // Success - Update State
+            setPendingBalances(newPending);
+            const updatedTxs = [newTx, ...transactions];
+            setTransactions(updatedTxs);
+            
             await updateAccountInCloud(targetId, bank, balances[bank] || 0, newPending[bank]);
         } else {
+            const updatedTxs = [newTx, ...transactions];
+            setTransactions(updatedTxs);
+            setPendingBalances(newPending);
             saveStoredTransactions(updatedTxs);
             saveStoredPendingBalances(newPending);
         }
     }
 
+    setLoading(false);
     setOpen(false);
     setEditingTx(null);
     
@@ -345,12 +367,18 @@ export default function TransactionsPage() {
 
   const handleDeleteTransaction = async (id: number) => {
       if(confirm('هل أنت متأكد من حذف هذه المعاملة نهائياً؟')) {
+          if(currentUser) {
+              const success = await deleteTransactionFromCloud(id);
+              if (!success) {
+                  alert("فشل حذف المعاملة من قاعدة البيانات.");
+                  return;
+              }
+          }
+          
           const updatedTxs = transactions.filter(t => t.id !== id);
           setTransactions(updatedTxs);
           
-          if(currentUser) {
-              await deleteTransactionFromCloud(id);
-          } else {
+          if(!currentUser) {
               saveStoredTransactions(updatedTxs);
           }
       }
@@ -434,15 +462,19 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
     
-    const updated = [newClient, ...clients];
-    setClients(updated);
-    
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        await addClientToCloud(newClient, targetId);
-    } else {
-        saveStoredClients(updated);
+        const result = await addClientToCloud(newClient, targetId);
+        if (!result.success) {
+            alert(`فشل إضافة العميل: ${result.error}`);
+            return;
+        }
     }
+    
+    // Update local state after success (or immediately for visitor)
+    const updated = [newClient, ...clients];
+    setClients(updated);
+    if (!currentUser) saveStoredClients(updated);
     
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
@@ -487,17 +519,20 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
 
-    const updatedAgents = [newAgent, ...agents];
-    setAgents(updatedAgents);
-    setFormData(prev => ({ ...prev, agent: newAgentName }));
-
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        await addAgentToCloud(newAgent, targetId);
-    } else {
-        saveStoredAgents(updatedAgents);
+        const result = await addAgentToCloud(newAgent, targetId);
+        if (!result.success) {
+            alert(`فشل إضافة المعقب: ${result.error}`);
+            return;
+        }
     }
 
+    const updatedAgents = [newAgent, ...agents];
+    setAgents(updatedAgents);
+    if (!currentUser) saveStoredAgents(updatedAgents);
+
+    setFormData(prev => ({ ...prev, agent: newAgentName }));
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
@@ -528,6 +563,19 @@ export default function TransactionsPage() {
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
     }
 
+    if (currentUser) {
+        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+        const success = await updateTransactionStatusInCloud(id, { status: newStatus });
+        
+        if (!success) {
+            alert("فشل تحديث الحالة في قاعدة البيانات.");
+            return;
+        }
+
+        await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, newPending[bank] || 0);
+    }
+
+    // Update Local State
     setPendingBalances(newPending);
     setBalances(newBalances);
     updateBalancesDisplay(newBalances);
@@ -538,11 +586,7 @@ export default function TransactionsPage() {
     );
     setTransactions(updatedTxs);
 
-    if (currentUser) {
-        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        await updateTransactionStatusInCloud(id, { status: newStatus });
-        await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, newPending[bank] || 0);
-    } else {
+    if (!currentUser) {
         saveStoredTransactions(updatedTxs);
         saveStoredPendingBalances(newPending);
         saveStoredBalances(newBalances);
@@ -994,9 +1038,10 @@ export default function TransactionsPage() {
             <DialogFooter className="flex justify-center mt-4">
               <button 
                 onClick={handleSave}
-                className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm"
+                disabled={loading}
+                className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                {editingTx ? 'تحديث' : 'حفظ المعاملة'}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTx ? 'تحديث' : 'حفظ المعاملة')}
               </button>
             </DialogFooter>
           </DialogContent>

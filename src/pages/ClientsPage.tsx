@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, CheckCircle2, Send, X, Contact, ArrowDownLeft, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, CheckCircle2, Send, X, Contact, ArrowDownLeft, AlertCircle, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { 
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, saveStoredTransactions, Transaction,
@@ -34,6 +34,7 @@ function ClientsPage() {
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Edit Mode
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -152,6 +153,8 @@ function ClientsPage() {
     setErrors(newErrors);
     if (hasError) return;
 
+    setLoading(true);
+
     if (editingClient) {
         // Update
         const updatedClient: Client = {
@@ -160,12 +163,19 @@ function ClientsPage() {
             phone: newClientPhone ? `966${newClientPhone}` : '',
             whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : ''
         };
-        const updatedClients = clients.map(c => c.id === editingClient.id ? updatedClient : c);
-        setClients(updatedClients);
-
+        
         if (currentUser) {
-            await updateClientInCloud(updatedClient);
+            const success = await updateClientInCloud(updatedClient);
+            if (!success) {
+                alert("فشل تحديث العميل في قاعدة البيانات.");
+                setLoading(false);
+                return;
+            }
+            const updatedClients = clients.map(c => c.id === editingClient.id ? updatedClient : c);
+            setClients(updatedClients);
         } else {
+            const updatedClients = clients.map(c => c.id === editingClient.id ? updatedClient : c);
+            setClients(updatedClients);
             saveStoredClients(updatedClients);
         }
     } else {
@@ -178,15 +188,24 @@ function ClientsPage() {
             createdAt: Date.now(),
             createdBy: currentUser?.officeName
         };
-        const updatedClients = [newClient, ...clients];
-        setClients(updatedClients);
+        
         if (currentUser) {
-            await addClientToCloud(newClient, currentUser.id);
+            const result = await addClientToCloud(newClient, currentUser.id);
+            if (!result.success) {
+                alert(`فشل إضافة العميل: ${result.error}`);
+                setLoading(false);
+                return;
+            }
+            const updatedClients = [newClient, ...clients];
+            setClients(updatedClients);
         } else {
+            const updatedClients = [newClient, ...clients];
+            setClients(updatedClients);
             saveStoredClients(updatedClients);
         }
     }
 
+    setLoading(false);
     setNewClientName('');
     setNewClientPhone('');
     setNewClientWhatsapp('');
@@ -224,11 +243,16 @@ function ClientsPage() {
   const handleDeleteClient = async (e: React.MouseEvent, id: number) => {
       e.stopPropagation();
       if(confirm('هل أنت متأكد من حذف هذا العميل؟')) {
+          if(currentUser) {
+              const success = await deleteClientFromCloud(id);
+              if (!success) {
+                  alert("فشل حذف العميل من قاعدة البيانات.");
+                  return;
+              }
+          }
           const updatedClients = clients.filter(c => c.id !== id);
           setClients(updatedClients);
-          if(currentUser) {
-              await deleteClientFromCloud(id);
-          } else {
+          if(!currentUser) {
               saveStoredClients(updatedClients);
           }
       }
@@ -387,9 +411,10 @@ function ClientsPage() {
                     </div>
                     <button 
                         onClick={handleAddClient} 
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+                        disabled={loading}
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
                     >
-                        {editingClient ? 'تحديث' : 'حفظ'}
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingClient ? 'تحديث' : 'حفظ')}
                     </button>
                 </div>
             </DialogContent>

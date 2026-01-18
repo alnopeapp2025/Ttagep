@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact, AlertCircle, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, saveStoredTransactions, Transaction,
@@ -34,6 +34,7 @@ function AgentsPage() {
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
   
   // Edit Mode
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -152,6 +153,8 @@ function AgentsPage() {
     setErrors(newErrors);
     if (hasError) return;
 
+    setLoading(true);
+
     if (editingAgent) {
         // Update
         const updatedAgent: Agent = {
@@ -161,12 +164,18 @@ function AgentsPage() {
             whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : ''
         };
         
-        const updatedAgents = agents.map(a => a.id === editingAgent.id ? updatedAgent : a);
-        setAgents(updatedAgents);
-
         if (currentUser) {
-            await updateAgentInCloud(updatedAgent);
+            const success = await updateAgentInCloud(updatedAgent);
+            if (!success) {
+                alert("فشل تحديث المعقب في قاعدة البيانات.");
+                setLoading(false);
+                return;
+            }
+            const updatedAgents = agents.map(a => a.id === editingAgent.id ? updatedAgent : a);
+            setAgents(updatedAgents);
         } else {
+            const updatedAgents = agents.map(a => a.id === editingAgent.id ? updatedAgent : a);
+            setAgents(updatedAgents);
             saveStoredAgents(updatedAgents);
         }
     } else {
@@ -179,15 +188,24 @@ function AgentsPage() {
             createdAt: Date.now(),
             createdBy: currentUser?.officeName
         };
-        const updatedAgents = [newAgent, ...agents];
-        setAgents(updatedAgents);
+        
         if (currentUser) {
-            await addAgentToCloud(newAgent, currentUser.id);
+            const result = await addAgentToCloud(newAgent, currentUser.id);
+            if (!result.success) {
+                alert(`فشل إضافة المعقب: ${result.error}`);
+                setLoading(false);
+                return;
+            }
+            const updatedAgents = [newAgent, ...agents];
+            setAgents(updatedAgents);
         } else {
+            const updatedAgents = [newAgent, ...agents];
+            setAgents(updatedAgents);
             saveStoredAgents(updatedAgents);
         }
     }
 
+    setLoading(false);
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
@@ -225,11 +243,16 @@ function AgentsPage() {
   const handleDeleteAgent = async (e: React.MouseEvent, id: number) => {
       e.stopPropagation();
       if(confirm('هل أنت متأكد من حذف هذا المعقب؟')) {
+          if(currentUser) {
+              const success = await deleteAgentFromCloud(id);
+              if (!success) {
+                  alert("فشل حذف المعقب من قاعدة البيانات.");
+                  return;
+              }
+          }
           const updatedAgents = agents.filter(a => a.id !== id);
           setAgents(updatedAgents);
-          if(currentUser) {
-              await deleteAgentFromCloud(id);
-          } else {
+          if(!currentUser) {
               saveStoredAgents(updatedAgents);
           }
       }
@@ -392,9 +415,10 @@ function AgentsPage() {
                     </div>
                     <button 
                         onClick={handleAddAgent} 
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+                        disabled={loading}
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
                     >
-                        {editingAgent ? 'تحديث' : 'حفظ'}
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingAgent ? 'تحديث' : 'حفظ')}
                     </button>
                 </div>
             </DialogContent>

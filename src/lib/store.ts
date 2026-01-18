@@ -642,13 +642,13 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
 
     if (error) {
       console.error('Supabase Insert Error (Transactions):', JSON.stringify(error, null, 2));
-      return false;
+      return { success: false, error: error.message };
     }
     
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Error syncing transaction (Exception):', err);
-    return false;
+    return { success: false, error: err.message || 'Unknown error' };
   }
 };
 
@@ -772,13 +772,13 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
 
     if (error) {
       console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
-      return false;
+      return { success: false, error: error.message };
     }
     
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Error syncing expense (Exception):', err);
-    return false;
+    return { success: false, error: err.message || 'Unknown error' };
   }
 };
 
@@ -842,13 +842,13 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
 
     if (error) {
       console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
-      return false;
+      return { success: false, error: error.message };
     }
     
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Error syncing agent (Exception):', err);
-    return false;
+    return { success: false, error: err.message || 'Unknown error' };
   }
 };
 
@@ -934,13 +934,13 @@ export const addClientToCloud = async (client: Client, userId: number) => {
 
     if (error) {
       console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
-      return false;
+      return { success: false, error: error.message };
     }
     
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Error syncing client (Exception):', err);
-    return false;
+    return { success: false, error: err.message || 'Unknown error' };
   }
 };
 

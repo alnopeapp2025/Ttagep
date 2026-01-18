@@ -109,12 +109,6 @@ export default function ExpensesPage() {
 
     setLoading(true);
 
-    // Update Balance (Locally for now to reflect immediately)
-    const newBalances = { ...balances };
-    newBalances[selectedBank] = currentBalance - cost;
-    saveStoredBalances(newBalances);
-    setBalances(newBalances);
-
     // Prepare Expense Object
     const newExp: Expense = {
       id: Date.now(), // Temporary ID for local, DB will generate its own
@@ -128,19 +122,30 @@ export default function ExpensesPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         // 1. Save to Cloud
-        const success = await addExpenseToCloud(newExp, targetId);
-        if (success) {
-            // Success: Realtime subscription will automatically update the list
+        const result = await addExpenseToCloud(newExp, targetId);
+        
+        if (result.success) {
+            // Success: Update local balance immediately
+            const newBalances = { ...balances };
+            newBalances[selectedBank] = currentBalance - cost;
+            saveStoredBalances(newBalances);
+            setBalances(newBalances);
+            
+            // Realtime subscription will automatically update the list
             console.log('Expense saved to cloud, waiting for realtime update...');
         } else {
             // Show error if cloud save fails
-            setErrorMsg("فشل حفظ المصروف في قاعدة البيانات. يرجى التأكد من الاتصال والمحاولة مرة أخرى.");
+            setErrorMsg(`فشل حفظ المصروف: ${result.error}`);
             setLoading(false);
-            // Revert balance change locally if needed
             return;
         }
     } else {
         // 2. Save Locally (Visitor)
+        const newBalances = { ...balances };
+        newBalances[selectedBank] = currentBalance - cost;
+        saveStoredBalances(newBalances);
+        setBalances(newBalances);
+
         const updated = [newExp, ...expenses];
         setExpenses(updated);
         saveStoredExpenses(updated);
@@ -168,8 +173,10 @@ export default function ExpensesPage() {
 
     if (currentUser) {
         // Delete from Cloud
-        await deleteExpenseFromCloud(id);
-        // Realtime subscription will update the list
+        const success = await deleteExpenseFromCloud(id);
+        if(!success) {
+            alert("فشل حذف المصروف من قاعدة البيانات");
+        }
     } else {
         // Delete Locally
         const updatedExpenses = expenses.filter(e => e.id !== id);
