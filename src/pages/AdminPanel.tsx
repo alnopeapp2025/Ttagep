@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Lock, Unlock, Save, LayoutDashboard } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Lock, Unlock, Save, LayoutDashboard, Type, Palette } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -25,6 +25,13 @@ export default function AdminPanel() {
   const [newAdminPass, setNewAdminPass] = useState('');
   const [confirmAdminPass, setConfirmAdminPass] = useState('');
   const [passMsg, setPassMsg] = useState('');
+
+  // Appearance Settings
+  const [siteTitle, setSiteTitle] = useState(settings.siteTitle || 'مان هويات لمكاتب الخدمات');
+  const [marqueeText, setMarqueeText] = useState(settings.marquee?.text || 'مرحباً بكم في تطبيق مان هويات لمكاتب الخدمات');
+  const [marqueeBg, setMarqueeBg] = useState(settings.marquee?.bgColor || '#DC2626');
+  const [marqueeColor, setMarqueeColor] = useState(settings.marquee?.textColor || '#FFFFFF');
+  const [appearanceMsg, setAppearanceMsg] = useState('');
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -135,6 +142,22 @@ export default function AdminPanel() {
       setTimeout(() => setPassMsg(''), 3000);
   };
 
+  const handleSaveAppearance = () => {
+      const newSettings = { 
+          ...settings, 
+          siteTitle: siteTitle,
+          marquee: {
+              text: marqueeText,
+              bgColor: marqueeBg,
+              textColor: marqueeColor
+          }
+      };
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+      setAppearanceMsg('تم حفظ إعدادات المظهر بنجاح');
+      setTimeout(() => setAppearanceMsg(''), 3000);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
@@ -195,7 +218,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
+                <TabsList className="grid w-full grid-cols-4 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
@@ -204,6 +227,7 @@ export default function AdminPanel() {
                     </TabsTrigger>
                     <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
                     <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الإعدادات والصلاحيات</TabsTrigger>
+                    <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">إعدادات المظهر</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="requests">
@@ -481,6 +505,83 @@ export default function AdminPanel() {
                             {passMsg && <p className="text-green-600 font-bold text-sm mt-2">{passMsg}</p>}
                         </div>
 
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="appearance">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <Palette className="w-5 h-5 text-pink-600" />
+                            إعدادات المظهر العام
+                        </h3>
+
+                        <div className="space-y-6">
+                            {/* Site Title */}
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <Type className="w-4 h-4 text-gray-500" />
+                                    عنوان الموقع الرئيسي
+                                </Label>
+                                <Input 
+                                    value={siteTitle}
+                                    onChange={(e) => setSiteTitle(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none"
+                                />
+                            </div>
+
+                            {/* Marquee Settings */}
+                            <div className="border-t border-gray-200 pt-4 space-y-4">
+                                <Label className="text-base font-bold text-gray-700">شريط النص المتحرك</Label>
+                                
+                                <div className="space-y-2">
+                                    <Label>نص الشريط</Label>
+                                    <Input 
+                                        value={marqueeText}
+                                        onChange={(e) => setMarqueeText(e.target.value)}
+                                        className="bg-white shadow-3d-inset border-none"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>لون الخلفية (Hex Code)</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                value={marqueeBg}
+                                                onChange={(e) => setMarqueeBg(e.target.value)}
+                                                className="bg-white shadow-3d-inset border-none flex-1"
+                                                dir="ltr"
+                                            />
+                                            <div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: marqueeBg }}></div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>لون النص (Hex Code)</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                value={marqueeColor}
+                                                onChange={(e) => setMarqueeColor(e.target.value)}
+                                                className="bg-white shadow-3d-inset border-none flex-1"
+                                                dir="ltr"
+                                            />
+                                            <div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: marqueeColor }}></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleSaveAppearance}
+                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                حفظ التغييرات
+                            </button>
+                            
+                            {appearanceMsg && (
+                                <p className="text-green-600 font-bold text-center animate-in fade-in">{appearanceMsg}</p>
+                            )}
+                        </div>
                     </div>
                 </TabsContent>
             </Tabs>

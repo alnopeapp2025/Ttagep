@@ -343,10 +343,17 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen pb-10">
       
-      <div className="w-full bg-red-600 text-white py-2 mb-6 overflow-hidden shadow-sm border-b border-red-700/20">
+      <div 
+        className="w-full py-2 mb-6 overflow-hidden shadow-sm border-b"
+        style={{ 
+            backgroundColor: settings?.marquee?.bgColor || '#DC2626', 
+            color: settings?.marquee?.textColor || '#FFFFFF',
+            borderColor: `${settings?.marquee?.bgColor}33` 
+        }}
+      >
         <div className="marquee-container">
           <div className="marquee-content font-bold text-sm sm:text-base">
-            مرحباً بكم في تطبيق مان هويات لمكاتب الخدمات
+            {settings?.marquee?.text || 'مرحباً بكم في تطبيق مان هويات لمكاتب الخدمات'}
           </div>
         </div>
       </div>
@@ -355,7 +362,7 @@ export default function Dashboard() {
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
-              مان هويات لمكاتب الخدمات
+              {settings?.siteTitle || 'مان هويات لمكاتب الخدمات'}
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
               لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 1</span>

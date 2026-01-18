@@ -117,7 +117,13 @@ export interface SubscriptionRequest {
 }
 
 export interface GlobalSettings {
-  adminPasswordHash: string; 
+  adminPasswordHash: string;
+  siteTitle: string; // New: Site Title
+  marquee: {         // New: Marquee Settings
+      text: string;
+      bgColor: string;
+      textColor: string;
+  };
   limits: {
       visitor: {
           transactions: number;
@@ -175,6 +181,13 @@ const SETTINGS_KEY = 'moaqeb_global_settings_v3';
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
+// --- Helper for Date Parsing ---
+const parseDate = (val: any): number => {
+    if (!val) return Date.now();
+    if (typeof val === 'number') return val;
+    return new Date(val).getTime();
+};
+
 // --- User Management (Supabase Auth) ---
 
 const hashPassword = (pwd: string) => {
@@ -183,6 +196,12 @@ const hashPassword = (pwd: string) => {
 
 const DEFAULT_SETTINGS: GlobalSettings = {
   adminPasswordHash: hashPassword('1234'),
+  siteTitle: 'مان هويات لمكاتب الخدمات',
+  marquee: {
+      text: 'مرحباً بكم في تطبيق مان هويات لمكاتب الخدمات',
+      bgColor: '#DC2626', // red-600
+      textColor: '#FFFFFF' // white
+  },
   limits: {
       visitor: { transactions: 5, clients: 3, agents: 2 },
       member: { transactions: 20, clients: 10, agents: 5 }
@@ -218,6 +237,8 @@ export const getGlobalSettings = (): GlobalSettings => {
         return { 
             ...DEFAULT_SETTINGS, 
             ...parsed,
+            // Ensure nested objects are merged correctly
+            marquee: { ...DEFAULT_SETTINGS.marquee, ...(parsed.marquee || {}) },
             pagePermissions: { ...DEFAULT_SETTINGS.pagePermissions, ...(parsed.pagePermissions || {}) },
             featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) },
             limits: { ...DEFAULT_SETTINGS.limits, ...(parsed.limits || {}) }
@@ -718,8 +739,8 @@ export const fetchTransactionsFromCloud = async (userId: number): Promise<Transa
       clientName: item.client_name,
       duration: item.duration,
       paymentMethod: item.payment_method,
-      createdAt: Number(item.created_at),
-      targetDate: Number(item.target_date),
+      createdAt: parseDate(item.created_at), // FIX: Use parseDate to handle ISO strings or numbers
+      targetDate: parseDate(item.target_date), // FIX: Use parseDate
       status: item.status,
       agentPaid: item.agent_paid,
       clientRefunded: item.client_refunded,
@@ -812,7 +833,7 @@ export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]>
       title: item.title,
       amount: Number(item.amount),
       bank: item.bank,
-      date: Number(item.date),
+      date: parseDate(item.date), // FIX: Use parseDate
       createdBy: item.created_by
     }));
   } catch (err) {
@@ -927,7 +948,7 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: new Date(item.created_at).getTime(),
+      createdAt: parseDate(item.created_at), // FIX: Use parseDate
       createdBy: item.created_by
     }));
   } catch (err) {
@@ -1028,7 +1049,7 @@ export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> =
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: new Date(item.created_at).getTime(),
+      createdAt: parseDate(item.created_at), // FIX: Use parseDate
       createdBy: item.created_by
     }));
   } catch (err) {
