@@ -12,6 +12,7 @@ import {
   addExpenseToCloud,
   fetchExpensesFromCloud,
   deleteExpenseFromCloud,
+  fetchAccountsFromCloud, // Added to fetch latest balances
   User,
   getGlobalSettings,
   GlobalSettings
@@ -40,55 +41,76 @@ export default function ExpensesPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
+    
+    // Initial load from local storage
     setBalances(getStoredBalances());
 
     if (user) {
-        // If employee, use parentId
         const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+        
+        // Fetch Expenses
         fetchExpensesFromCloud(targetId).then(data => {
             setExpenses(data);
+        });
+
+        // Fetch Latest Balances (Important for the modal display)
+        fetchAccountsFromCloud(targetId).then(data => {
+            setBalances(data.balances);
         });
     } else {
         // Fetch from Local
         setExpenses(getStoredExpenses());
     }
-  }, [open]);
+  }, [open]); // Refresh when modal opens
 
   // Realtime Subscription Effect
   useEffect(() => {
     if (!currentUser) return;
     const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
 
-    // Subscribe to changes in 'expenses' table for this user
-    const channel = supabase
+    // Subscribe to changes in 'expenses' table
+    const expensesChannel = supabase
       .channel('expenses-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, DELETE, UPDATE
+          event: '*',
           schema: 'public',
           table: 'expenses',
-          filter: `user_id=eq.${targetId}` // Only listen for current user's data
+          filter: `user_id=eq.${targetId}`
         },
         (payload) => {
-          // When a change is detected, re-fetch the list
-          fetchExpensesFromCloud(targetId).then(data => {
-            setExpenses(data);
-          });
+          fetchExpensesFromCloud(targetId).then(data => setExpenses(data));
         }
       )
       .subscribe();
 
-    // Cleanup subscription on unmount or user change
+    // Subscribe to changes in 'accounts' table (to keep balances updated in realtime)
+    const accountsChannel = supabase
+      .channel('expenses-accounts-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `user_id=eq.${targetId}`
+        },
+        (payload) => {
+           fetchAccountsFromCloud(targetId).then(data => setBalances(data.balances));
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(expensesChannel);
+      supabase.removeChannel(accountsChannel);
     };
   }, [currentUser]);
 
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
-    // Golden and Employee always access everything
     if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
@@ -109,37 +131,31 @@ export default function ExpensesPage() {
 
     setLoading(true);
 
-    // Prepare Expense Object
     const newExp: Expense = {
-      id: Date.now(), // Temporary ID for local, DB will generate its own
+      id: Date.now(),
       title,
       amount: cost,
       bank: selectedBank,
       date: Date.now(),
-      createdBy: currentUser?.officeName // Save creator
+      createdBy: currentUser?.officeName
     };
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        // 1. Save to Cloud
         const result = await addExpenseToCloud(newExp, targetId);
         
         if (result.success) {
-            // Success: Update local balance immediately
+            // Optimistic update for balances
             const newBalances = { ...balances };
             newBalances[selectedBank] = currentBalance - cost;
             saveStoredBalances(newBalances);
             setBalances(newBalances);
-            
-            // Realtime subscription will automatically update the list
         } else {
-            // Show error if cloud save fails
             setErrorMsg(`فشل حفظ المصروف: ${result.error}`);
             setLoading(false);
             return;
         }
     } else {
-        // 2. Save Locally (Visitor)
         const newBalances = { ...balances };
         newBalances[selectedBank] = currentBalance - cost;
         saveStoredBalances(newBalances);
@@ -158,12 +174,17 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteExpense = async (id: number) => {
+    if(!canAccessFeature('deleteExpense')) {
+        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+        return;
+    }
+
     if(!confirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إعادة المبلغ للحساب.')) return;
 
     const expenseToDelete = expenses.find(e => e.id === id);
     if (!expenseToDelete) return;
 
-    // Refund balance (Add amount back to the bank)
+    // Optimistic Refund
     const currentBalance = balances[expenseToDelete.bank] || 0;
     const newBalances = { ...balances };
     newBalances[expenseToDelete.bank] = currentBalance + expenseToDelete.amount;
@@ -171,18 +192,19 @@ export default function ExpensesPage() {
     setBalances(newBalances);
 
     if (currentUser) {
-        // Delete from Cloud
         const success = await deleteExpenseFromCloud(id);
         if(!success) {
             alert("فشل حذف المصروف من قاعدة البيانات");
         }
     } else {
-        // Delete Locally
         const updatedExpenses = expenses.filter(e => e.id !== id);
         setExpenses(updatedExpenses);
         saveStoredExpenses(updatedExpenses);
     }
   };
+
+  // Calculate Total Treasury for Display
+  const totalTreasury = Object.values(balances).reduce((acc, val) => acc + val, 0);
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -209,7 +231,19 @@ export default function ExpensesPage() {
             </DialogTrigger>
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
                 <DialogHeader><DialogTitle>تسجيل مصروف</DialogTitle></DialogHeader>
-                <div className="space-y-4 py-4">
+                
+                {/* Total Treasury Display */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-2 flex justify-between items-center shadow-sm">
+                     <div className="flex items-center gap-2 text-blue-700">
+                         <Wallet className="w-5 h-5" />
+                         <span className="font-bold text-sm">رصيد الخزينة المتاح</span>
+                     </div>
+                     <span className="font-black text-xl text-blue-800">
+                         {totalTreasury.toLocaleString()} <span className="text-xs font-medium">ر.س</span>
+                     </span>
+                </div>
+
+                <div className="space-y-4 py-2">
                     <div className="space-y-2">
                         <Label>بيان المصروف</Label>
                         <Input 
@@ -234,17 +268,20 @@ export default function ExpensesPage() {
                             <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse">
                                 <SelectValue placeholder="اختر البنك للخصم" />
                             </SelectTrigger>
-                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                {BANKS_LIST.map((bank) => (
-                                    <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
-                                        <div className="flex justify-between w-full gap-4">
-                                            <span>{bank}</span>
-                                            <span className={`font-bold ${(balances[bank] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                {(balances[bank] || 0).toLocaleString()} ر.س
-                                            </span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
+                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right max-h-[300px]" dir="rtl">
+                                {BANKS_LIST.map((bank) => {
+                                    const bal = balances[bank] || 0;
+                                    return (
+                                        <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1 w-full">
+                                            <div className="flex items-center justify-between w-full gap-8 min-w-[200px]">
+                                                <span className="font-bold text-gray-700">{bank}</span>
+                                                <span className={`font-bold text-sm ${bal > 0 ? 'text-green-600' : 'text-red-500'}`} dir="ltr">
+                                                    {bal.toLocaleString()} ر.س
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     </div>
