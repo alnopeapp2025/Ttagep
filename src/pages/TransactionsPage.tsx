@@ -260,10 +260,9 @@ export default function TransactionsPage() {
       status: 'active',
       agentPaid: false,
       clientRefunded: false,
-      createdBy: currentUser?.officeName // Save who created it
+      createdBy: currentUser?.officeName
     };
 
-    // Financial Update: Add Client Price to Pending
     const bank = formData.paymentMethod;
     const newPending = { ...pendingBalances };
     newPending[bank] = (newPending[bank] || 0) + clientP;
@@ -275,7 +274,6 @@ export default function TransactionsPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addTransactionToCloud(newTx, targetId);
-        // Update Account in Cloud
         await updateAccountInCloud(targetId, bank, balances[bank] || 0, newPending[bank]);
     } else {
         saveStoredTransactions(updatedTxs);
@@ -304,7 +302,6 @@ export default function TransactionsPage() {
 
   const handleImportContact = async (type: 'client' | 'agent') => {
     try {
-      // Feature detection
       // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
@@ -319,13 +316,8 @@ export default function TransactionsPage() {
 
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
-            
-            if (rawPhone.startsWith('966')) {
-                rawPhone = rawPhone.substring(3);
-            }
-            if (rawPhone.startsWith('0')) {
-                rawPhone = rawPhone.substring(1);
-            }
+            if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
+            if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
             
             if (type === 'client') {
                 setNewClientName(rawName);
@@ -343,12 +335,11 @@ export default function TransactionsPage() {
       }
     } catch (ex) {
       console.error(ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التحقق من الصلاحيات أو الإدخال يدوياً.');
+      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
     }
   };
 
   const handleAddClientQuick = async () => {
-    // Limit Check
     const role = currentUser?.role || 'visitor';
     const check = checkLimit(role, 'clients', clients.length);
     if (!check.allowed) {
@@ -402,7 +393,6 @@ export default function TransactionsPage() {
   };
 
   const handleAddAgentQuick = async () => {
-    // Limit Check
     const role = currentUser?.role || 'visitor';
     const check = checkLimit(role, 'agents', agents.length);
     if (!check.allowed) {
@@ -465,24 +455,15 @@ export default function TransactionsPage() {
     const newPending = { ...pendingBalances };
     const newBalances = { ...balances };
 
-    // Financial Logic
     if (newStatus === 'completed' && tx.status === 'active') {
-        // 1. Remove Client Price from Pending
         newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
-        
-        // 2. Add Agent Price to Pending (Liability)
         newPending[bank] = (newPending[bank] || 0) + agentP;
-
-        // 3. Add Client Price to Actual Balance (Revenue)
         newBalances[bank] = (newBalances[bank] || 0) + clientP;
-        
         setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
     }
 
     if (newStatus === 'cancelled' && tx.status === 'active') {
-         // Remove Client Price from Pending (Will be refunded or lost)
          newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
-         
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
     }
 
@@ -509,30 +490,24 @@ export default function TransactionsPage() {
 
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
+  // FIX: Improved printing for Android WebView
   const handlePrint = (tx: Transaction) => {
-    // Open for all
     setPrintTx(tx);
-    // Use try-catch for mobile webview safety
     setTimeout(() => {
         try {
+            // Focus window before print to help some Android WebViews
+            window.focus();
             window.print();
         } catch (e) {
             console.error("Print error:", e);
             alert("حدث خطأ أثناء محاولة الطباعة. يرجى التأكد من إعدادات الطابعة في جهازك.");
-        } finally {
-            // Optional: reset printTx after a delay or keep it open? 
-            // Keeping it open allows user to retry or see the invoice.
-            // But usually we want to close the view state.
-            // setPrintTx(null); // Uncomment if you want to auto-close the view
         }
-    }, 500); // Increased timeout slightly to ensure rendering
+    }, 500);
   };
 
   const handleWhatsApp = (tx: Transaction) => {
-    // Open for all
     const client = clients.find(c => c.name === tx.clientName);
     const phoneNumber = client?.whatsapp || client?.phone;
-
     const text = `تفاصيل المعاملة:\nنوع: ${tx.type}\nالسعر: ${tx.clientPrice} ر.س\nرقم: ${tx.serialNo}\nالحالة: ${tx.status === 'completed' ? 'تم الإنجاز' : 'قيد التنفيذ'}`;
     
     if (phoneNumber) {
@@ -1090,7 +1065,6 @@ export default function TransactionsPage() {
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase mb-1">بيانات العميل (Bill To)</p>
                     <h3 className="text-xl font-bold text-slate-800 mb-1">{printTx.clientName}</h3>
-                    {/* Optional: Add client phone if available in a real app, looking up from clients list */}
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                     <div>

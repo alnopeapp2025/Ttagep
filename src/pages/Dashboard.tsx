@@ -266,11 +266,16 @@ export default function Dashboard() {
     return settings.pagePermissions[page].includes(userRole);
   };
 
+  // FIX: Unify Pro Path Logic
   const handlePageClick = (page: string, path: string) => {
       // @ts-ignore
       if (canAccessPage(page)) {
           navigate(path);
       } else {
+          // Reset state to ensure it starts from packages
+          setSubStep('duration');
+          setSelectedDuration('');
+          setSelectedBank('');
           setProOpen(true);
       }
   };
@@ -941,7 +946,6 @@ export default function Dashboard() {
         </div>
 
         {/* ... Profile & Change Password Dialogs ... */}
-        {/* (Kept as is, just ensuring structure is maintained) */}
         <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                 <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">الملف الشخصي</DialogTitle></DialogHeader>

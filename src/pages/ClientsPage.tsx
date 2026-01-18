@@ -20,40 +20,32 @@ function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  
-  // Form States
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
   const [errors, setErrors] = useState({ phone: '', whatsapp: '' });
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientTxs, setClientTxs] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
-
-  // Refund States
   const [refundStep, setRefundStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
   const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
-
-  // All Transactions (Local or Cloud)
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setPendingBalances(getStoredPendingBalances());
-
     const loadData = async () => {
         if (user) {
             const cloudClients = await fetchClientsFromCloud(user.id);
             setClients(cloudClients);
             const cloudTxs = await fetchTransactionsFromCloud(user.id);
             setAllTransactions(cloudTxs);
-            saveStoredTransactions(cloudTxs); // Sync
+            saveStoredTransactions(cloudTxs);
         } else {
             setClients(getStoredClients());
             setAllTransactions(getStoredTransactions());
@@ -64,7 +56,6 @@ function ClientsPage() {
 
   useEffect(() => {
     if (!currentUser) return;
-
     const channel = supabase
       .channel('clients-realtime')
       .on(
@@ -82,7 +73,6 @@ function ClientsPage() {
         }
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -106,24 +96,20 @@ function ClientsPage() {
 
   const handleImportContact = async () => {
     try {
-      // Feature detection
       // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
         const opts = { multiple: false };
         // @ts-ignore
         const contacts = await navigator.contacts.select(props, opts);
-        
         if (contacts.length) {
           const contact = contacts[0];
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
-
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
             if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
             if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
-            
             setNewClientName(rawName);
             setNewClientPhone(rawPhone);
             setNewClientWhatsapp(rawPhone);
@@ -134,7 +120,8 @@ function ClientsPage() {
       }
     } catch (ex) {
       console.error(ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التحقق من الصلاحيات أو الإدخال يدوياً.');
+      // More friendly error message for APK users
+      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
     }
   };
 
@@ -151,40 +138,32 @@ function ClientsPage() {
   const handleAddClient = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
-
     if (!newClientName.trim()) return;
-
     if (newClientPhone && !validateSaudiNumber(newClientPhone)) {
         newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
         hasError = true;
     }
-
     if (newClientWhatsapp && !validateSaudiNumber(newClientWhatsapp)) {
         newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
         hasError = true;
     }
-
     setErrors(newErrors);
     if (hasError) return;
-
     const newClient: Client = {
       id: Date.now(),
       name: newClientName,
       phone: newClientPhone ? `966${newClientPhone}` : '',
       whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
       createdAt: Date.now(),
-      createdBy: currentUser?.officeName // Save creator
+      createdBy: currentUser?.officeName
     };
-
     const updatedClients = [newClient, ...clients];
     setClients(updatedClients);
-
     if (currentUser) {
         await addClientToCloud(newClient, currentUser.id);
     } else {
         saveStoredClients(updatedClients);
     }
-
     setNewClientName('');
     setNewClientPhone('');
     setNewClientWhatsapp('');
@@ -193,9 +172,7 @@ function ClientsPage() {
   };
 
   const handleClientClick = (client: Client) => {
-    // Use state variable instead of direct local storage
     const filtered = allTransactions.filter(t => t.clientName === client.name);
-    
     setClientTxs(filtered); 
     setSelectedClient(client);
     setRefundStep('summary');
@@ -218,21 +195,16 @@ function ClientsPage() {
 
   const handleRefundProcess = () => {
     if (!selectedBank || !selectedClient) return;
-    
     const currentPending = pendingBalances[selectedBank] || 0;
-    
     if (currentPending < totalRefundDue) {
         setRefundError('رصيد الخزنة غير المستحقة (المعلق) غير كافي في هذا البنك');
         return;
     }
-
     const newPending = { ...pendingBalances };
     newPending[selectedBank] = currentPending - totalRefundDue;
     saveStoredPendingBalances(newPending);
     setPendingBalances(newPending);
-
     const refundedTxIds: number[] = [];
-    
     const updatedTxs = allTransactions.map(t => {
         if (t.clientName === selectedClient.name && t.status === 'cancelled' && !t.clientRefunded) {
             refundedTxIds.push(t.id);
@@ -242,7 +214,6 @@ function ClientsPage() {
     });
     setAllTransactions(updatedTxs);
     saveStoredTransactions(updatedTxs);
-
     const refundRecord: ClientRefundRecord = {
         id: Date.now(),
         clientName: selectedClient.name,
@@ -250,14 +221,12 @@ function ClientsPage() {
         bank: selectedBank,
         date: Date.now(),
         transactionCount: refundedTxIds.length,
-        createdBy: currentUser?.officeName // Save creator
+        createdBy: currentUser?.officeName
     };
     const refunds = getStoredClientRefunds();
     saveStoredClientRefunds([refundRecord, ...refunds]);
-
     const refreshedTxs = updatedTxs.filter(t => t.clientName === selectedClient.name);
     setClientTxs(refreshedTxs);
-
     setRefundStep('success');
   };
 
@@ -281,7 +250,6 @@ function ClientsPage() {
           <p className="text-gray-500">إدارة قاعدة العملاء</p>
         </div>
       </header>
-
       <div className="flex gap-4 mb-6">
         <div className="relative flex-1">
             <Search className="absolute right-3 top-3 text-gray-400 w-5 h-5" />
@@ -304,7 +272,6 @@ function ClientsPage() {
             </DialogTrigger>
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
                 <DialogHeader><DialogTitle>إضافة عميل جديد</DialogTitle></DialogHeader>
-                
                 <button 
                     onClick={handleImportContact}
                     className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
@@ -312,7 +279,6 @@ function ClientsPage() {
                     <Contact className="w-4 h-4" />
                     أو من الهاتف
                 </button>
-
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label>اسم العميل</Label>
@@ -322,7 +288,6 @@ function ClientsPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
-                    
                     <div className="space-y-2">
                         <Label>رقم الجوال</Label>
                         <div className="relative flex items-center" dir="ltr">
@@ -341,7 +306,6 @@ function ClientsPage() {
                         </div>
                         {errors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone}</p>}
                     </div>
-
                     <div className="space-y-2">
                         <Label>رقم الواتساب</Label>
                         <div className="relative flex items-center" dir="ltr">
@@ -360,7 +324,6 @@ function ClientsPage() {
                         </div>
                         {errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}
                     </div>
-
                     <button 
                         onClick={handleAddClient} 
                         className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
@@ -371,7 +334,6 @@ function ClientsPage() {
             </DialogContent>
         </Dialog>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredClients.map(client => (
             <div 
@@ -411,8 +373,6 @@ function ClientsPage() {
             </div>
         ))}
       </div>
-
-      {/* ... (Rest of the component remains unchanged) ... */}
       <Dialog open={!!selectedClient} onOpenChange={(open) => !open && setSelectedClient(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>
@@ -421,7 +381,6 @@ function ClientsPage() {
                     معاملات العميل: {selectedClient?.name}
                 </DialogTitle>
             </DialogHeader>
-            
             <div className="py-4 space-y-3 max-h-[50vh] overflow-y-auto">
                 {clientTxs.length > 0 ? clientTxs.map(tx => (
                     <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
@@ -449,7 +408,6 @@ function ClientsPage() {
                     <p className="text-center text-gray-500">لا توجد معاملات مسجلة لهذا العميل.</p>
                 )}
             </div>
-
             {clientTxs.some(t => t.status === 'cancelled' && !t.clientRefunded) && totalRefundDue > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
                     {refundStep === 'summary' && (
@@ -467,14 +425,12 @@ function ClientsPage() {
                             </div>
                         </div>
                     )}
-
                     {refundStep === 'bank-select' && (
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
                             <div className="flex justify-between items-center mb-2">
                                 <Label className="font-bold text-gray-700">اختر البنك للخصم (من المعلق)</Label>
                                 <button onClick={() => setRefundStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button>
                             </div>
-                            
                             <Select onValueChange={(val) => { setSelectedBank(val); setRefundError(''); }} value={selectedBank}>
                                 <SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse">
                                     <SelectValue placeholder="اختر البنك" />
@@ -492,9 +448,7 @@ function ClientsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-
                             {refundError && <p className="text-red-500 text-xs font-bold">{refundError}</p>}
-
                             <button 
                                 onClick={handleRefundProcess}
                                 className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all mt-2"
@@ -503,7 +457,6 @@ function ClientsPage() {
                             </button>
                         </div>
                     )}
-
                     {refundStep === 'success' && (
                         <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center space-y-4 animate-in zoom-in">
                             <div className="flex flex-col items-center gap-2">
@@ -512,7 +465,6 @@ function ClientsPage() {
                                 </div>
                                 <h3 className="font-bold text-green-800">تم ارجاع المبلغ للعميل وحذف المعامله من السجل</h3>
                             </div>
-                            
                             <div className="grid grid-cols-2 gap-3">
                                 <button 
                                     onClick={sendRefundWhatsApp}
@@ -531,14 +483,11 @@ function ClientsPage() {
                             </div>
                         </div>
                     )}
-
                 </div>
             )}
-
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
 export default ClientsPage;
