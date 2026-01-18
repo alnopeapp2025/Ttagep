@@ -632,8 +632,8 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           client_name: tx.clientName,
           duration: tx.duration,
           payment_method: tx.paymentMethod,
-          created_at: tx.createdAt,
-          target_date: tx.targetDate,
+          created_at: new Date(tx.createdAt).toISOString(),
+          target_date: new Date(tx.targetDate).toISOString(),
           status: tx.status,
           agent_paid: tx.agentPaid || false,
           client_refunded: tx.clientRefunded || false,
@@ -654,8 +654,8 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
               client_name: tx.clientName,
               duration: tx.duration,
               payment_method: tx.paymentMethod,
-              created_at: tx.createdAt,
-              target_date: tx.targetDate,
+              created_at: new Date(tx.createdAt).toISOString(),
+              target_date: new Date(tx.targetDate).toISOString(),
               status: tx.status,
               agent_paid: tx.agentPaid || false,
               client_refunded: tx.clientRefunded || false
@@ -686,7 +686,7 @@ export const updateTransactionInCloud = async (tx: Transaction) => {
                 client_name: tx.clientName,
                 duration: tx.duration,
                 payment_method: tx.paymentMethod,
-                target_date: tx.targetDate,
+                target_date: new Date(tx.targetDate).toISOString(),
                 status: tx.status
             })
             .eq('id', tx.id);
@@ -787,7 +787,7 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           title: expense.title,
           amount: expense.amount,
           bank: expense.bank,
-          date: expense.date,
+          date: new Date(expense.date).toISOString(),
           created_by: expense.createdBy
         }
       ])
@@ -800,7 +800,7 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
               title: expense.title,
               amount: expense.amount,
               bank: expense.bank,
-              date: expense.date
+              date: new Date(expense.date).toISOString()
           }]);
           return true;
       }
@@ -868,7 +868,8 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
           name: agent.name,
           phone: agent.phone,
           whatsapp: agent.whatsapp,
-          created_by: agent.createdBy
+          created_by: agent.createdBy,
+          created_at: new Date(agent.createdAt).toISOString()
         }
       ])
       .select();
@@ -879,7 +880,8 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
               user_id: userId,
               name: agent.name,
               phone: agent.phone,
-              whatsapp: agent.whatsapp
+              whatsapp: agent.whatsapp,
+              created_at: new Date(agent.createdAt).toISOString()
           }]);
           return true;
       }
@@ -969,7 +971,8 @@ export const addClientToCloud = async (client: Client, userId: number) => {
           name: client.name,
           phone: client.phone,
           whatsapp: client.whatsapp,
-          created_by: client.createdBy
+          created_by: client.createdBy,
+          created_at: new Date(client.createdAt).toISOString()
         }
       ])
       .select();
@@ -980,7 +983,8 @@ export const addClientToCloud = async (client: Client, userId: number) => {
               user_id: userId, 
               name: client.name,
               phone: client.phone,
-              whatsapp: client.whatsapp
+              whatsapp: client.whatsapp,
+              created_at: new Date(client.createdAt).toISOString()
           }]);
           return true;
       }
