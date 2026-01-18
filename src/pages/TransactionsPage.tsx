@@ -304,6 +304,7 @@ export default function TransactionsPage() {
 
   const handleImportContact = async (type: 'client' | 'agent') => {
     try {
+      // Feature detection
       // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
@@ -316,30 +317,33 @@ export default function TransactionsPage() {
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
 
-          rawPhone = rawPhone.replace(/\D/g, '');
-          
-          if (rawPhone.startsWith('966')) {
-            rawPhone = rawPhone.substring(3);
-          }
-          if (rawPhone.startsWith('0')) {
-            rawPhone = rawPhone.substring(1);
-          }
-          
-          if (type === 'client') {
-            setNewClientName(rawName);
-            setNewClientPhone(rawPhone);
-            setNewClientWhatsapp(rawPhone);
-          } else {
-            setNewAgentName(rawName);
-            setNewAgentPhone(rawPhone);
-            setNewAgentWhatsapp(rawPhone);
+          if (rawPhone) {
+            rawPhone = rawPhone.replace(/\D/g, '');
+            
+            if (rawPhone.startsWith('966')) {
+                rawPhone = rawPhone.substring(3);
+            }
+            if (rawPhone.startsWith('0')) {
+                rawPhone = rawPhone.substring(1);
+            }
+            
+            if (type === 'client') {
+                setNewClientName(rawName);
+                setNewClientPhone(rawPhone);
+                setNewClientWhatsapp(rawPhone);
+            } else {
+                setNewAgentName(rawName);
+                setNewAgentPhone(rawPhone);
+                setNewAgentWhatsapp(rawPhone);
+            }
           }
         }
       } else {
-        alert('هذه الميزة مدعومة فقط على الهواتف الذكية (Android/iOS).');
+        alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
       console.error(ex);
+      alert('تعذر الوصول لجهات الاتصال. يرجى التحقق من الصلاحيات أو الإدخال يدوياً.');
     }
   };
 
@@ -508,10 +512,20 @@ export default function TransactionsPage() {
   const handlePrint = (tx: Transaction) => {
     // Open for all
     setPrintTx(tx);
+    // Use try-catch for mobile webview safety
     setTimeout(() => {
-        window.print();
-        setPrintTx(null);
-    }, 100);
+        try {
+            window.print();
+        } catch (e) {
+            console.error("Print error:", e);
+            alert("حدث خطأ أثناء محاولة الطباعة. يرجى التأكد من إعدادات الطابعة في جهازك.");
+        } finally {
+            // Optional: reset printTx after a delay or keep it open? 
+            // Keeping it open allows user to retry or see the invoice.
+            // But usually we want to close the view state.
+            // setPrintTx(null); // Uncomment if you want to auto-close the view
+        }
+    }, 500); // Increased timeout slightly to ensure rendering
   };
 
   const handleWhatsApp = (tx: Transaction) => {

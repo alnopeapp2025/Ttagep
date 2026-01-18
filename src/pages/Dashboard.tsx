@@ -74,7 +74,8 @@ export default function Dashboard() {
 
   // Pro State
   const [proOpen, setProOpen] = useState(false);
-  const [subStep, setSubStep] = useState<'bank' | 'duration' | 'confirm'>('bank');
+  // FIX: Start with 'duration' (Packages) instead of 'bank'
+  const [subStep, setSubStep] = useState<'duration' | 'bank' | 'confirm'>('duration');
   const [selectedBank, setSelectedBank] = useState('');
   const [selectedDuration, setSelectedDuration] = useState<'شهر' | 'سنة' | ''>('');
   const [subSuccess, setSubSuccess] = useState('');
@@ -288,7 +289,7 @@ export default function Dashboard() {
         setTimeout(() => {
             setSubSuccess('');
             setProOpen(false);
-            setSubStep('bank');
+            setSubStep('duration'); // Reset to duration
             setSelectedBank('');
             setSelectedDuration('');
         }, 3000);
@@ -307,7 +308,7 @@ export default function Dashboard() {
       
       if(!open) {
           setTimeout(() => {
-            setSubStep('bank');
+            setSubStep('duration'); // Reset to start with packages
             setSelectedBank('');
             setSelectedDuration('');
             setSubSuccess('');
@@ -613,35 +614,7 @@ export default function Dashboard() {
                             </div>
                         ) : (
                             <div className="py-2 space-y-4">
-                                {/* Step 1: Bank Selection */}
-                                {subStep === 'bank' && (
-                                    <div className="space-y-4 animate-in slide-in-from-right-4">
-                                        <h3 className="text-center font-bold text-lg">اختر البنك للتحويل</h3>
-                                        <div className="space-y-2">
-                                            <Label className="text-white/90">البنك المحول إليه</Label>
-                                            <Select onValueChange={(val) => setSelectedBank(val)} value={selectedBank}>
-                                                <SelectTrigger className="bg-white/20 border-white/30 text-white placeholder:text-white/70 h-12 text-right flex-row-reverse">
-                                                    <SelectValue placeholder="اختر البنك" />
-                                                </SelectTrigger>
-                                                <SelectContent dir="rtl">
-                                                    <SelectItem value="الراجحي">الراجحي</SelectItem>
-                                                    <SelectItem value="الأهلي">الأهلي</SelectItem>
-                                                    <SelectItem value="الإنماء">الإنماء</SelectItem>
-                                                    <SelectItem value="الرياض">الرياض</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <button 
-                                            onClick={() => { if(selectedBank) setSubStep('duration'); }}
-                                            disabled={!selectedBank}
-                                            className="w-full py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                                        >
-                                            التالي
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* Step 2: Duration Selection (Updated UI) */}
+                                {/* Step 1: Duration Selection (Packages) - MOVED TO FIRST STEP */}
                                 {subStep === 'duration' && (
                                     <div className="space-y-4 animate-in slide-in-from-right-4">
                                         <h3 className="text-center font-bold text-lg">اختر الباقة المناسبة</h3>
@@ -689,15 +662,45 @@ export default function Dashboard() {
 
                                         <div className="flex gap-2 mt-2">
                                             <button 
-                                                onClick={() => setSubStep('bank')}
+                                                onClick={() => { if(selectedDuration) setSubStep('bank'); }}
+                                                disabled={!selectedDuration}
+                                                className="w-full py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50"
+                                            >
+                                                التالي
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 2: Bank Selection - MOVED TO SECOND STEP */}
+                                {subStep === 'bank' && (
+                                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                                        <h3 className="text-center font-bold text-lg">اختر البنك للتحويل</h3>
+                                        <div className="space-y-2">
+                                            <Label className="text-white/90">البنك المحول إليه</Label>
+                                            <Select onValueChange={(val) => setSelectedBank(val)} value={selectedBank}>
+                                                <SelectTrigger className="bg-white/20 border-white/30 text-white placeholder:text-white/70 h-12 text-right flex-row-reverse">
+                                                    <SelectValue placeholder="اختر البنك" />
+                                                </SelectTrigger>
+                                                <SelectContent dir="rtl">
+                                                    <SelectItem value="الراجحي">الراجحي</SelectItem>
+                                                    <SelectItem value="الأهلي">الأهلي</SelectItem>
+                                                    <SelectItem value="الإنماء">الإنماء</SelectItem>
+                                                    <SelectItem value="الرياض">الرياض</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <button 
+                                                onClick={() => setSubStep('duration')}
                                                 className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30"
                                             >
                                                 رجوع
                                             </button>
                                             <button 
-                                                onClick={() => { if(selectedDuration) setSubStep('confirm'); }}
-                                                disabled={!selectedDuration}
-                                                className="flex-[2] py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50"
+                                                onClick={() => { if(selectedBank) setSubStep('confirm'); }}
+                                                disabled={!selectedBank}
+                                                className="flex-[2] py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 التالي
                                             </button>
@@ -719,7 +722,7 @@ export default function Dashboard() {
                                         
                                         <div className="flex gap-2 mt-2">
                                             <button 
-                                                onClick={() => setSubStep('duration')}
+                                                onClick={() => setSubStep('bank')}
                                                 className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30"
                                             >
                                                 رجوع
@@ -900,7 +903,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Footer / Stats Area */}
+        {/* Footer / Stats Area - CLEANED UP (Removed Logout/Delete Buttons) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d relative overflow-hidden">
                 <h3 className="text-lg font-bold text-gray-700 mb-4">ملخص سريع</h3>
@@ -931,24 +934,9 @@ export default function Dashboard() {
 
             <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">هل تحتاج إلى مساعدة؟</p>
-                <div className="flex flex-col gap-3 w-full">
-                    <button 
-                        onClick={() => navigate('/login')}
-                        className="px-8 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        تسجيل الخروج
-                    </button>
-                    
-                    {/* Google Play Compliant Delete Link */}
-                    <Link 
-                        to="/delete-data"
-                        className="text-xs text-gray-400 hover:text-red-600 flex items-center justify-center gap-1 mt-2 transition-colors"
-                    >
-                        <Trash2 className="w-3 h-3" />
-                        طلب حذف الحساب والبيانات
-                    </Link>
-                </div>
+                <a href="mailto:Tageep2026@gmail.com" className="text-blue-600 font-bold underline">
+                    تواصل مع الدعم الفني
+                </a>
             </div>
         </div>
 

@@ -104,6 +104,7 @@ function AgentsPage() {
 
   const handleImportContact = async () => {
     try {
+      // Feature detection for Contacts API
       // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
@@ -116,19 +117,22 @@ function AgentsPage() {
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
 
-          rawPhone = rawPhone.replace(/\D/g, '');
-          if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
-          if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
-          
-          setNewAgentName(rawName);
-          setNewAgentPhone(rawPhone);
-          setNewAgentWhatsapp(rawPhone);
+          if (rawPhone) {
+            rawPhone = rawPhone.replace(/\D/g, '');
+            if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
+            if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
+            
+            setNewAgentName(rawName);
+            setNewAgentPhone(rawPhone);
+            setNewAgentWhatsapp(rawPhone);
+          }
         }
       } else {
-        alert('هذه الميزة مدعومة فقط على الهواتف الذكية (Android/iOS).');
+        alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
       console.error(ex);
+      alert('تعذر الوصول لجهات الاتصال. يرجى التحقق من الصلاحيات أو الإدخال يدوياً.');
     }
   };
 
