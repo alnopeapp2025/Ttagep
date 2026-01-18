@@ -66,8 +66,6 @@ export default function AchieversHub() {
       {activeTab === 'numbers' ? (
         canAccessFeature('achieversNumbers') ? (
             <div className="space-y-6">
-                {/* Add Button Removed Here */}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {extAgents.map(agent => (
                         <div key={agent.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d border border-white/50 flex items-center gap-4">
@@ -97,8 +95,6 @@ export default function AchieversHub() {
       ) : (
         canAccessFeature('lessons') ? (
             <div className="space-y-6">
-                {/* Add Button Removed Here */}
-
                 <div className="space-y-4">
                     {lessons.map(lesson => (
                         <div key={lesson.id} className="bg-[#eef2f6] p-6 rounded-2xl shadow-3d border border-white/50">
