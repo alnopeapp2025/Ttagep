@@ -631,8 +631,8 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           client_name: tx.clientName,
           duration: tx.duration,
           payment_method: tx.paymentMethod,
-          created_at: new Date(tx.createdAt).toISOString(),
-          target_date: new Date(tx.targetDate).toISOString(),
+          created_at: tx.createdAt, // FIX: Send raw timestamp (number)
+          target_date: tx.targetDate, // FIX: Send raw timestamp (number)
           status: tx.status,
           agent_paid: tx.agentPaid || false,
           client_refunded: tx.clientRefunded || false,
@@ -666,7 +666,7 @@ export const updateTransactionInCloud = async (tx: Transaction) => {
                 client_name: tx.clientName,
                 duration: tx.duration,
                 payment_method: tx.paymentMethod,
-                target_date: new Date(tx.targetDate).toISOString(),
+                target_date: tx.targetDate, // FIX: Send raw timestamp (number)
                 status: tx.status
             })
             .eq('id', tx.id);
