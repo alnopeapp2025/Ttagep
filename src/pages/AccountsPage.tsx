@@ -327,7 +327,16 @@ export default function AccountsPage() {
                     <Select onValueChange={setTransferFrom} value={transferFrom}>
                         <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
                         <SelectContent dir="rtl">
-                        {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        {BANKS_LIST.map(b => (
+                            <SelectItem key={b} value={b} className="text-right cursor-pointer my-1">
+                                <div className="flex justify-between w-full gap-4">
+                                    <span>{b}</span>
+                                    <span className={`font-bold ${(balances[b] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {(balances[b] || 0).toLocaleString()} ر.س
+                                    </span>
+                                </div>
+                            </SelectItem>
+                        ))}
                         </SelectContent>
                     </Select>
                     </div>
@@ -346,7 +355,16 @@ export default function AccountsPage() {
                     <Select onValueChange={setTransferTo} value={transferTo}>
                         <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
                         <SelectContent dir="rtl">
-                        {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        {BANKS_LIST.map(b => (
+                            <SelectItem key={b} value={b} className="text-right cursor-pointer my-1">
+                                <div className="flex justify-between w-full gap-4">
+                                    <span>{b}</span>
+                                    <span className={`font-bold ${(balances[b] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {(balances[b] || 0).toLocaleString()} ر.س
+                                    </span>
+                                </div>
+                            </SelectItem>
+                        ))}
                         </SelectContent>
                     </Select>
                     </div>

@@ -220,7 +220,16 @@ export default function ExpensesPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>خصم من حساب</Label>
+                        <div className="flex justify-between items-center">
+                            <Label>خصم من حساب</Label>
+                            {selectedBank && (
+                                <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
+                                    (balances[selectedBank] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
+                                }`}>
+                                    الرصيد: {(balances[selectedBank] || 0).toLocaleString()} ر.س
+                                </span>
+                            )}
+                        </div>
                         <Select onValueChange={setSelectedBank} value={selectedBank}>
                             <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse">
                                 <SelectValue placeholder="اختر البنك للخصم" />
