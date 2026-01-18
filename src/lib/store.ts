@@ -118,8 +118,8 @@ export interface SubscriptionRequest {
 
 export interface GlobalSettings {
   adminPasswordHash: string;
-  siteTitle: string; // New: Site Title
-  marquee: {         // New: Marquee Settings
+  siteTitle: string;
+  marquee: {
       text: string;
       bgColor: string;
       textColor: string;
@@ -237,7 +237,6 @@ export const getGlobalSettings = (): GlobalSettings => {
         return { 
             ...DEFAULT_SETTINGS, 
             ...parsed,
-            // Ensure nested objects are merged correctly
             marquee: { ...DEFAULT_SETTINGS.marquee, ...(parsed.marquee || {}) },
             pagePermissions: { ...DEFAULT_SETTINGS.pagePermissions, ...(parsed.pagePermissions || {}) },
             featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) },
@@ -619,7 +618,7 @@ export const logoutUser = () => {
 
 export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('transactions')
       .insert([
         {
@@ -639,30 +638,9 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           client_refunded: tx.clientRefunded || false,
           created_by: tx.createdBy 
         }
-      ])
-      .select();
+      ]);
 
     if (error) {
-      if (error.code === '42703') {
-          const { error: retryError } = await supabase.from('transactions').insert([{
-              user_id: userId,
-              serial_no: tx.serialNo,
-              type: tx.type,
-              client_price: tx.clientPrice,
-              agent_price: tx.agentPrice,
-              agent: tx.agent,
-              client_name: tx.clientName,
-              duration: tx.duration,
-              payment_method: tx.paymentMethod,
-              created_at: new Date(tx.createdAt).toISOString(),
-              target_date: new Date(tx.targetDate).toISOString(),
-              status: tx.status,
-              agent_paid: tx.agentPaid || false,
-              client_refunded: tx.clientRefunded || false
-          }]);
-          if (retryError) return false;
-          return true;
-      }
       console.error('Supabase Insert Error (Transactions):', JSON.stringify(error, null, 2));
       return false;
     }
@@ -739,8 +717,8 @@ export const fetchTransactionsFromCloud = async (userId: number): Promise<Transa
       clientName: item.client_name,
       duration: item.duration,
       paymentMethod: item.payment_method,
-      createdAt: parseDate(item.created_at), // FIX: Use parseDate to handle ISO strings or numbers
-      targetDate: parseDate(item.target_date), // FIX: Use parseDate
+      createdAt: parseDate(item.created_at),
+      targetDate: parseDate(item.target_date),
       status: item.status,
       agentPaid: item.agent_paid,
       clientRefunded: item.client_refunded,
@@ -779,7 +757,7 @@ export const updateTransactionStatusInCloud = async (id: number, updates: Partia
 
 export const addExpenseToCloud = async (expense: Expense, userId: number) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('expenses')
       .insert([
         {
@@ -790,20 +768,9 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           date: new Date(expense.date).toISOString(),
           created_by: expense.createdBy
         }
-      ])
-      .select();
+      ]);
 
     if (error) {
-      if (error.code === '42703') {
-          await supabase.from('expenses').insert([{
-              user_id: userId,
-              title: expense.title,
-              amount: expense.amount,
-              bank: expense.bank,
-              date: new Date(expense.date).toISOString()
-          }]);
-          return true;
-      }
       console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
       return false;
     }
@@ -833,7 +800,7 @@ export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]>
       title: item.title,
       amount: Number(item.amount),
       bank: item.bank,
-      date: parseDate(item.date), // FIX: Use parseDate
+      date: parseDate(item.date),
       createdBy: item.created_by
     }));
   } catch (err) {
@@ -860,7 +827,7 @@ export const deleteExpenseFromCloud = async (id: number) => {
 
 export const addAgentToCloud = async (agent: Agent, userId: number) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('agents')
       .insert([
         {
@@ -871,20 +838,9 @@ export const addAgentToCloud = async (agent: Agent, userId: number) => {
           created_by: agent.createdBy,
           created_at: new Date(agent.createdAt).toISOString()
         }
-      ])
-      .select();
+      ]);
 
     if (error) {
-      if (error.code === '42703') {
-          await supabase.from('agents').insert([{
-              user_id: userId,
-              name: agent.name,
-              phone: agent.phone,
-              whatsapp: agent.whatsapp,
-              created_at: new Date(agent.createdAt).toISOString()
-          }]);
-          return true;
-      }
       console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
       return false;
     }
@@ -950,7 +906,7 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: parseDate(item.created_at), // FIX: Use parseDate
+      createdAt: parseDate(item.created_at),
       createdBy: item.created_by
     }));
   } catch (err) {
@@ -963,7 +919,7 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
 
 export const addClientToCloud = async (client: Client, userId: number) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('clients')
       .insert([
         {
@@ -974,20 +930,9 @@ export const addClientToCloud = async (client: Client, userId: number) => {
           created_by: client.createdBy,
           created_at: new Date(client.createdAt).toISOString()
         }
-      ])
-      .select();
+      ]);
 
     if (error) {
-      if (error.code === '42703') {
-          await supabase.from('clients').insert([{
-              user_id: userId, 
-              name: client.name,
-              phone: client.phone,
-              whatsapp: client.whatsapp,
-              created_at: new Date(client.createdAt).toISOString()
-          }]);
-          return true;
-      }
       console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
       return false;
     }
@@ -1053,7 +998,7 @@ export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> =
       name: item.name,
       phone: item.phone,
       whatsapp: item.whatsapp,
-      createdAt: parseDate(item.created_at), // FIX: Use parseDate
+      createdAt: parseDate(item.created_at),
       createdBy: item.created_by
     }));
   } catch (err) {
