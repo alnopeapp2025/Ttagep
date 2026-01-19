@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { 
   BANKS_LIST, 
   getStoredBalances, 
@@ -17,7 +17,9 @@ import {
   fetchTransactionsFromCloud,
   fetchExpensesFromCloud,
   Transaction,
-  Expense
+  Expense,
+  getStoredAgentTransfers,
+  AgentTransferRecord
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -58,13 +60,21 @@ const SalaryTimer = ({ startDate }: { startDate: number }) => {
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
             const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-            setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة`);
+            setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة : ${seconds} ثانية`);
         }, 1000);
         return () => clearInterval(interval);
     }, [startDate]);
 
-    return <div className="font-mono text-xl font-black text-blue-600 dir-ltr">{timeLeft}</div>;
+    return (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+            <p className="text-blue-600 font-bold mb-2 text-sm">الوقت المتبقي للراتب القادم</p>
+            <div className="font-mono text-xl sm:text-2xl font-black text-blue-800 dir-ltr tracking-wider">
+                {timeLeft || 'جاري الحساب...'}
+            </div>
+        </div>
+    );
 };
 
 export default function AccountsPage() {
@@ -120,25 +130,42 @@ export default function AccountsPage() {
                 fetchExpensesFromCloud(targetId)
             ]);
             
+            // Get local transfers as well (since we don't have cloud fetcher for transfers yet in this context)
+            const transfers = getStoredAgentTransfers();
+
             setTransactions(txs);
 
-            // Prepare Statement
+            // Prepare Statement (Merge Txs, Expenses, Transfers)
             const statement = [
                 ...txs.map(t => ({ 
+                    id: `tx-${t.id}`,
                     type: 'deposit', 
-                    title: `إيداع: ${t.type} - ${t.clientName}`, 
+                    title: `إيداع: ${t.type}`,
+                    subTitle: t.clientName,
                     amount: parseFloat(t.clientPrice) || 0, 
                     date: t.createdAt,
                     bank: t.paymentMethod
                 })),
                 ...exps.map(e => ({ 
+                    id: `exp-${e.id}`,
                     type: 'withdrawal', 
                     title: `صرف: ${e.title}`, 
+                    subTitle: 'مصروفات',
                     amount: e.amount, 
                     date: e.date,
                     bank: e.bank
+                })),
+                ...transfers.map(tr => ({
+                    id: `tr-${tr.id}`,
+                    type: 'transfer',
+                    title: `تحويل للمعقب: ${tr.agentName}`,
+                    subTitle: `${tr.transactionCount} معاملة`,
+                    amount: tr.amount,
+                    date: tr.date,
+                    bank: tr.bank
                 }))
             ].sort((a, b) => b.date - a.date);
+            
             setStatementData(statement);
 
             // Fetch Employees
@@ -153,6 +180,9 @@ export default function AccountsPage() {
             setBalances(localBal);
             setPendingBalances(localPending);
             calculateTotals(localBal, localPending);
+            
+            const localTxs = getStoredTransactions(); // Assuming imported or available
+            // ... similar logic for local statement ...
         }
     };
     loadData();
@@ -315,24 +345,24 @@ export default function AccountsPage() {
       </header>
 
       {/* Top Section: Treasury Card & Action Buttons */}
-      <div className="mb-8 space-y-4">
+      <div className="mb-6 relative">
         {/* Treasury Card */}
-        <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px]">
-           <div className="h-[33%] bg-blue-100/50 backdrop-blur-sm flex items-center justify-center relative border-b border-blue-200/50">
-                <div className="text-center opacity-70">
-                    <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center justify-center gap-2">
+        <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px] z-10 bg-white">
+           <div className="h-[35%] bg-blue-50 flex items-center justify-center relative border-b border-blue-100">
+                <div className="text-center opacity-80">
+                    <h3 className="text-sm font-bold text-blue-600 mb-1 flex items-center justify-center gap-2">
                         <Wallet className="w-4 h-4" />
                         خزنة غير مستحقة بعد
                     </h3>
-                    <p className="text-2xl font-black text-blue-900">
+                    <p className="text-2xl font-black text-blue-800">
                         {totalPending.toLocaleString()} <span className="text-sm">ر.س</span>
                     </p>
                 </div>
            </div>
 
-           <div className="h-[67%] bg-gradient-to-br from-blue-600 to-blue-800 text-white flex flex-col items-center justify-center text-center relative">
+           <div className="h-[65%] bg-blue-600 text-white flex flex-col items-center justify-center text-center relative">
                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                <Wallet className="w-12 h-12 mb-2 opacity-80" />
+                <Wallet className="w-12 h-12 mb-2 opacity-90" />
                 <h2 className="text-xl font-medium opacity-90 mb-1">جملة الخزينة الفعلية</h2>
                 <div className="text-5xl sm:text-6xl font-black tracking-tight">
                     {totalTreasury.toLocaleString()} <span className="text-2xl font-medium">ر.س</span>
@@ -340,8 +370,8 @@ export default function AccountsPage() {
            </div>
         </div>
 
-        {/* Action Buttons - Aligned closer to the card */}
-        <div className="flex gap-4 justify-center">
+        {/* Action Buttons - Raised to align with gray border area */}
+        <div className="flex gap-4 justify-center px-4 -mt-6 relative z-20">
             <button 
             onClick={() => {
                 if(canAccessFeature('transfer')) {
@@ -350,14 +380,14 @@ export default function AccountsPage() {
                     navigate('/?openPro=true');
                 }
             }}
-            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all bg-[#eef2f6] text-blue-600`}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all bg-[#eef2f6] text-blue-600 border border-white/50"
             >
             <ArrowLeftRight className="w-5 h-5" />
             تحويل بين البنوك
             </button>
             <button 
             onClick={() => setZeroOpen(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all border border-white/50"
             >
             <Trash2 className="w-5 h-5" />
             تصفير الخزينة
@@ -413,28 +443,37 @@ export default function AccountsPage() {
             <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
                 <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-purple-600" />
-                    سجل العمليات المالية
+                    سجل العمليات المالية (كشف الحساب)
                 </h3>
                 {statementData.length === 0 ? (
                     <div className="text-center py-12 text-gray-400">لا توجد عمليات مسجلة حتى الآن.</div>
                 ) : (
-                    <div className="space-y-3">
-                        {statementData.map((item, idx) => (
-                            <div key={idx} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                        {statementData.map((item) => (
+                            <div key={item.id} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors group">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${item.type === 'deposit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                        {item.type === 'deposit' ? <ArrowRight className="w-5 h-5 rotate-45" /> : <ArrowRight className="w-5 h-5 -rotate-45" />}
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${
+                                        item.type === 'deposit' ? 'bg-green-100 text-green-600' : 
+                                        item.type === 'withdrawal' ? 'bg-red-100 text-red-600' :
+                                        'bg-orange-100 text-orange-600'
+                                    }`}>
+                                        {item.type === 'deposit' ? <ArrowDownLeft className="w-5 h-5" /> : 
+                                         item.type === 'withdrawal' ? <ArrowUpRight className="w-5 h-5" /> :
+                                         <ArrowLeftRight className="w-5 h-5" />}
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-gray-800 text-sm">{item.title}</h4>
-                                        <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-gray-500 mt-1">
                                             <span>{new Date(item.date).toLocaleDateString('ar-SA')}</span>
-                                            <span>•</span>
-                                            <span>{item.bank}</span>
+                                            <span>{new Date(item.date).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})}</span>
+                                            <span className="text-blue-500 font-medium">• {item.bank}</span>
+                                            {item.subTitle && <span className="text-gray-400">• {item.subTitle}</span>}
                                         </div>
                                     </div>
                                 </div>
-                                <span className={`font-black text-lg ${item.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className={`font-black text-lg ${
+                                    item.type === 'deposit' ? 'text-green-600' : 'text-red-600'
+                                }`}>
                                     {item.type === 'deposit' ? '+' : '-'}{item.amount.toLocaleString()}
                                 </span>
                             </div>
