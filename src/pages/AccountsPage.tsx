@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User } from 'lucide-react';
 import { 
   BANKS_LIST, 
   getStoredBalances, 
@@ -12,7 +12,12 @@ import {
   updateAccountInCloud,
   User,
   getGlobalSettings,
-  GlobalSettings
+  GlobalSettings,
+  getStoredEmployees,
+  fetchTransactionsFromCloud,
+  fetchExpensesFromCloud,
+  Transaction,
+  Expense
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -31,6 +36,36 @@ import {
 } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
+// Helper for Countdown
+const SalaryTimer = ({ startDate }: { startDate: number }) => {
+    const [timeLeft, setTimeLeft] = useState("");
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const start = new Date(startDate);
+            // Calculate next pay date (30 days cycle)
+            const nextPay = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+            
+            // If passed, add another 30 days
+            while (nextPay.getTime() < now) {
+                nextPay.setDate(nextPay.getDate() + 30);
+            }
+
+            const diff = nextPay.getTime() - now;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة`);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [startDate]);
+
+    return <div className="font-mono text-xl font-black text-blue-600 dir-ltr">{timeLeft}</div>;
+};
 
 export default function AccountsPage() {
   const navigate = useNavigate();
@@ -40,6 +75,11 @@ export default function AccountsPage() {
   const [totalPending, setTotalPending] = useState(0);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+
+  // New Data for Statement & Salaries
+  const [statementData, setStatementData] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
@@ -53,27 +93,69 @@ export default function AccountsPage() {
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
 
+  // Salary System State
+  const [selectedEmpId, setSelectedEmpId] = useState('');
+  const [salaryStartDate, setSalaryStartDate] = useState('');
+  const [salaryType, setSalaryType] = useState<'monthly' | 'commission' | 'both'>('monthly');
+  const [commissionRate, setCommissionRate] = useState('');
+
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
 
-    if (user) {
-        // If employee, use parentId
-        const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
-        fetchAccountsFromCloud(targetId).then(data => {
-            setBalances(data.balances);
-            setPendingBalances(data.pending);
-            calculateTotals(data.balances, data.pending);
-        });
-    } else {
-        // Load from Local
-        const localBal = getStoredBalances();
-        const localPending = getStoredPendingBalances();
-        setBalances(localBal);
-        setPendingBalances(localPending);
-        calculateTotals(localBal, localPending);
-    }
+    const loadData = async () => {
+        if (user) {
+            const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
+            
+            // Fetch Accounts
+            const accData = await fetchAccountsFromCloud(targetId);
+            setBalances(accData.balances);
+            setPendingBalances(accData.pending);
+            calculateTotals(accData.balances, accData.pending);
+
+            // Fetch Data for Statement & Salaries
+            const [txs, exps] = await Promise.all([
+                fetchTransactionsFromCloud(targetId),
+                fetchExpensesFromCloud(targetId)
+            ]);
+            
+            setTransactions(txs);
+
+            // Prepare Statement
+            const statement = [
+                ...txs.map(t => ({ 
+                    type: 'deposit', 
+                    title: `إيداع: ${t.type} - ${t.clientName}`, 
+                    amount: parseFloat(t.clientPrice) || 0, 
+                    date: t.createdAt,
+                    bank: t.paymentMethod
+                })),
+                ...exps.map(e => ({ 
+                    type: 'withdrawal', 
+                    title: `صرف: ${e.title}`, 
+                    amount: e.amount, 
+                    date: e.date,
+                    bank: e.bank
+                }))
+            ].sort((a, b) => b.date - a.date);
+            setStatementData(statement);
+
+            // Fetch Employees
+            const allEmps = getStoredEmployees();
+            const myEmps = allEmps.filter(e => e.parentId === targetId);
+            setEmployees(myEmps);
+
+        } else {
+            // Local fallback
+            const localBal = getStoredBalances();
+            const localPending = getStoredPendingBalances();
+            setBalances(localBal);
+            setPendingBalances(localPending);
+            calculateTotals(localBal, localPending);
+        }
+    };
+    loadData();
   }, []);
 
   // Realtime Subscription
@@ -91,7 +173,8 @@ export default function AccountsPage() {
           filter: `user_id=eq.${currentUser.id}`
         },
         (payload) => {
-          fetchAccountsFromCloud(currentUser.id).then(data => {
+          const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+          fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
             setPendingBalances(data.pending);
             calculateTotals(data.balances, data.pending);
@@ -115,7 +198,6 @@ export default function AccountsPage() {
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
-    // Golden and Employee always access everything
     if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
@@ -147,7 +229,6 @@ export default function AccountsPage() {
     newBalances[transferFrom] = currentFromBalance - amount;
     newBalances[transferTo] = currentToBalance + amount;
 
-    // Update Local State (Optimistic)
     setBalances(newBalances);
     calculateTotals(newBalances, pendingBalances);
 
@@ -156,7 +237,6 @@ export default function AccountsPage() {
         await updateAccountInCloud(targetId, transferFrom, newBalances[transferFrom], pendingBalances[transferFrom] || 0);
         await updateAccountInCloud(targetId, transferTo, newBalances[transferTo], pendingBalances[transferTo] || 0);
     } else {
-        // Update Local Storage
         saveStoredBalances(newBalances);
     }
     
@@ -194,12 +274,30 @@ export default function AccountsPage() {
     }, 2000);
   };
 
-  // Sort banks by balance (Highest first)
   const sortedBanks = [...BANKS_LIST].sort((a, b) => {
     const balA = balances[a] || 0;
     const balB = balances[b] || 0;
     return balB - balA;
   });
+
+  // Calculate Commission for Selected Employee
+  const getEmployeeTransactions = () => {
+      if (!selectedEmpId) return [];
+      const emp = employees.find(e => e.id.toString() === selectedEmpId);
+      if (!emp) return [];
+      
+      return transactions.filter(t => 
+          (t.createdBy && t.createdBy === emp.officeName) || 
+          (!t.createdBy && t.agent === emp.officeName)
+      );
+  };
+
+  const empTransactions = getEmployeeTransactions();
+  const empCommissionTotal = empTransactions.reduce((sum, t) => {
+      const price = parseFloat(t.clientPrice) || 0;
+      const rate = parseFloat(commissionRate) || 0;
+      return sum + (price * (rate / 100));
+  }, 0);
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
@@ -216,9 +314,10 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      <div className="mb-10">
+      {/* Top Section: Treasury Card & Action Buttons */}
+      <div className="mb-8 space-y-4">
+        {/* Treasury Card */}
         <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px]">
-           {/* Top 33% - Pending Treasury (Faded) */}
            <div className="h-[33%] bg-blue-100/50 backdrop-blur-sm flex items-center justify-center relative border-b border-blue-200/50">
                 <div className="text-center opacity-70">
                     <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center justify-center gap-2">
@@ -231,7 +330,6 @@ export default function AccountsPage() {
                 </div>
            </div>
 
-           {/* Bottom 66% - Actual Treasury */}
            <div className="h-[67%] bg-gradient-to-br from-blue-600 to-blue-800 text-white flex flex-col items-center justify-center text-center relative">
                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                 <Wallet className="w-12 h-12 mb-2 opacity-80" />
@@ -241,57 +339,271 @@ export default function AccountsPage() {
                 </div>
            </div>
         </div>
+
+        {/* Action Buttons - Aligned closer to the card */}
+        <div className="flex gap-4 justify-center">
+            <button 
+            onClick={() => {
+                if(canAccessFeature('transfer')) {
+                    setTransferOpen(true);
+                } else {
+                    navigate('/?openPro=true');
+                }
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all bg-[#eef2f6] text-blue-600`}
+            >
+            <ArrowLeftRight className="w-5 h-5" />
+            تحويل بين البنوك
+            </button>
+            <button 
+            onClick={() => setZeroOpen(true)}
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all"
+            >
+            <Trash2 className="w-5 h-5" />
+            تصفير الخزينة
+            </button>
+        </div>
       </div>
 
-      <div className="flex gap-4 mb-10 justify-center">
-        <button 
-          onClick={() => {
-              if(canAccessFeature('transfer')) {
-                  setTransferOpen(true);
-              } else {
-                  // Redirect to home with openPro param
-                  navigate('/?openPro=true');
-              }
-          }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all relative overflow-hidden bg-[#eef2f6] text-blue-600`}
-        >
-          <ArrowLeftRight className="w-5 h-5" />
-          تحويل بين البنوك
-        </button>
-        <button 
-          onClick={() => setZeroOpen(true)}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all"
-        >
-          <Trash2 className="w-5 h-5" />
-          تصفير الخزينة
-        </button>
-      </div>
+      {/* Tabs System */}
+      <Tabs defaultValue="banks" className="w-full" dir="rtl">
+        <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 h-14">
+            <TabsTrigger value="banks" className="rounded-lg h-12 font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all">
+                <Landmark className="w-4 h-4 ml-2" />
+                الحسابات
+            </TabsTrigger>
+            <TabsTrigger value="statement" className="rounded-lg h-12 font-bold data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm transition-all">
+                <FileText className="w-4 h-4 ml-2" />
+                كشف الحساب
+            </TabsTrigger>
+            <TabsTrigger value="salaries" className="rounded-lg h-12 font-bold data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all">
+                <Users className="w-4 h-4 ml-2" />
+                الرواتب
+            </TabsTrigger>
+        </TabsList>
 
-      <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
-        <Landmark className="w-6 h-6 text-gray-500" />
-        تفاصيل البنوك (الأعلى رصيداً)
-      </h3>
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {sortedBanks.map((bank) => (
-          <div key={bank} className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex flex-col items-center justify-center text-center transition-all duration-500 hover:-translate-y-1">
-            <div className="w-12 h-12 rounded-full bg-white shadow-3d-inset flex items-center justify-center mb-3 text-blue-600">
-              {bank.includes('كاش') ? <Wallet className="w-6 h-6" /> : <Landmark className="w-6 h-6" />}
+        {/* Banks Tab */}
+        <TabsContent value="banks">
+            <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
+                <Landmark className="w-6 h-6 text-gray-500" />
+                تفاصيل البنوك (الأعلى رصيداً)
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {sortedBanks.map((bank) => (
+                <div key={bank} className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex flex-col items-center justify-center text-center transition-all duration-500 hover:-translate-y-1">
+                    <div className="w-12 h-12 rounded-full bg-white shadow-3d-inset flex items-center justify-center mb-3 text-blue-600">
+                    {bank.includes('كاش') ? <Wallet className="w-6 h-6" /> : <Landmark className="w-6 h-6" />}
+                    </div>
+                    <h4 className="font-bold text-gray-600 text-sm mb-1">{bank}</h4>
+                    <span className="text-lg font-black text-blue-800">
+                    {(balances[bank] || 0).toLocaleString()} <span className="text-xs text-gray-400">ر.س</span>
+                    </span>
+                    {(pendingBalances[bank] || 0) > 0 && (
+                        <span className="text-[10px] font-bold text-orange-500 mt-1 bg-orange-50 px-2 py-0.5 rounded-full">
+                            معلق: {(pendingBalances[bank] || 0).toLocaleString()}
+                        </span>
+                    )}
+                </div>
+                ))}
             </div>
-            <h4 className="font-bold text-gray-600 text-sm mb-1">{bank}</h4>
-            <span className="text-lg font-black text-blue-800">
-              {(balances[bank] || 0).toLocaleString()} <span className="text-xs text-gray-400">ر.س</span>
-            </span>
-            {/* Show pending for this bank if exists */}
-            {(pendingBalances[bank] || 0) > 0 && (
-                <span className="text-[10px] font-bold text-orange-500 mt-1 bg-orange-50 px-2 py-0.5 rounded-full">
-                    معلق: {(pendingBalances[bank] || 0).toLocaleString()}
-                </span>
-            )}
-          </div>
-        ))}
-      </div>
+        </TabsContent>
 
+        {/* Account Statement Tab */}
+        <TabsContent value="statement">
+            <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-purple-600" />
+                    سجل العمليات المالية
+                </h3>
+                {statementData.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">لا توجد عمليات مسجلة حتى الآن.</div>
+                ) : (
+                    <div className="space-y-3">
+                        {statementData.map((item, idx) => (
+                            <div key={idx} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${item.type === 'deposit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                        {item.type === 'deposit' ? <ArrowRight className="w-5 h-5 rotate-45" /> : <ArrowRight className="w-5 h-5 -rotate-45" />}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 text-sm">{item.title}</h4>
+                                        <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
+                                            <span>{new Date(item.date).toLocaleDateString('ar-SA')}</span>
+                                            <span>•</span>
+                                            <span>{item.bank}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span className={`font-black text-lg ${item.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {item.type === 'deposit' ? '+' : '-'}{item.amount.toLocaleString()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </TabsContent>
+
+        {/* Salaries Tab */}
+        <TabsContent value="salaries">
+            <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-green-600" />
+                    نظام الرواتب والنسب
+                </h3>
+
+                {/* Check if Golden & Has Employees */}
+                {currentUser?.role !== 'golden' ? (
+                    <div className="text-center py-12 bg-white/50 rounded-2xl border-2 border-dashed border-yellow-300">
+                        <Crown className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                        <h3 className="text-xl font-black text-gray-800 mb-2">ميزة حصرية للأعضاء الذهبيين</h3>
+                        <p className="text-gray-500 mb-6 max-w-sm mx-auto">لإدارة رواتب الموظفين وحساب النسب، يرجى ترقية باقتك للعضوية الذهبية وإضافة موظفين.</p>
+                        <button 
+                            onClick={() => navigate('/?openPro=true')}
+                            className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                        >
+                            ترقية الباقة الآن
+                        </button>
+                    </div>
+                ) : employees.length === 0 ? (
+                    <div className="text-center py-12">
+                        <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500">لم تقم بإضافة أي موظفين بعد.</p>
+                        <button onClick={() => navigate('/')} className="text-blue-600 font-bold mt-2 underline">الذهاب للرئيسية لإضافة موظف</button>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Employee Selection */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Label>اختر الموظف</Label>
+                                <Select value={selectedEmpId} onValueChange={setSelectedEmpId}>
+                                    <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse">
+                                        <SelectValue placeholder="اختر موظف..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                        {employees.map(emp => (
+                                            <SelectItem key={emp.id} value={emp.id.toString()} className="text-right">{emp.officeName}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>تاريخ بداية العمل</Label>
+                                <div className="relative">
+                                    <Input 
+                                        type="date" 
+                                        value={salaryStartDate}
+                                        onChange={(e) => setSalaryStartDate(e.target.value)}
+                                        className="bg-white shadow-3d-inset border-none h-12 pl-10"
+                                    />
+                                    <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {selectedEmpId && salaryStartDate && (
+                            <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+                                {/* Salary Type Selection */}
+                                <div className="bg-white/50 p-4 rounded-2xl border border-white">
+                                    <Label className="mb-3 block font-bold text-gray-700">نظام الراتب</Label>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => setSalaryType('monthly')}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            راتب شهري
+                                        </button>
+                                        <button 
+                                            onClick={() => setSalaryType('commission')}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'commission' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            نسبة %
+                                        </button>
+                                        <button 
+                                            onClick={() => setSalaryType('both')}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'both' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            الاثنين معاً
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Timer Section */}
+                                {(salaryType === 'monthly' || salaryType === 'both') && (
+                                    <div className="bg-white p-6 rounded-2xl shadow-3d-inset text-center space-y-2 border border-blue-100">
+                                        <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
+                                            <Clock className="w-6 h-6" />
+                                            <h4 className="font-bold text-lg">موعد الراتب القادم</h4>
+                                        </div>
+                                        <SalaryTimer startDate={new Date(salaryStartDate).getTime()} />
+                                    </div>
+                                )}
+
+                                {/* Commission Section */}
+                                {(salaryType === 'commission' || salaryType === 'both') && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm">
+                                            <div className="flex-1">
+                                                <Label>نسبة الموظف (%)</Label>
+                                                <div className="relative mt-1">
+                                                    <Input 
+                                                        type="number" 
+                                                        placeholder="مثلاً 10" 
+                                                        value={commissionRate}
+                                                        onChange={(e) => setCommissionRate(e.target.value)}
+                                                        className="bg-[#eef2f6] border-none h-12 pl-10"
+                                                    />
+                                                    <Percent className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 text-center bg-green-50 rounded-xl p-2 border border-green-100">
+                                                <p className="text-xs text-green-600 font-bold mb-1">إجمالي العمولة المستحقة</p>
+                                                <p className="text-xl font-black text-green-700">{empCommissionTotal.toLocaleString()} ر.س</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white/50 rounded-2xl border border-white overflow-hidden">
+                                            <table className="w-full text-right text-sm">
+                                                <thead className="bg-gray-100 text-gray-600 font-bold">
+                                                    <tr>
+                                                        <th className="p-3">المعاملة</th>
+                                                        <th className="p-3">التاريخ</th>
+                                                        <th className="p-3">المبلغ</th>
+                                                        <th className="p-3">حصة الموظف</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {empTransactions.length === 0 ? (
+                                                        <tr><td colSpan={4} className="p-6 text-center text-gray-400">لا توجد معاملات مسجلة لهذا الموظف</td></tr>
+                                                    ) : (
+                                                        empTransactions.map(t => {
+                                                            const price = parseFloat(t.clientPrice) || 0;
+                                                            const share = price * ((parseFloat(commissionRate) || 0) / 100);
+                                                            return (
+                                                                <tr key={t.id} className="hover:bg-white transition-colors">
+                                                                    <td className="p-3 font-bold text-gray-700">{t.type}</td>
+                                                                    <td className="p-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString('ar-SA')}</td>
+                                                                    <td className="p-3 font-bold text-blue-600">{price}</td>
+                                                                    <td className="p-3 font-black text-green-600">{share.toFixed(2)}</td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialogs (Transfer & Zero) - Same as before */}
       <Dialog open={transferOpen} onOpenChange={(open) => {
           if(!open) {
               setSuccessMsg(false);
