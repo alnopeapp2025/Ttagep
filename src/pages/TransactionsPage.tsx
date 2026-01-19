@@ -33,6 +33,7 @@ import {
   Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
+import { LimitModals } from '@/components/LimitModals';
 
 const transactionTypesList = [
   "تجديد إقامة", "نقل كفالة", "خروج وعودة", "خروج نهائي", "تأشيرة زيارة", "تأمين طبي", "إصدار رخصة"
@@ -105,6 +106,9 @@ export default function TransactionsPage() {
   
   // Edit Mode State
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Limit Modal State
+  const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
 
   const [formData, setFormData] = useState({
     manualType: '',
@@ -195,7 +199,9 @@ export default function TransactionsPage() {
       const role = currentUser?.role || 'visitor';
       const check = checkLimit(role, 'transactions', transactions.length);
       if (!check.allowed) {
-          alert(check.message);
+          if (check.reason === 'visitor') setLimitModalType('visitor');
+          else if (check.reason === 'member') setLimitModalType('member');
+          else if (check.reason === 'golden') setLimitModalType('golden');
           return false;
       }
       return true;
@@ -434,7 +440,9 @@ export default function TransactionsPage() {
     const role = currentUser?.role || 'visitor';
     const check = checkLimit(role, 'clients', clients.length);
     if (!check.allowed) {
-        alert(check.message);
+        if (check.reason === 'visitor') setLimitModalType('visitor');
+        else if (check.reason === 'member') setLimitModalType('member');
+        else if (check.reason === 'golden') setLimitModalType('golden');
         return;
     }
 
@@ -491,7 +499,9 @@ export default function TransactionsPage() {
     const role = currentUser?.role || 'visitor';
     const check = checkLimit(role, 'agents', agents.length);
     if (!check.allowed) {
-        alert(check.message);
+        if (check.reason === 'visitor') setLimitModalType('visitor');
+        else if (check.reason === 'member') setLimitModalType('member');
+        else if (check.reason === 'golden') setLimitModalType('golden');
         return;
     }
 
@@ -624,6 +634,12 @@ export default function TransactionsPage() {
 
   return (
     <>
+    <LimitModals 
+        type={limitModalType} 
+        isOpen={limitModalType !== 'none'} 
+        onClose={() => setLimitModalType('none')} 
+    />
+
     {feedbackMsg && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
             <div className={cn(

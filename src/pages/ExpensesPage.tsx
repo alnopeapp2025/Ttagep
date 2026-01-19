@@ -7,23 +7,25 @@ import {
   Expense, 
   getStoredBalances, 
   saveStoredBalances, 
-  getStoredPendingBalances, // Added
+  getStoredPendingBalances, 
   BANKS_LIST,
   getCurrentUser,
   addExpenseToCloud,
   fetchExpensesFromCloud,
   deleteExpenseFromCloud,
   fetchAccountsFromCloud, 
-  updateAccountInCloud, // Added
+  updateAccountInCloud, 
   User,
   getGlobalSettings,
-  GlobalSettings
+  GlobalSettings,
+  checkLimit // Added checkLimit
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LimitModals } from '@/components/LimitModals';
 
 export default function ExpensesPage() {
   const navigate = useNavigate();
@@ -34,12 +36,15 @@ export default function ExpensesPage() {
   const [open, setOpen] = useState(false);
   
   const [balances, setBalances] = useState<Record<string, number>>({});
-  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({}); // Added state
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
 
   const [errorMsg, setErrorMsg] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+
+  // Limit Modal State
+  const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
 
   // Initial Load
   useEffect(() => {
@@ -124,6 +129,18 @@ export default function ExpensesPage() {
     if (userRole === 'golden' || userRole === 'employee') return true;
     // @ts-ignore
     return settings.featurePermissions[feature].includes(userRole);
+  };
+
+  const checkAddPermission = () => {
+      const role = currentUser?.role || 'visitor';
+      const check = checkLimit(role, 'expenses', expenses.length);
+      if (!check.allowed) {
+          if (check.reason === 'visitor') setLimitModalType('visitor');
+          else if (check.reason === 'member') setLimitModalType('member');
+          else if (check.reason === 'golden') setLimitModalType('golden');
+          return false;
+      }
+      return true;
   };
 
   const handleAddExpense = async () => {
@@ -232,6 +249,12 @@ export default function ExpensesPage() {
   const totalTreasury = Object.values(balances).reduce((acc, val) => acc + val, 0);
 
   return (
+    <>
+    <LimitModals 
+        type={limitModalType} 
+        isOpen={limitModalType !== 'none'} 
+        onClose={() => setLimitModalType('none')} 
+    />
     <div className="max-w-4xl mx-auto pb-20">
       <header className="mb-8 flex items-center gap-4">
         <button onClick={() => navigate('/')} className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600">
@@ -245,6 +268,7 @@ export default function ExpensesPage() {
 
       <div className="mb-6">
         <Dialog open={open} onOpenChange={(val) => {
+            if(val && !checkAddPermission()) return;
             if(!val) setErrorMsg('');
             setOpen(val);
         }}>
@@ -372,5 +396,6 @@ export default function ExpensesPage() {
         {expenses.length === 0 && <p className="text-center text-gray-400 py-10">لا توجد مصروفات مسجلة.</p>}
       </div>
     </div>
+    </>
   );
 }

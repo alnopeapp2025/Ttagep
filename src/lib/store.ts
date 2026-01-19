@@ -131,13 +131,19 @@ export interface GlobalSettings {
           transactions: number;
           clients: number;
           agents: number;
-          expenses: number; // Added expenses limit
+          expenses: number;
       };
       member: {
           transactions: number;
           clients: number;
           agents: number;
-          expenses: number; // Added expenses limit
+          expenses: number;
+      };
+      golden: {
+          transactions: number;
+          clients: number;
+          agents: number;
+          expenses: number;
       };
   };
   pagePermissions: {
@@ -208,7 +214,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   },
   limits: {
       visitor: { transactions: 5, clients: 3, agents: 2, expenses: 5 },
-      member: { transactions: 20, clients: 10, agents: 5, expenses: 20 }
+      member: { transactions: 20, clients: 10, agents: 5, expenses: 20 },
+      golden: { transactions: 10000, clients: 10000, agents: 10000, expenses: 10000 }
   },
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
@@ -244,7 +251,11 @@ export const getGlobalSettings = (): GlobalSettings => {
             marquee: { ...DEFAULT_SETTINGS.marquee, ...(parsed.marquee || {}) },
             pagePermissions: { ...DEFAULT_SETTINGS.pagePermissions, ...(parsed.pagePermissions || {}) },
             featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) },
-            limits: { ...DEFAULT_SETTINGS.limits, ...(parsed.limits || {}) }
+            limits: { 
+                ...DEFAULT_SETTINGS.limits, 
+                ...(parsed.limits || {}),
+                golden: { ...DEFAULT_SETTINGS.limits.golden, ...(parsed.limits?.golden || {}) }
+            }
         };
     }
     return DEFAULT_SETTINGS;
@@ -261,15 +272,15 @@ export const checkLimit = (
     role: UserRole, 
     type: 'transactions' | 'clients' | 'agents' | 'expenses', 
     currentCount: number
-): { allowed: boolean, reason?: 'visitor' | 'member' } => {
+): { allowed: boolean, reason?: 'visitor' | 'member' | 'golden' } => {
     const settings = getGlobalSettings();
     
-    if (role === 'golden' || role === 'employee') return { allowed: true };
+    if (role === 'employee') return { allowed: true };
 
-    const limit = settings.limits[role as 'visitor' | 'member']?.[type];
+    const limit = settings.limits[role as 'visitor' | 'member' | 'golden']?.[type];
     
     if (limit !== undefined && currentCount >= limit) {
-        return { allowed: false, reason: role as 'visitor' | 'member' };
+        return { allowed: false, reason: role as 'visitor' | 'member' | 'golden' };
     }
 
     return { allowed: true };

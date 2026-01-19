@@ -41,7 +41,7 @@ function AgentsPage() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   // Limit Modal State
-  const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member'>('none');
+  const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -140,6 +140,7 @@ function AgentsPage() {
       if (!check.allowed) {
           if (check.reason === 'visitor') setLimitModalType('visitor');
           else if (check.reason === 'member') setLimitModalType('member');
+          else if (check.reason === 'golden') setLimitModalType('golden');
           return false;
       }
       return true;

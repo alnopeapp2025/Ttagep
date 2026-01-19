@@ -125,7 +125,7 @@ export default function AdminPanel() {
       setTimeout(() => setAppearanceMsg(''), 3000);
   };
 
-  const handleLimitChange = (role: 'visitor' | 'member', type: string, value: string) => {
+  const handleLimitChange = (role: 'visitor' | 'member' | 'golden', type: string, value: string) => {
       const val = parseInt(value) || 0;
       setSettings(prev => ({
           ...prev,
@@ -317,7 +317,7 @@ export default function AdminPanel() {
                             إدارة حدود الإضافة
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             {/* Visitor Limits */}
                             <div className="space-y-4">
                                 <h4 className="font-bold text-gray-600 border-b pb-2">حدود الزوار (غير المسجلين)</h4>
@@ -363,7 +363,7 @@ export default function AdminPanel() {
 
                             {/* Member Limits */}
                             <div className="space-y-4">
-                                <h4 className="font-bold text-gray-600 border-b pb-2">حدود الأعضاء (المسجلين)</h4>
+                                <h4 className="font-bold text-blue-600 border-b pb-2 border-blue-200">حدود الأعضاء (المسجلين)</h4>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
                                         <Label className="text-xs">المعاملات</Label>
@@ -399,6 +399,49 @@ export default function AdminPanel() {
                                             className="w-20 h-8 bg-white shadow-sm text-center" 
                                             value={settings.limits.member.expenses}
                                             onChange={(e) => handleLimitChange('member', 'expenses', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Golden Limits */}
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-yellow-600 border-b pb-2 border-yellow-200">حدود الذهبيين (PRO)</h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعاملات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.golden.transactions}
+                                            onChange={(e) => handleLimitChange('golden', 'transactions', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">العملاء</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.golden.clients}
+                                            onChange={(e) => handleLimitChange('golden', 'clients', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعقبين</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.golden.agents}
+                                            onChange={(e) => handleLimitChange('golden', 'agents', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المصروفات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.golden.expenses}
+                                            onChange={(e) => handleLimitChange('golden', 'expenses', e.target.value)}
                                         />
                                     </div>
                                 </div>
