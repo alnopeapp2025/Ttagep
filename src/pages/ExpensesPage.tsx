@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2, Loader2, Calculator } from 'lucide-react';
 import { 
   getStoredExpenses, 
   saveStoredExpenses, 
@@ -18,7 +18,7 @@ import {
   User,
   getGlobalSettings,
   GlobalSettings,
-  checkLimit // Added checkLimit
+  checkLimit
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -184,6 +184,9 @@ export default function ExpensesPage() {
             const currentPending = pendingBalances[selectedBank] || 0;
             await updateAccountInCloud(targetId, selectedBank, newBalance, currentPending);
 
+            // Optimistic update for list (Realtime will confirm)
+            setExpenses(prev => [newExp, ...prev]);
+
         } else {
             setErrorMsg(`فشل حفظ المصروف: ${result.error}`);
             setLoading(false);
@@ -237,6 +240,9 @@ export default function ExpensesPage() {
             // IMMEDIATE REFUND: Update Cloud Account
             const currentPending = pendingBalances[expenseToDelete.bank] || 0;
             await updateAccountInCloud(targetId, expenseToDelete.bank, newBalance, currentPending);
+            
+            // FIX: Update UI immediately by removing the item from state
+            setExpenses(prev => prev.filter(e => e.id !== id));
         }
     } else {
         const updatedExpenses = expenses.filter(e => e.id !== id);
@@ -247,6 +253,9 @@ export default function ExpensesPage() {
 
   // Calculate Total Treasury for Display
   const totalTreasury = Object.values(balances).reduce((acc, val) => acc + val, 0);
+
+  // Calculate Total Expenses
+  const totalExpenses = expenses.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   return (
     <>
@@ -395,6 +404,19 @@ export default function ExpensesPage() {
         ))}
         {expenses.length === 0 && <p className="text-center text-gray-400 py-10">لا توجد مصروفات مسجلة.</p>}
       </div>
+
+      {/* Total Expenses Summary */}
+      {expenses.length > 0 && (
+          <div className="mt-6 bg-white p-4 rounded-2xl shadow-3d-inset border border-gray-100 flex justify-between items-center animate-in fade-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-2 text-gray-700">
+                  <Calculator className="w-5 h-5 text-red-500" />
+                  <span className="font-bold">إجمالي المنصرفات</span>
+              </div>
+              <span className="font-black text-2xl text-red-600">
+                  {totalExpenses.toLocaleString()} <span className="text-sm font-medium text-gray-400">ر.س</span>
+              </span>
+          </div>
+      )}
     </div>
     </>
   );
