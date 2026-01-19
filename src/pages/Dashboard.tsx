@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield
+  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { 
   getStoredTransactions, 
   calculateAchievers, 
@@ -54,6 +55,10 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   
+  // Sound Settings State
+  const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('moaqeb_sound_enabled') !== 'false');
+  const [mySettingsOpen, setMySettingsOpen] = useState(false);
+
   // Ticker State
   const [tickerIndex, setTickerIndex] = useState(0);
   const [tickerStats, setTickerStats] = useState({ active: 0, inProgress: 0, completedWeek: 0 });
@@ -282,8 +287,10 @@ export default function Dashboard() {
 
   // FIX: Unify Pro Path Logic
   const handlePageClick = (page: string, path: string) => {
-      // Play sound effect
-      new Audio('/sound2.mp3').play().catch(() => {});
+      // Play sound effect if enabled
+      if (soundEnabled) {
+          new Audio('/sound2.mp3').play().catch(() => {});
+      }
 
       // @ts-ignore
       if (canAccessPage(page)) {
@@ -336,6 +343,11 @@ export default function Dashboard() {
             setSubSuccess('');
           }, 300);
       }
+  };
+
+  const toggleSound = (checked: boolean) => {
+      setSoundEnabled(checked);
+      localStorage.setItem('moaqeb_sound_enabled', String(checked));
   };
 
   const monthlyBenefits = [
@@ -767,6 +779,34 @@ export default function Dashboard() {
                                 )}
                             </div>
                         )}
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* My Settings Button */}
+                  <Dialog open={mySettingsOpen} onOpenChange={setMySettingsOpen}>
+                    <DialogTrigger asChild>
+                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <Sliders className="w-5 h-5 text-gray-600" />
+                            إعداداتي
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                        <DialogHeader>
+                            <DialogTitle className="text-center text-xl font-bold text-gray-800">إعداداتي</DialogTitle>
+                        </DialogHeader>
+                        <div className="py-6 space-y-4">
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    {soundEnabled ? <Volume2 className="w-5 h-5 text-blue-600" /> : <VolumeX className="w-5 h-5 text-gray-400" />}
+                                    <Label className="font-bold text-gray-700">كتم صوت الأزرار</Label>
+                                </div>
+                                <Switch 
+                                    checked={soundEnabled} 
+                                    onCheckedChange={toggleSound} 
+                                />
+                            </div>
+                            <button onClick={() => setMySettingsOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
+                        </div>
                     </DialogContent>
                   </Dialog>
 
