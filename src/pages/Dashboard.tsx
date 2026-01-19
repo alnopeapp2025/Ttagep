@@ -282,6 +282,9 @@ export default function Dashboard() {
 
   // FIX: Unify Pro Path Logic
   const handlePageClick = (page: string, path: string) => {
+      // Play sound effect
+      new Audio('/sound2.mp3').play().catch(() => {});
+
       // @ts-ignore
       if (canAccessPage(page)) {
           navigate(path);
