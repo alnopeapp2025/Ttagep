@@ -223,7 +223,6 @@ function AgentsPage() {
     setEditingAgent(null);
   };
 
-  // ... (Rest of the component remains unchanged)
   const handleAgentClick = (agent: Agent) => {
     const filtered = allTransactions.filter(t => t.agent === agent.name);
     setAgentTxs(filtered); 

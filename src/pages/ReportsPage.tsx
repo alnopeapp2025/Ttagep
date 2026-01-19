@@ -101,7 +101,7 @@ export default function ReportsPage() {
         supabase.channel('reports-clients-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: `user_id=eq.${targetId}` }, () => fetchClientsFromCloud(targetId).then(setClients)).subscribe(),
         supabase.channel('reports-agents-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'agents', filter: `user_id=eq.${targetId}` }, () => fetchAgentsFromCloud(targetId).then(setAgents)).subscribe(),
         supabase.channel('reports-expenses-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${targetId}` }, () => fetchExpensesFromCloud(targetId).then(setExpenses)).subscribe(),
-        supabase.channel('reports-txs-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, () => fetchTransactionsFromCloud(targetId).then(setTransactions)).subscribe()
+        supabase.channel('reports-txs-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, () => fetchTransactionsFromCloud(targetId).then(data => { setTransactions(data); calculateStats(data); })).subscribe()
     ];
 
     return () => {
@@ -134,18 +134,24 @@ export default function ReportsPage() {
 
     txs.forEach(t => {
       const tDate = t.createdAt;
+      
+      // Always count cancellations for the counter
+      if (t.status === 'cancelled') {
+          cancC++;
+          return; // Skip financial calculations for cancelled transactions
+      }
+
       const clientPrice = parseFloat(t.clientPrice) || 0;
       const agentPrice = parseFloat(t.agentPrice) || 0;
 
-      // Counts
+      // Counts (Active or Completed)
       if (tDate >= startOfDay) todayC++;
       if (tDate >= startOfWeek) weekC++;
       if (tDate >= startOfMonth) monthC++;
 
       if (t.status === 'completed') compC++;
-      if (t.status === 'cancelled') cancC++;
 
-      // Values (Revenue)
+      // Values (Revenue) - Only for Active or Completed
       totalV += clientPrice;
       if (tDate >= startOfWeek) weekV += clientPrice;
       if (tDate >= startOfMonth) monthV += clientPrice;
@@ -195,15 +201,15 @@ export default function ReportsPage() {
 
     switch(type) {
         case 'today':
-            filtered = transactions.filter(t => t.createdAt >= startOfDay);
+            filtered = transactions.filter(t => t.createdAt >= startOfDay && t.status !== 'cancelled');
             title = 'معاملات اليوم';
             break;
         case 'week':
-            filtered = transactions.filter(t => t.createdAt >= startOfWeek);
+            filtered = transactions.filter(t => t.createdAt >= startOfWeek && t.status !== 'cancelled');
             title = 'معاملات الأسبوع';
             break;
         case 'month':
-            filtered = transactions.filter(t => t.createdAt >= startOfMonth);
+            filtered = transactions.filter(t => t.createdAt >= startOfMonth && t.status !== 'cancelled');
             title = 'معاملات الشهر';
             break;
         case 'completed':
@@ -395,7 +401,7 @@ export default function ReportsPage() {
                 />
             </div>
 
-            <h3 className="text-lg font-bold text-gray-700 mb-3 mt-4">القيم المالية</h3>
+            <h3 className="text-lg font-bold text-gray-700 mb-3 mt-4">القيم المالية (النشطة والمنجزة)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="bg-blue-600 text-white rounded-2xl shadow-3d p-4 text-center">
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الأسبوع</p>
