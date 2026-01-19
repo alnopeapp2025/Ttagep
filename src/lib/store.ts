@@ -27,6 +27,7 @@ export interface Transaction {
   createdBy?: string; 
 }
 
+// Explicitly exporting User interface
 export interface User {
   id: number;
   officeName: string;
@@ -155,7 +156,7 @@ export interface GlobalSettings {
     achievers: UserRole[];
     expenses: UserRole[];
     calculator: UserRole[];
-    summary: UserRole[]; // Added summary permission
+    summary: UserRole[];
   };
   featurePermissions: {
     backup: UserRole[];         
@@ -227,7 +228,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     achievers: ['visitor', 'member', 'golden', 'employee'],
     expenses: ['visitor', 'member', 'golden', 'employee'],
     calculator: ['visitor', 'member', 'golden', 'employee'],
-    summary: ['visitor', 'member', 'golden', 'employee'], // Default permission
+    summary: ['visitor', 'member', 'golden', 'employee'],
   },
   featurePermissions: {
     backup: ['visitor', 'member', 'golden', 'employee'],
@@ -648,8 +649,8 @@ export const addTransactionToCloud = async (tx: Transaction, userId: number) => 
           client_name: tx.clientName,
           duration: tx.duration,
           payment_method: tx.paymentMethod,
-          created_at: tx.createdAt, // FIX: Send raw timestamp (number)
-          target_date: tx.targetDate, // FIX: Send raw timestamp (number)
+          created_at: tx.createdAt, 
+          target_date: tx.targetDate, 
           status: tx.status,
           agent_paid: tx.agentPaid || false,
           client_refunded: tx.clientRefunded || false,
@@ -683,7 +684,7 @@ export const updateTransactionInCloud = async (tx: Transaction) => {
                 client_name: tx.clientName,
                 duration: tx.duration,
                 payment_method: tx.paymentMethod,
-                target_date: tx.targetDate, // FIX: Send raw timestamp (number)
+                target_date: tx.targetDate, 
                 status: tx.status
             })
             .eq('id', tx.id);
@@ -784,7 +785,7 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           title: expense.title,
           amount: expense.amount,
           bank: expense.bank,
-          date: expense.date, // FIX: Send timestamp as number to match bigint column
+          date: expense.date, 
           created_by: expense.createdBy || '' 
         }
       ])

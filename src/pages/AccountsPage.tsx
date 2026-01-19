@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User, ArrowUpRight, ArrowDownLeft, Send, X } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X } from 'lucide-react';
 import { 
   BANKS_LIST, 
   getStoredBalances, 
@@ -179,9 +179,6 @@ export default function AccountsPage() {
             setBalances(localBal);
             setPendingBalances(localPending);
             calculateTotals(localBal, localPending);
-            
-            // For local, we just use stored transactions if available, but statement might be empty if not fully implemented for local
-            // Keeping it simple for now as per instructions to focus on cloud/pro features
         }
     };
     loadData();
@@ -505,7 +502,7 @@ export default function AccountsPage() {
                     </div>
                 ) : employees.length === 0 ? (
                     <div className="text-center py-12">
-                        <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500">لم تقم بإضافة أي موظفين بعد.</p>
                         <button onClick={() => navigate('/')} className="text-blue-600 font-bold mt-2 underline">الذهاب للرئيسية لإضافة موظف</button>
                     </div>
