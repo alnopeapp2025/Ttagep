@@ -131,11 +131,13 @@ export interface GlobalSettings {
           transactions: number;
           clients: number;
           agents: number;
+          expenses: number; // Added expenses limit
       };
       member: {
           transactions: number;
           clients: number;
           agents: number;
+          expenses: number; // Added expenses limit
       };
   };
   pagePermissions: {
@@ -205,8 +207,8 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       textColor: '#FFFFFF' // white
   },
   limits: {
-      visitor: { transactions: 5, clients: 3, agents: 2 },
-      member: { transactions: 20, clients: 10, agents: 5 }
+      visitor: { transactions: 5, clients: 3, agents: 2, expenses: 5 },
+      member: { transactions: 20, clients: 10, agents: 5, expenses: 20 }
   },
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
@@ -255,7 +257,11 @@ export const saveGlobalSettings = (settings: GlobalSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
 
-export const checkLimit = (role: UserRole, type: 'transactions' | 'clients' | 'agents', currentCount: number): { allowed: boolean, message?: string } => {
+export const checkLimit = (
+    role: UserRole, 
+    type: 'transactions' | 'clients' | 'agents' | 'expenses', 
+    currentCount: number
+): { allowed: boolean, reason?: 'visitor' | 'member' } => {
     const settings = getGlobalSettings();
     
     if (role === 'golden' || role === 'employee') return { allowed: true };
@@ -263,11 +269,7 @@ export const checkLimit = (role: UserRole, type: 'transactions' | 'clients' | 'a
     const limit = settings.limits[role as 'visitor' | 'member']?.[type];
     
     if (limit !== undefined && currentCount >= limit) {
-        if (role === 'visitor') {
-            return { allowed: false, message: 'عفواً، لقد تجاوزت الحد المسموح للزوار. يرجى التسجيل للاستفادة من مزايا التطبيق.' };
-        } else if (role === 'member') {
-            return { allowed: false, message: 'عفواً، لقد تجاوزت الحد المسموح لعضويتك. يرجى الترقية إلى العضوية الذهبية (PRO) لفتح حدود لا نهائية.' };
-        }
+        return { allowed: false, reason: role as 'visitor' | 'member' };
     }
 
     return { allowed: true };

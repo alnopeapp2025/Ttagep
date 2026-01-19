@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,9 @@ export default function AdminPanel() {
   const [marqueeBg, setMarqueeBg] = useState(settings.marquee?.bgColor || '#DC2626');
   const [marqueeColor, setMarqueeColor] = useState(settings.marquee?.textColor || '#FFFFFF');
   const [appearanceMsg, setAppearanceMsg] = useState('');
+
+  // Limits Settings
+  const [limitsMsg, setLimitsMsg] = useState('');
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -122,6 +125,26 @@ export default function AdminPanel() {
       setTimeout(() => setAppearanceMsg(''), 3000);
   };
 
+  const handleLimitChange = (role: 'visitor' | 'member', type: string, value: string) => {
+      const val = parseInt(value) || 0;
+      setSettings(prev => ({
+          ...prev,
+          limits: {
+              ...prev.limits,
+              [role]: {
+                  ...prev.limits[role],
+                  [type]: val
+              }
+          }
+      }));
+  };
+
+  const handleSaveLimits = () => {
+      saveGlobalSettings(settings);
+      setLimitsMsg('تم حفظ حدود الإضافة بنجاح');
+      setTimeout(() => setLimitsMsg(''), 3000);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
@@ -182,16 +205,17 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-6 bg-white shadow-3d p-1 rounded-xl h-12">
-                    <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100 relative">
+                <TabsList className="grid w-full grid-cols-5 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
+                    <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
                             <span className="absolute top-2 left-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
-                    <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">كلمة المرور</TabsTrigger>
-                    <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-sm data-[state=active]:bg-gray-100">إعدادات المظهر</TabsTrigger>
+                    <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
+                    <TabsTrigger value="limits" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">حدود الإضافة</TabsTrigger>
+                    <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">كلمة المرور</TabsTrigger>
+                    <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">المظهر</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="requests">
@@ -282,6 +306,115 @@ export default function AdminPanel() {
                                     </div>
                                 ))}
                             </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="limits">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <Sliders className="w-5 h-5 text-blue-600" />
+                            إدارة حدود الإضافة
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Visitor Limits */}
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-gray-600 border-b pb-2">حدود الزوار (غير المسجلين)</h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعاملات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.visitor.transactions}
+                                            onChange={(e) => handleLimitChange('visitor', 'transactions', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">العملاء</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.visitor.clients}
+                                            onChange={(e) => handleLimitChange('visitor', 'clients', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعقبين</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.visitor.agents}
+                                            onChange={(e) => handleLimitChange('visitor', 'agents', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المصروفات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.visitor.expenses}
+                                            onChange={(e) => handleLimitChange('visitor', 'expenses', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Member Limits */}
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-gray-600 border-b pb-2">حدود الأعضاء (المسجلين)</h4>
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعاملات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.member.transactions}
+                                            onChange={(e) => handleLimitChange('member', 'transactions', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">العملاء</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.member.clients}
+                                            onChange={(e) => handleLimitChange('member', 'clients', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المعقبين</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.member.agents}
+                                            onChange={(e) => handleLimitChange('member', 'agents', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs">المصروفات</Label>
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-8 bg-white shadow-sm text-center" 
+                                            value={settings.limits.member.expenses}
+                                            onChange={(e) => handleLimitChange('member', 'expenses', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleSaveLimits}
+                            className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                        >
+                            <Save className="w-4 h-4" />
+                            حفظ الحدود
+                        </button>
+                        
+                        {limitsMsg && (
+                            <p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{limitsMsg}</p>
                         )}
                     </div>
                 </TabsContent>

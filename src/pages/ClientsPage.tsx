@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LimitModals } from '@/components/LimitModals';
 
 function ClientsPage() {
   const navigate = useNavigate();
@@ -38,6 +39,9 @@ function ClientsPage() {
 
   // Edit Mode
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  // Limit Modal State
+  const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member'>('none');
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -139,7 +143,8 @@ function ClientsPage() {
       const role = currentUser?.role || 'visitor';
       const check = checkLimit(role, 'clients', clients.length);
       if (!check.allowed) {
-          alert(check.message);
+          if (check.reason === 'visitor') setLimitModalType('visitor');
+          else if (check.reason === 'member') setLimitModalType('member');
           return false;
       }
       return true;
@@ -328,6 +333,12 @@ function ClientsPage() {
   const filteredClients = clients.filter(c => c.name.includes(searchTerm));
 
   return (
+    <>
+    <LimitModals 
+        type={limitModalType} 
+        isOpen={limitModalType !== 'none'} 
+        onClose={() => setLimitModalType('none')} 
+    />
     <div className="max-w-4xl mx-auto pb-20">
       <header className="mb-8 flex items-center gap-4">
         <button onClick={() => navigate('/')} className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600">
@@ -597,6 +608,7 @@ function ClientsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
 export default ClientsPage;
