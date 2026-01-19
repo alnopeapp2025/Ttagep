@@ -155,6 +155,7 @@ export interface GlobalSettings {
     achievers: UserRole[];
     expenses: UserRole[];
     calculator: UserRole[];
+    summary: UserRole[]; // Added summary permission
   };
   featurePermissions: {
     backup: UserRole[];         
@@ -226,6 +227,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     achievers: ['visitor', 'member', 'golden', 'employee'],
     expenses: ['visitor', 'member', 'golden', 'employee'],
     calculator: ['visitor', 'member', 'golden', 'employee'],
+    summary: ['visitor', 'member', 'golden', 'employee'], // Default permission
   },
   featurePermissions: {
     backup: ['visitor', 'member', 'golden', 'employee'],

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX
+  Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
+  ClipboardList
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -931,6 +932,14 @@ export default function Dashboard() {
               label="الحاسبة" 
               locked={!canAccessPage('calculator')}
               onClick={() => handlePageClick('calculator', '/calculator')}
+          />
+
+          {/* New Summary Button */}
+          <DashboardButton 
+              icon={ClipboardList} 
+              label="الملخص" 
+              locked={!canAccessPage('summary')}
+              onClick={() => handlePageClick('summary', '/summary')}
           />
 
         </div>
