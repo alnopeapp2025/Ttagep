@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, DollarSign, StopCircle } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, StopCircle, Save, Lock } from 'lucide-react';
 import { 
   BANKS_LIST, 
   getStoredBalances, 
@@ -110,6 +110,7 @@ export default function AccountsPage() {
   const [salaryType, setSalaryType] = useState<'monthly' | 'commission' | 'both'>('monthly');
   const [commissionRate, setCommissionRate] = useState('');
   const [salaryAmount, setSalaryAmount] = useState('');
+  const [isLocked, setIsLocked] = useState(false); // New state for locking
   
   // Pay Salary State
   const [paySalaryOpen, setPaySalaryOpen] = useState(false);
@@ -179,13 +180,10 @@ export default function AccountsPage() {
             const allEmps = getStoredEmployees();
             const myEmps = allEmps.filter(e => e.parentId === targetId);
             setEmployees(myEmps);
-
-            // Restore Salary Config from LocalStorage
-            const savedConfig = localStorage.getItem(`salary_config_${targetId}`);
-            if (savedConfig) {
-                const parsed = JSON.parse(savedConfig);
-                // Only restore if employee ID matches or general config
-                // For simplicity, we just load if user selects an employee, handled in effect below
+            
+            // If logged in as employee, auto-select self
+            if (user.role === 'employee') {
+                setSelectedEmpId(user.id.toString());
             }
 
         } else {
@@ -210,28 +208,17 @@ export default function AccountsPage() {
               setSalaryType(parsed.type || 'monthly');
               setCommissionRate(parsed.rate || '');
               setSalaryAmount(parsed.amount || '');
+              setIsLocked(parsed.isLocked || false);
           } else {
               // Reset if no config
               setSalaryStartDate('');
               setSalaryType('monthly');
               setCommissionRate('');
               setSalaryAmount('');
+              setIsLocked(false);
           }
       }
   }, [selectedEmpId]);
-
-  // Save Config when changed (if valid)
-  useEffect(() => {
-      if (selectedEmpId && salaryStartDate) {
-          const config = {
-              startDate: salaryStartDate,
-              type: salaryType,
-              rate: commissionRate,
-              amount: salaryAmount
-          };
-          localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
-      }
-  }, [selectedEmpId, salaryStartDate, salaryType, commissionRate, salaryAmount]);
 
   // Realtime Subscription
   useEffect(() => {
@@ -362,9 +349,11 @@ export default function AccountsPage() {
       const emp = employees.find(e => e.id.toString() === selectedEmpId);
       if (!emp) return [];
       
+      // Exclude Cancelled Transactions
       return transactions.filter(t => 
-          (t.createdBy && t.createdBy === emp.officeName) || 
-          (!t.createdBy && t.agent === emp.officeName)
+          ((t.createdBy && t.createdBy === emp.officeName) || 
+          (!t.createdBy && t.agent === emp.officeName)) &&
+          t.status !== 'cancelled'
       );
   };
 
@@ -377,7 +366,7 @@ export default function AccountsPage() {
 
   // Date Constraints
   const today = new Date().toISOString().split('T')[0];
-  const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const last31Days = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Check if salary is due (30 days passed)
   const isSalaryDue = () => {
@@ -388,15 +377,39 @@ export default function AccountsPage() {
       return diffDays >= 30; // Show after 30 days
   };
 
+  const handleSaveConfig = () => {
+      if (!selectedEmpId || !salaryStartDate) return;
+      
+      const config = {
+          startDate: salaryStartDate,
+          type: salaryType,
+          rate: commissionRate,
+          amount: salaryAmount,
+          isLocked: true
+      };
+      
+      localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
+      setIsLocked(true);
+      alert('تم حفظ البيانات وتثبيتها بنجاح');
+  };
+
   const handleStopWork = () => {
       if (!salaryStartDate || !salaryAmount) return;
       const start = new Date(salaryStartDate).getTime();
       const now = Date.now();
-      const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
       const dailyRate = parseFloat(salaryAmount) / 30;
       const due = dailyRate * diffDays;
       
       alert(`يصدر لكم بطرفنا مبلغ ${due.toFixed(2)} ريال عن فترة عمل ${diffDays} يوم.`);
+      
+      // Reset Config
+      localStorage.removeItem(`salary_config_${selectedEmpId}`);
+      setSalaryStartDate('');
+      setSalaryType('monthly');
+      setCommissionRate('');
+      setSalaryAmount('');
+      setIsLocked(false);
   };
 
   const handlePaySalary = async () => {
@@ -431,19 +444,32 @@ export default function AccountsPage() {
           const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
           await addExpenseToCloud(newExp, targetId);
           await updateAccountInCloud(targetId, payBank, newBalances[payBank], pendingBalances[payBank] || 0);
-      } else {
-          // Local fallback
       }
 
       setPaySuccess(true);
       setTimeout(() => {
           setPaySuccess(false);
           setPaySalaryOpen(false);
-          // Reset start date to today to restart cycle? Or keep it?
-          // Usually resets cycle.
-          setSalaryStartDate(today); 
+          // Update start date to today to restart cycle
+          const todayStr = new Date().toISOString().split('T')[0];
+          setSalaryStartDate(todayStr);
+          
+          // Update Config with new date
+          const config = {
+              startDate: todayStr,
+              type: salaryType,
+              rate: commissionRate,
+              amount: salaryAmount,
+              isLocked: true
+          };
+          localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
       }, 2000);
   };
+
+  // Filter employees for display
+  const displayedEmployees = currentUser?.role === 'employee' 
+      ? employees.filter(e => e.id === currentUser.id)
+      : employees;
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
@@ -607,8 +633,8 @@ export default function AccountsPage() {
                     نظام الرواتب والنسب
                 </h3>
 
-                {/* Check if Golden & Has Employees */}
-                {currentUser?.role !== 'golden' ? (
+                {/* Check if Golden & Has Employees (or is Employee) */}
+                {currentUser?.role !== 'golden' && currentUser?.role !== 'employee' ? (
                     <div className="text-center py-12 bg-white/50 rounded-2xl border-2 border-dashed border-yellow-300">
                         <Crown className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
                         <h3 className="text-xl font-black text-gray-800 mb-2">ميزة حصرية للأعضاء الذهبيين</h3>
@@ -620,174 +646,221 @@ export default function AccountsPage() {
                             ترقية الباقة الآن
                         </button>
                     </div>
-                ) : employees.length === 0 ? (
+                ) : displayedEmployees.length === 0 ? (
                     <div className="text-center py-12">
                         <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500">لم تقم بإضافة أي موظفين بعد.</p>
-                        <button onClick={() => navigate('/')} className="text-blue-600 font-bold mt-2 underline">الذهاب للرئيسية لإضافة موظف</button>
+                        {currentUser.role === 'golden' && (
+                            <button onClick={() => navigate('/')} className="text-blue-600 font-bold mt-2 underline">الذهاب للرئيسية لإضافة موظف</button>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* Employee Selection */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label>اختر الموظف</Label>
-                                <Select value={selectedEmpId} onValueChange={setSelectedEmpId} disabled={!!salaryStartDate}>
-                                    <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse disabled:opacity-70">
-                                        <SelectValue placeholder="اختر موظف..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                        {employees.map(emp => (
-                                            <SelectItem key={emp.id} value={emp.id.toString()} className="text-right">{emp.officeName}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>تاريخ بداية العمل</Label>
-                                <div className="relative">
-                                    <Input 
-                                        type="date" 
-                                        value={salaryStartDate}
-                                        onChange={(e) => setSalaryStartDate(e.target.value)}
-                                        className="bg-white shadow-3d-inset border-none h-12 pl-10 disabled:opacity-70"
-                                        min={lastWeek}
-                                        max={today}
-                                        disabled={!!salaryStartDate} // Lock after set
-                                    />
-                                    <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                                </div>
+                        {/* Employee Icons Selection */}
+                        <div className="space-y-2">
+                            <Label className="text-gray-700 font-bold">اختر الموظف</Label>
+                            <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-1">
+                                {displayedEmployees.map(emp => (
+                                    <button
+                                        key={emp.id}
+                                        onClick={() => setSelectedEmpId(emp.id.toString())}
+                                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all min-w-[80px] ${
+                                            selectedEmpId === emp.id.toString() 
+                                            ? 'bg-white shadow-3d-inset scale-95 ring-2 ring-blue-500/20' 
+                                            : 'bg-[#eef2f6] shadow-3d hover:shadow-3d-hover'
+                                        }`}
+                                    >
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${
+                                            selectedEmpId === emp.id.toString() ? 'bg-blue-600' : 'bg-gray-400'
+                                        }`}>
+                                            {emp.officeName.charAt(0)}
+                                        </div>
+                                        <span className={`text-xs font-bold truncate max-w-[80px] ${
+                                            selectedEmpId === emp.id.toString() ? 'text-blue-600' : 'text-gray-600'
+                                        }`}>
+                                            {emp.officeName}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
-                        {selectedEmpId && salaryStartDate && (
+                        {selectedEmpId && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                                {/* Salary Type Selection */}
-                                <div className="bg-white/50 p-4 rounded-2xl border border-white">
-                                    <Label className="mb-3 block font-bold text-gray-700">نظام الراتب</Label>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => setSalaryType('monthly')}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                                        >
-                                            راتب شهري
-                                        </button>
-                                        <button 
-                                            onClick={() => setSalaryType('commission')}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'commission' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                                        >
-                                            نسبة %
-                                        </button>
-                                        <button 
-                                            onClick={() => setSalaryType('both')}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'both' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                                        >
-                                            الاثنين معاً
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Salary Amount Input */}
-                                {(salaryType === 'monthly' || salaryType === 'both') && (
+                                
+                                {/* Configuration Form */}
+                                <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label>قيمة الراتب الشهري</Label>
+                                        <Label>تاريخ بداية العمل</Label>
                                         <div className="relative">
                                             <Input 
-                                                type="number"
-                                                value={salaryAmount}
-                                                onChange={(e) => setSalaryAmount(e.target.value)}
-                                                className="bg-white shadow-3d-inset border-none h-12 pl-10"
-                                                placeholder="أدخل الراتب"
+                                                type="date" 
+                                                value={salaryStartDate}
+                                                onChange={(e) => setSalaryStartDate(e.target.value)}
+                                                className="bg-white shadow-3d-inset border-none h-12 pl-10 disabled:opacity-70 disabled:cursor-not-allowed"
+                                                min={last31Days}
+                                                max={today}
+                                                disabled={isLocked}
                                             />
-                                            <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                            <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Timer Section */}
-                                {(salaryType === 'monthly' || salaryType === 'both') && (
-                                    <div className="bg-white p-6 rounded-2xl shadow-3d-inset text-center space-y-2 border border-blue-100">
-                                        <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
-                                            <Clock className="w-6 h-6" />
-                                            <h4 className="font-bold text-lg">موعد الراتب القادم</h4>
-                                        </div>
-                                        <SalaryTimer startDate={new Date(salaryStartDate).getTime()} />
-                                        
-                                        {/* Action Buttons for Golden Member */}
-                                        <div className="flex gap-3 mt-4 justify-center">
-                                            {isSalaryDue() && (
-                                                <button 
-                                                    onClick={() => setPaySalaryOpen(true)}
-                                                    className="px-6 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2"
-                                                >
-                                                    <DollarSign className="w-4 h-4" />
-                                                    سداد وتحويل الراتب
-                                                </button>
-                                            )}
+                                    {/* Salary Type Selection */}
+                                    <div className="bg-white/50 p-4 rounded-2xl border border-white">
+                                        <Label className="mb-3 block font-bold text-gray-700">نظام الراتب</Label>
+                                        <div className="flex gap-2">
                                             <button 
-                                                onClick={handleStopWork}
-                                                className="px-6 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2"
+                                                onClick={() => !isLocked && setSalaryType('monthly')}
+                                                disabled={isLocked}
+                                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-70`}
                                             >
-                                                <StopCircle className="w-4 h-4" />
-                                                توقف عن العمل
+                                                راتب شهري
+                                            </button>
+                                            <button 
+                                                onClick={() => !isLocked && setSalaryType('commission')}
+                                                disabled={isLocked}
+                                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'commission' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-70`}
+                                            >
+                                                نسبة %
+                                            </button>
+                                            <button 
+                                                onClick={() => !isLocked && setSalaryType('both')}
+                                                disabled={isLocked}
+                                                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${salaryType === 'both' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-70`}
+                                            >
+                                                الاثنين معاً
                                             </button>
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Commission Section */}
-                                {(salaryType === 'commission' || salaryType === 'both') && (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm">
-                                            <div className="flex-1">
-                                                <Label>نسبة الموظف (%)</Label>
-                                                <div className="relative mt-1">
-                                                    <Input 
-                                                        type="number" 
-                                                        placeholder="مثلاً 10" 
-                                                        value={commissionRate}
-                                                        onChange={(e) => setCommissionRate(e.target.value)}
-                                                        className="bg-[#eef2f6] border-none h-12 pl-10"
-                                                    />
-                                                    <Percent className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                    {/* Salary Amount Input */}
+                                    {(salaryType === 'monthly' || salaryType === 'both') && (
+                                        <div className="space-y-2">
+                                            <Label>قيمة الراتب الشهري</Label>
+                                            <div className="relative">
+                                                <Input 
+                                                    type="number"
+                                                    value={salaryAmount}
+                                                    onChange={(e) => setSalaryAmount(e.target.value)}
+                                                    className="bg-white shadow-3d-inset border-none h-12 pl-10 disabled:opacity-70"
+                                                    placeholder="أدخل الراتب"
+                                                    disabled={isLocked}
+                                                />
+                                                <span className="absolute left-3 top-3.5 text-gray-400 font-bold text-xs">﷼</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Commission Rate Input */}
+                                    {(salaryType === 'commission' || salaryType === 'both') && (
+                                        <div className="space-y-2">
+                                            <Label>نسبة الموظف (%)</Label>
+                                            <div className="relative">
+                                                <Input 
+                                                    type="number" 
+                                                    placeholder="مثلاً 10" 
+                                                    value={commissionRate}
+                                                    onChange={(e) => setCommissionRate(e.target.value)}
+                                                    className="bg-white shadow-3d-inset border-none h-12 pl-10 disabled:opacity-70"
+                                                    disabled={isLocked}
+                                                />
+                                                <Percent className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Save Button (Only if not locked) */}
+                                    {!isLocked && (
+                                        <button 
+                                            onClick={handleSaveConfig}
+                                            className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Save className="w-4 h-4" />
+                                            حفظ وتثبيت البيانات
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Active Salary Dashboard (Only if Locked) */}
+                                {isLocked && (
+                                    <div className="space-y-6 border-t border-gray-200 pt-6">
+                                        
+                                        {/* Timer Section */}
+                                        {(salaryType === 'monthly' || salaryType === 'both') && (
+                                            <div className="bg-white p-6 rounded-2xl shadow-3d-inset text-center space-y-2 border border-blue-100">
+                                                <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
+                                                    <Clock className="w-6 h-6" />
+                                                    <h4 className="font-bold text-lg">موعد الراتب القادم</h4>
+                                                </div>
+                                                <SalaryTimer startDate={new Date(salaryStartDate).getTime()} />
+                                                
+                                                {/* Action Buttons for Golden Member */}
+                                                {currentUser.role === 'golden' && (
+                                                    <div className="flex gap-3 mt-4 justify-center">
+                                                        {isSalaryDue() && (
+                                                            <button 
+                                                                onClick={() => setPaySalaryOpen(true)}
+                                                                className="px-6 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2"
+                                                            >
+                                                                <span className="font-bold">﷼</span>
+                                                                سداد وتحويل الراتب
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            onClick={handleStopWork}
+                                                            className="px-6 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2"
+                                                        >
+                                                            <StopCircle className="w-4 h-4" />
+                                                            توقف عن العمل
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Commission Table */}
+                                        {(salaryType === 'commission' || salaryType === 'both') && (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm">
+                                                    <div className="flex-1 text-center bg-green-50 rounded-xl p-2 border border-green-100">
+                                                        <p className="text-xs text-green-600 font-bold mb-1">إجمالي العمولة المستحقة</p>
+                                                        <p className="text-xl font-black text-green-700">{empCommissionTotal.toLocaleString()} ﷼</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white/50 rounded-2xl border border-white overflow-hidden">
+                                                    <table className="w-full text-right text-sm">
+                                                        <thead className="bg-gray-100 text-gray-600 font-bold">
+                                                            <tr>
+                                                                <th className="p-3">المعاملة</th>
+                                                                <th className="p-3">التاريخ</th>
+                                                                <th className="p-3">المبلغ</th>
+                                                                <th className="p-3">حصة الموظف</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100">
+                                                            {empTransactions.length === 0 ? (
+                                                                <tr><td colSpan={4} className="p-6 text-center text-gray-400">لا توجد معاملات مسجلة لهذا الموظف</td></tr>
+                                                            ) : (
+                                                                empTransactions.map(t => {
+                                                                    const price = parseFloat(t.clientPrice) || 0;
+                                                                    const share = price * ((parseFloat(commissionRate) || 0) / 100);
+                                                                    return (
+                                                                        <tr key={t.id} className="hover:bg-white transition-colors">
+                                                                            <td className="p-3 font-bold text-gray-700">{t.type}</td>
+                                                                            <td className="p-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString('ar-SA')}</td>
+                                                                            <td className="p-3 font-bold text-blue-600">{price}</td>
+                                                                            <td className="p-3 font-black text-green-600">{share.toFixed(2)}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                             </div>
-                                            <div className="flex-1 text-center bg-green-50 rounded-xl p-2 border border-green-100">
-                                                <p className="text-xs text-green-600 font-bold mb-1">إجمالي العمولة المستحقة</p>
-                                                <p className="text-xl font-black text-green-700">{empCommissionTotal.toLocaleString()} ر.س</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white/50 rounded-2xl border border-white overflow-hidden">
-                                            <table className="w-full text-right text-sm">
-                                                <thead className="bg-gray-100 text-gray-600 font-bold">
-                                                    <tr>
-                                                        <th className="p-3">المعاملة</th>
-                                                        <th className="p-3">التاريخ</th>
-                                                        <th className="p-3">المبلغ</th>
-                                                        <th className="p-3">حصة الموظف</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {empTransactions.length === 0 ? (
-                                                        <tr><td colSpan={4} className="p-6 text-center text-gray-400">لا توجد معاملات مسجلة لهذا الموظف</td></tr>
-                                                    ) : (
-                                                        empTransactions.map(t => {
-                                                            const price = parseFloat(t.clientPrice) || 0;
-                                                            const share = price * ((parseFloat(commissionRate) || 0) / 100);
-                                                            return (
-                                                                <tr key={t.id} className="hover:bg-white transition-colors">
-                                                                    <td className="p-3 font-bold text-gray-700">{t.type}</td>
-                                                                    <td className="p-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString('ar-SA')}</td>
-                                                                    <td className="p-3 font-bold text-blue-600">{price}</td>
-                                                                    <td className="p-3 font-black text-green-600">{share.toFixed(2)}</td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -821,7 +894,7 @@ export default function AccountsPage() {
                                           <div className="flex justify-between w-full gap-4">
                                               <span>{bank}</span>
                                               <span className={`font-bold ${(balances[bank] || 0) >= parseFloat(salaryAmount) ? 'text-green-600' : 'text-red-500'}`}>
-                                                  {(balances[bank] || 0).toLocaleString()} ر.س
+                                                  {(balances[bank] || 0).toLocaleString()} ﷼
                                               </span>
                                           </div>
                                       </SelectItem>
@@ -833,7 +906,7 @@ export default function AccountsPage() {
                           onClick={handlePaySalary}
                           className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700"
                       >
-                          تأكيد السداد ({salaryAmount} ر.س)
+                          تأكيد السداد ({salaryAmount} ﷼)
                       </button>
                   </div>
               )}
@@ -870,7 +943,7 @@ export default function AccountsPage() {
                             <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
                                 (balances[transferFrom] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
                             }`}>
-                                الرصيد: {(balances[transferFrom] || 0).toLocaleString()} ر.س
+                                الرصيد: {(balances[transferFrom] || 0).toLocaleString()} ﷼
                             </span>
                         )}
                     </div>
@@ -882,7 +955,7 @@ export default function AccountsPage() {
                                 <div className="flex justify-between w-full gap-4">
                                     <span>{b}</span>
                                     <span className={`font-bold ${(balances[b] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {(balances[b] || 0).toLocaleString()} ر.س
+                                        {(balances[b] || 0).toLocaleString()} ﷼
                                     </span>
                                 </div>
                             </SelectItem>
@@ -898,7 +971,7 @@ export default function AccountsPage() {
                              <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
                                 (balances[transferTo] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
                             }`}>
-                                الرصيد: {(balances[transferTo] || 0).toLocaleString()} ر.س
+                                الرصيد: {(balances[transferTo] || 0).toLocaleString()} ﷼
                             </span>
                         )}
                     </div>
@@ -910,7 +983,7 @@ export default function AccountsPage() {
                                 <div className="flex justify-between w-full gap-4">
                                     <span>{b}</span>
                                     <span className={`font-bold ${(balances[b] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {(balances[b] || 0).toLocaleString()} ر.س
+                                        {(balances[b] || 0).toLocaleString()} ﷼
                                     </span>
                                 </div>
                             </SelectItem>
