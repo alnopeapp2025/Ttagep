@@ -413,6 +413,12 @@ export default function AccountsPage() {
   };
 
   const handleSaveConfig = () => {
+      // Check Permission: Only Admin/Golden can save config
+      if (currentUser?.role === 'employee') {
+          alert("هذه الخاصية متاحة فقط لمدير المكتب أو المسؤول أو العضو الذي أصدر عضوية الموظف");
+          return;
+      }
+
       if (!selectedEmpId || !salaryStartDate) return;
       
       const config = {
@@ -924,41 +930,41 @@ export default function AccountsPage() {
                                                 </div>
                                             </div>
                                         )}
-
-                                        {/* Salary Log (New 3D Section) */}
-                                        <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
-                                            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                                <History className="w-5 h-5 text-purple-600" />
-                                                سجل الراتب والمدفوعات
-                                            </h3>
-                                            
-                                            {empExpenses.length === 0 ? (
-                                                <p className="text-center text-gray-400 py-6">لا توجد مدفوعات سابقة.</p>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {empExpenses.map(exp => (
-                                                        <div key={exp.id} className="bg-white/60 p-3 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-sm">
-                                                                    <Receipt className="w-4 h-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-bold text-gray-800 text-sm">{exp.title}</p>
-                                                                    <div className="flex gap-2 text-[10px] text-gray-500">
-                                                                        <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
-                                                                        <span>•</span>
-                                                                        <span>{exp.bank}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <span className="font-black text-green-600">{exp.amount.toLocaleString()} ﷼</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
                                     </div>
                                 )}
+
+                                {/* Salary Log (Always Visible for Selected Employee) */}
+                                <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <History className="w-5 h-5 text-purple-600" />
+                                        سجل الراتب والمدفوعات
+                                    </h3>
+                                    
+                                    {empExpenses.length === 0 ? (
+                                        <p className="text-center text-gray-400 py-6">لا توجد مدفوعات سابقة.</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {empExpenses.map(exp => (
+                                                <div key={exp.id} className="bg-white/60 p-3 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-sm">
+                                                            <Receipt className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800 text-sm">{exp.title}</p>
+                                                            <div className="flex gap-2 text-[10px] text-gray-500">
+                                                                <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                                <span>•</span>
+                                                                <span>{exp.bank}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span className="font-black text-green-600">{exp.amount.toLocaleString()} ﷼</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -988,8 +994,13 @@ export default function AccountsPage() {
                           <Input 
                               type="number" 
                               value={amountToPay} 
-                              onChange={(e) => setAmountToPay(e.target.value)}
-                              className="bg-white shadow-3d-inset border-none text-center font-bold text-lg"
+                              onChange={(e) => {
+                                  // If stop_work, prevent changing the amount (must pay full due)
+                                  if (payType === 'stop_work') return;
+                                  setAmountToPay(e.target.value)
+                              }}
+                              readOnly={payType === 'stop_work'}
+                              className={`bg-white shadow-3d-inset border-none text-center font-bold text-lg ${payType === 'stop_work' ? 'opacity-80 bg-gray-50 cursor-not-allowed' : ''}`}
                           />
                       </div>
                       <div className="space-y-2">
