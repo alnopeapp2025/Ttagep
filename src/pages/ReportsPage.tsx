@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft, UserPlus, Receipt } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft, UserPlus, Receipt, History } from 'lucide-react';
 import { 
     getStoredTransactions, Transaction, 
     getStoredAgentTransfers, AgentTransferRecord, 
@@ -267,6 +267,22 @@ export default function ReportsPage() {
       setSelectedEmployee(emp);
   };
 
+  // Filter Salary/Commission Expenses for Salary Log
+  const getSalaryLog = () => {
+      let filteredExpenses = expenses.filter(e => 
+          e.title.includes('راتب') || e.title.includes('عمولة') || e.title.includes('مستحقات')
+      );
+
+      if (currentUser?.role === 'employee') {
+          // Employee sees only their own salary logs
+          filteredExpenses = filteredExpenses.filter(e => e.title.includes(currentUser.officeName));
+      }
+      
+      return filteredExpenses.sort((a, b) => b.date - a.date);
+  };
+
+  const salaryLog = getSalaryLog();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText, detailType, restricted }: any) => (
     <div className={`bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50 relative group ${restricted ? 'opacity-70' : ''}`}>
@@ -311,11 +327,12 @@ export default function ReportsPage() {
       </header>
 
       <Tabs defaultValue="general" className="w-full" dir="rtl">
-        <TabsList className="grid w-full grid-cols-4 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 overflow-x-auto">
+        <TabsList className="grid w-full grid-cols-5 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 overflow-x-auto">
             <TabsTrigger value="general" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">عام</TabsTrigger>
             <TabsTrigger value="agent-transfers" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تحويلات المعقبين</TabsTrigger>
             <TabsTrigger value="refunds" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">مسترجعات العملاء</TabsTrigger>
             <TabsTrigger value="employees" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تقرير الموظفين</TabsTrigger>
+            <TabsTrigger value="salary-log" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm text-green-700">سجل الراتب</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -577,6 +594,44 @@ export default function ReportsPage() {
                     )}
                 </div>
             )}
+        </TabsContent>
+
+        <TabsContent value="salary-log">
+            <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <History className="w-5 h-5 text-green-700" />
+                    سجل الرواتب والعمولات
+                </h3>
+                
+                {salaryLog.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
+                        لا توجد سجلات رواتب أو عمولات حالياً.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {salaryLog.map(exp => (
+                            <div key={exp.id} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                                        <Receipt className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 text-sm">{exp.title}</h4>
+                                        <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
+                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                            <span>•</span>
+                                            <span className="text-blue-500 font-medium">{exp.bank}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span className="font-black text-lg text-green-600">
+                                    {exp.amount.toLocaleString()} ﷼
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </TabsContent>
 
       </Tabs>

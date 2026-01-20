@@ -368,11 +368,13 @@ export default function AccountsPage() {
 
   const empTransactions = getEmployeeTransactions();
   
-  // Total Commission Generated
+  // Total Commission Generated (UPDATED LOGIC: Client Price - Agent Price)
   const empCommissionTotal = empTransactions.reduce((sum, t) => {
-      const price = parseFloat(t.clientPrice) || 0;
+      const clientPrice = parseFloat(t.clientPrice) || 0;
+      const agentPrice = parseFloat(t.agentPrice) || 0;
+      const profit = Math.max(0, clientPrice - agentPrice); // Ensure no negative commission
       const rate = parseFloat(commissionRate) || 0;
-      return sum + (price * (rate / 100));
+      return sum + (profit * (rate / 100));
   }, 0);
 
   // 2. Calculate Paid Salary/Commission (From Expenses)
@@ -894,7 +896,7 @@ export default function AccountsPage() {
                                                             <tr>
                                                                 <th className="p-3">المعاملة</th>
                                                                 <th className="p-3">التاريخ</th>
-                                                                <th className="p-3">المبلغ</th>
+                                                                <th className="p-3">الربح</th>
                                                                 <th className="p-3">حصة الموظف</th>
                                                             </tr>
                                                         </thead>
@@ -903,13 +905,15 @@ export default function AccountsPage() {
                                                                 <tr><td colSpan={4} className="p-6 text-center text-gray-400">لا توجد معاملات منجزة لهذا الموظف</td></tr>
                                                             ) : (
                                                                 empTransactions.map(t => {
-                                                                    const price = parseFloat(t.clientPrice) || 0;
-                                                                    const share = price * ((parseFloat(commissionRate) || 0) / 100);
+                                                                    const clientPrice = parseFloat(t.clientPrice) || 0;
+                                                                    const agentPrice = parseFloat(t.agentPrice) || 0;
+                                                                    const profit = Math.max(0, clientPrice - agentPrice);
+                                                                    const share = profit * ((parseFloat(commissionRate) || 0) / 100);
                                                                     return (
                                                                         <tr key={t.id} className="hover:bg-white transition-colors">
                                                                             <td className="p-3 font-bold text-gray-700">{t.type}</td>
                                                                             <td className="p-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString('ar-SA')}</td>
-                                                                            <td className="p-3 font-bold text-blue-600">{price}</td>
+                                                                            <td className="p-3 font-bold text-blue-600">{profit}</td>
                                                                             <td className="p-3 font-black text-green-600">{share.toFixed(2)}</td>
                                                                         </tr>
                                                                     );
