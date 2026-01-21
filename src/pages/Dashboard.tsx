@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList
+  ClipboardList, Pencil, Loader2
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -25,6 +25,7 @@ import {
   logoutUser,
   User,
   changePassword,
+  updateUserProfile,
   getLastBackupTime,
   fetchTransactionsFromCloud,
   getGlobalSettings,
@@ -47,6 +48,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const securityQuestions = [
+  "اين ولدت والدتك؟",
+  "ماهو اقرب صديق لك؟",
+  "متي تزوجت؟",
+  "ماهي الهواية المفضله؟",
+  "مدينة في السعوديه اقرب لقلبك؟",
+  "ما وجبتك المفضلة؟"
+];
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -81,15 +91,11 @@ export default function Dashboard() {
 
   // Pro State
   const [proOpen, setProOpen] = useState(false);
-  // FIX: Start with 'duration' (Packages) instead of 'bank'
   const [subStep, setSubStep] = useState<'duration' | 'bank' | 'confirm'>('duration');
   const [selectedBank, setSelectedBank] = useState('');
   const [selectedDuration, setSelectedDuration] = useState<'شهر' | 'سنة' | ''>('');
   const [subSuccess, setSubSuccess] = useState('');
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
-
-  // Employee Login State
-  const [empLoginOpen, setEmpLoginOpen] = useState(false);
 
   // Employee Creation State (For Golden Members)
   const [createEmpOpen, setCreateEmpOpen] = useState(false);
@@ -100,6 +106,15 @@ export default function Dashboard() {
 
   // User Profile & Change Password States
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editOfficeName, setEditOfficeName] = useState('');
+  const [editSecurityQuestion, setEditSecurityQuestion] = useState('');
+  const [editSecurityAnswer, setEditSecurityAnswer] = useState('');
+  const [verifyOldPass, setVerifyOldPass] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+
   const [changePassOpen, setChangePassOpen] = useState(false);
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -166,6 +181,19 @@ export default function Dashboard() {
     }
   }, [location]);
 
+  // Init Profile Edit State
+  useEffect(() => {
+      if (currentUser && profileOpen) {
+          setEditOfficeName(currentUser.officeName);
+          setEditSecurityQuestion(currentUser.securityQuestion || '');
+          setEditSecurityAnswer(currentUser.securityAnswer || '');
+          setIsEditingProfile(false);
+          setVerifyOldPass('');
+          setProfileError('');
+          setProfileSuccess('');
+      }
+  }, [currentUser, profileOpen]);
+
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
@@ -182,6 +210,44 @@ export default function Dashboard() {
     } else {
         setEmpError(res.message || 'فشل إنشاء الموظف');
     }
+  };
+
+  const handleUpdateProfile = async () => {
+      setProfileError('');
+      if (!currentUser) return;
+      if (!editOfficeName || !editSecurityQuestion || !editSecurityAnswer || !verifyOldPass) {
+          setProfileError('يرجى ملء جميع الحقول وكلمة المرور للتأكيد');
+          return;
+      }
+
+      setProfileLoading(true);
+      try {
+          const res = await updateUserProfile(
+              currentUser.id, 
+              verifyOldPass, 
+              editOfficeName, 
+              editSecurityQuestion, 
+              editSecurityAnswer
+          );
+
+          if (res.success) {
+              setProfileSuccess('تم تحديث البيانات بنجاح');
+              // Refresh user data
+              const updated = getCurrentUser();
+              setCurrentUser(updated);
+              setTimeout(() => {
+                  setIsEditingProfile(false);
+                  setProfileSuccess('');
+                  setVerifyOldPass('');
+              }, 1500);
+          } else {
+              setProfileError(res.message || 'فشل التحديث');
+          }
+      } catch (e) {
+          setProfileError('حدث خطأ غير متوقع');
+      } finally {
+          setProfileLoading(false);
+      }
   };
 
   const handleChangePassword = async () => {
@@ -305,7 +371,7 @@ export default function Dashboard() {
       }
   };
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     if (!currentUser) {
         alert('يجب تسجيل الدخول أولاً');
         navigate('/login');
@@ -313,7 +379,7 @@ export default function Dashboard() {
     }
     if (!selectedBank || !selectedDuration) return;
 
-    const res = createSubscriptionRequest(currentUser.id, currentUser.officeName, currentUser.phone, selectedDuration, selectedBank);
+    const res = await createSubscriptionRequest(currentUser.id, currentUser.officeName, currentUser.phone, selectedDuration, selectedBank);
     if (res.success) {
         setSubSuccess('تم إرسال طلب الاشتراك بنجاح! سيتم التفعيل قريباً.');
         setTimeout(() => {
@@ -490,28 +556,7 @@ export default function Dashboard() {
 
                   <Separator className="my-2 bg-gray-300/50" />
 
-                  <Dialog open={empLoginOpen} onOpenChange={setEmpLoginOpen}>
-                    <DialogTrigger asChild>
-                        <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                            <UserCheck className="w-5 h-5 text-gray-600" />
-                            دخول الموظفين
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
-                        <DialogHeader><DialogTitle>دخول الموظفين</DialogTitle></DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>اسم الموظف</Label>
-                                <Input className="bg-white shadow-3d-inset border-none" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>كلمة المرور</Label>
-                                <Input type="password" className="bg-white shadow-3d-inset border-none" />
-                            </div>
-                            <button onClick={() => { alert('تم تسجيل الدخول بنجاح'); setEmpLoginOpen(false); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">دخول</button>
-                        </div>
-                    </DialogContent>
-                  </Dialog>
+                  {/* REMOVED EMPLOYEE LOGIN AS REQUESTED */}
                   
                   {/* ... Inquiry Dialog ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
@@ -1017,10 +1062,25 @@ export default function Dashboard() {
                             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-3d mb-3">
                                 <UserCircle className="w-10 h-10" />
                             </div>
-                            <h3 className="text-xl font-black text-gray-800">{currentUser.officeName}</h3>
-                            <p className="text-gray-500 text-sm">
-                                {currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو مسجل'}
-                            </p>
+                            
+                            {!isEditingProfile ? (
+                                <>
+                                    <h3 className="text-xl font-black text-gray-800">{currentUser.officeName}</h3>
+                                    <p className="text-gray-500 text-sm">
+                                        {currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو مسجل'}
+                                    </p>
+                                </>
+                            ) : (
+                                <div className="w-full space-y-2">
+                                    <Label>اسم المكتب</Label>
+                                    <Input 
+                                        value={editOfficeName}
+                                        onChange={(e) => setEditOfficeName(e.target.value)}
+                                        className="bg-white shadow-3d-inset border-none text-center"
+                                    />
+                                </div>
+                            )}
+
                             {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (
                                 <p className="text-xs text-red-500 font-bold mt-1">
                                     ينتهي الاشتراك: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
@@ -1028,18 +1088,95 @@ export default function Dashboard() {
                             )}
                         </div>
                         
-                        <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3">
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                                <span className="text-gray-500 text-sm font-bold">رقم الهاتف</span>
-                                <span className="font-mono text-gray-800 font-bold" dir="ltr">{currentUser.phone}</span>
+                        {!isEditingProfile ? (
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3">
+                                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                    <span className="text-gray-500 text-sm font-bold">رقم الهاتف</span>
+                                    <span className="font-mono text-gray-800 font-bold" dir="ltr">{currentUser.phone}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 text-sm font-bold">تاريخ التسجيل</span>
+                                    <span className="text-gray-800 font-bold">{new Date(currentUser.createdAt).toLocaleDateString('ar-SA')}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 text-sm font-bold">تاريخ التسجيل</span>
-                                <span className="text-gray-800 font-bold">{new Date(currentUser.createdAt).toLocaleDateString('ar-SA')}</span>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in">
+                                <div className="space-y-2">
+                                    <Label>سؤال الأمان</Label>
+                                    <Select value={editSecurityQuestion} onValueChange={setEditSecurityQuestion}>
+                                        <SelectTrigger className="bg-white shadow-3d-inset border-none h-10 text-right flex-row-reverse">
+                                            <SelectValue placeholder="اختر السؤال..." />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                            {securityQuestions.map((q) => (
+                                            <SelectItem key={q} value={q} className="text-right cursor-pointer my-1">{q}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>إجابة السؤال</Label>
+                                    <Input 
+                                        value={editSecurityAnswer}
+                                        onChange={(e) => setEditSecurityAnswer(e.target.value)}
+                                        className="bg-white shadow-3d-inset border-none"
+                                    />
+                                </div>
+                                <div className="space-y-2 pt-2 border-t border-gray-200">
+                                    <Label className="text-red-500">كلمة المرور الحالية (للتأكيد)</Label>
+                                    <Input 
+                                        type="password"
+                                        value={verifyOldPass}
+                                        onChange={(e) => setVerifyOldPass(e.target.value)}
+                                        className="bg-white shadow-3d-inset border-none"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <button onClick={() => setProfileOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
+                        {profileError && (
+                            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold text-center border border-red-100">
+                                {profileError}
+                            </div>
+                        )}
+                        
+                        {profileSuccess && (
+                            <div className="bg-green-50 text-green-600 p-3 rounded-xl text-xs font-bold text-center border border-green-100">
+                                {profileSuccess}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                            {!isEditingProfile ? (
+                                <>
+                                    <button 
+                                        onClick={() => setIsEditingProfile(true)} 
+                                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                        تعديل
+                                    </button>
+                                    <button onClick={() => setProfileOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button 
+                                        onClick={handleUpdateProfile} 
+                                        disabled={profileLoading}
+                                        className="flex-[2] py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                                    >
+                                        {profileLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حفظ التغييرات'}
+                                    </button>
+                                    <button 
+                                        onClick={() => setIsEditingProfile(false)} 
+                                        className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all"
+                                    >
+                                        إلغاء
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 )}
             </DialogContent>

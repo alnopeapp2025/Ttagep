@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
 import { 
     getGlobalSettings, GlobalSettings, saveGlobalSettings,
-    getSubscriptionRequests, approveSubscription, SubscriptionRequest,
+    fetchSubscriptionRequestsFromCloud, approveSubscription, SubscriptionRequest,
     getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest,
     BankAccount
 } from '@/lib/store';
@@ -46,13 +46,16 @@ export default function AdminPanel() {
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
 
   useEffect(() => {
-    // Refresh requests periodically
-    const interval = setInterval(() => {
-        setRequests(getSubscriptionRequests());
+    // Refresh requests periodically from Cloud
+    const loadRequests = async () => {
+        const reqs = await fetchSubscriptionRequestsFromCloud();
+        setRequests(reqs);
         setActiveGolden(getGoldenUsers());
-    }, 2000);
-    setRequests(getSubscriptionRequests());
-    setActiveGolden(getGoldenUsers());
+    };
+
+    const interval = setInterval(loadRequests, 5000); // Poll every 5s
+    loadRequests();
+    
     return () => clearInterval(interval);
   }, []);
 
@@ -68,15 +71,17 @@ export default function AdminPanel() {
   const handleApprove = async (id: number) => {
     if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) {
         await approveSubscription(id);
-        setRequests(getSubscriptionRequests()); // Refresh
+        const reqs = await fetchSubscriptionRequestsFromCloud();
+        setRequests(reqs); 
         setActiveGolden(getGoldenUsers());
     }
   };
 
-  const handleReject = (id: number) => {
+  const handleReject = async (id: number) => {
       if(confirm('هل أنت متأكد من رفض وحذف هذا الطلب؟')) {
-          rejectSubscriptionRequest(id);
-          setRequests(getSubscriptionRequests());
+          await rejectSubscriptionRequest(id);
+          const reqs = await fetchSubscriptionRequestsFromCloud();
+          setRequests(reqs);
       }
   };
 
@@ -323,7 +328,7 @@ export default function AdminPanel() {
 
                 <TabsContent value="requests">
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
-                        <h3 className="text-lg font-bold text-gray-800 mb-6">طلبات العضوية الذهبية</h3>
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">طلبات العضوية الذهبية (Unified Cloud)</h3>
                         
                         {requests.length === 0 ? (
                             <div className="text-center py-10 text-gray-500 text-sm">لا توجد طلبات حالياً</div>
@@ -376,6 +381,8 @@ export default function AdminPanel() {
                     </div>
                 </TabsContent>
 
+                {/* ... Other Tabs Content (Active, Limits, Subscription, Settings, Appearance) ... */}
+                {/* Kept same as previous, just showing wrapper for context */}
                 <TabsContent value="active">
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">الأعضاء الذهبيين النشطين</h3>

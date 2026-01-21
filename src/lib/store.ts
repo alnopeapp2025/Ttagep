@@ -357,41 +357,83 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// --- Subscription Requests ---
+// --- Subscription Requests (Unified via Supabase) ---
 
-export const createSubscriptionRequest = (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
-    const requests: SubscriptionRequest[] = getSubscriptionRequests();
-    if (requests.find(r => r.userId === userId && r.status === 'pending')) {
-        return { success: false, message: 'لديك طلب قيد المراجعة بالفعل' };
-    }
-
-    const newReq: SubscriptionRequest = {
-        id: Date.now(),
-        userId,
-        userName,
-        phone,
-        duration,
-        bank,
-        status: 'pending',
-        createdAt: Date.now()
-    };
-    
-    requests.push(newReq);
-    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
-    return { success: true };
-};
-
-export const getSubscriptionRequests = (): SubscriptionRequest[] => {
+export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
-        const stored = localStorage.getItem(SUB_REQUESTS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
+        // Check for existing pending request
+        const { data: existing } = await supabase
+            .from('subscription_requests')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (existing) {
+            return { success: false, message: 'لديك طلب قيد المراجعة بالفعل' };
+        }
+
+        const { error } = await supabase
+            .from('subscription_requests')
+            .insert([{
+                user_id: userId,
+                user_name: userName,
+                phone: phone,
+                duration: duration,
+                bank: bank,
+                status: 'pending'
+            }]);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Create sub request error:', err);
+        return { success: false, message: err.message || 'فشل إرسال الطلب' };
+    }
 };
 
-export const rejectSubscriptionRequest = (requestId: number) => {
-    let requests = getSubscriptionRequests();
-    requests = requests.filter(r => r.id !== requestId);
-    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
+export const fetchSubscriptionRequestsFromCloud = async (): Promise<SubscriptionRequest[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('subscription_requests')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((item: any) => ({
+            id: item.id,
+            userId: item.user_id,
+            userName: item.user_name,
+            phone: item.phone,
+            duration: item.duration,
+            bank: item.bank,
+            status: item.status,
+            createdAt: new Date(item.created_at).getTime()
+        }));
+    } catch (err) {
+        console.error('Fetch sub requests error:', err);
+        return [];
+    }
+};
+
+// Kept for compatibility but now calls cloud fetch
+export const getSubscriptionRequests = (): SubscriptionRequest[] => {
+    // This is now just a placeholder or local fallback, but AdminPanel should use the async fetch
+    return []; 
+};
+
+export const rejectSubscriptionRequest = async (requestId: number) => {
+    try {
+        await supabase
+            .from('subscription_requests')
+            .delete()
+            .eq('id', requestId);
+        return true;
+    } catch (err) {
+        console.error('Reject request error:', err);
+        return false;
+    }
 };
 
 export interface GoldenUserRecord {
@@ -408,42 +450,47 @@ export const getGoldenUsers = (): GoldenUserRecord[] => {
 };
 
 export const approveSubscription = async (requestId: number) => {
-    const requests = getSubscriptionRequests();
-    const reqIndex = requests.findIndex(r => r.id === requestId);
-    
-    if (reqIndex === -1) return { success: false };
-
-    const req = requests[reqIndex];
-    
-    const durationMs = req.duration === 'سنة' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
-    const expiryDate = Date.now() + durationMs;
-
     try {
-        const { error } = await supabase
+        // 1. Get request details
+        const { data: req, error: fetchError } = await supabase
+            .from('subscription_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+        
+        if (fetchError || !req) return { success: false };
+
+        const durationMs = req.duration === 'سنة' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+        const expiryDate = Date.now() + durationMs;
+
+        // 2. Update User Role
+        const { error: updateError } = await supabase
             .from('users')
             .update({ 
                 role: 'golden',
                 subscription_expiry: new Date(expiryDate).toISOString() 
             }) 
-            .eq('id', req.userId);
+            .eq('id', req.user_id);
         
-        if (error) {
-            console.error("Supabase update error:", error);
-        }
+        if (updateError) throw updateError;
 
+        // 3. Update Request Status
+        await supabase
+            .from('subscription_requests')
+            .update({ status: 'approved' })
+            .eq('id', requestId);
+
+        // 4. Update Local Golden Users (for display)
         const goldenUsers = getGoldenUsers();
-        const filtered = goldenUsers.filter(u => u.userId !== req.userId);
-        filtered.push({ userId: req.userId, expiry: expiryDate, userName: req.userName });
+        const filtered = goldenUsers.filter(u => u.userId !== req.user_id);
+        filtered.push({ userId: req.user_id, expiry: expiryDate, userName: req.user_name });
         localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(filtered));
         
+        return { success: true };
     } catch (e) {
         console.error(e);
+        return { success: false };
     }
-
-    const updatedRequests = requests.filter(r => r.id !== requestId);
-    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(updatedRequests));
-    
-    return { success: true };
 };
 
 export const cancelSubscription = async (userId: number) => {
@@ -464,6 +511,62 @@ export const cancelSubscription = async (userId: number) => {
     }
 
     return { success: true };
+};
+
+// --- User Profile Update ---
+export const updateUserProfile = async (
+    userId: number, 
+    oldPass: string, 
+    newOfficeName: string, 
+    newSecurityQuestion: string, 
+    newSecurityAnswer: string
+) => {
+    try {
+        const oldHash = hashPassword(oldPass);
+        
+        // 1. Verify Old Password
+        const { data: user, error: verifyError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', userId)
+            .eq('password_hash', oldHash)
+            .single();
+
+        if (verifyError || !user) {
+            return { success: false, message: 'كلمة المرور القديمة غير صحيحة' };
+        }
+
+        // 2. Update Profile
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+                office_name: newOfficeName,
+                security_question: newSecurityQuestion,
+                security_answer: newSecurityAnswer
+            })
+            .eq('id', userId);
+
+        if (updateError) {
+            return { success: false, message: 'فشل تحديث البيانات' };
+        }
+
+        // 3. Update Local Storage
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.id === userId) {
+            const updatedUser = { 
+                ...currentUser, 
+                officeName: newOfficeName,
+                securityQuestion: newSecurityQuestion,
+                securityAnswer: newSecurityAnswer
+            };
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Update profile error:', err);
+        return { success: false, message: 'حدث خطأ غير متوقع' };
+    }
 };
 
 export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
@@ -700,6 +803,8 @@ export const logoutUser = () => {
   localStorage.removeItem(CURRENT_USER_KEY);
 };
 
+// ... (Rest of the file remains unchanged: Transaction, Expense, Agent, Client, Account management functions)
+// ... (Keeping all other functions intact)
 // --- Transaction Management (Cloud) ---
 
 export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
