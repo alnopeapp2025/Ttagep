@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList, Pencil, Loader2
+  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -123,6 +123,10 @@ export default function Dashboard() {
   const [passSuccess, setPassSuccess] = useState(false);
   const [passLoading, setPassLoading] = useState(false);
 
+  // Onboarding State
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+
   useEffect(() => {
     // Load Settings
     const globalSettings = getGlobalSettings();
@@ -131,6 +135,14 @@ export default function Dashboard() {
     // Load User
     const user = getCurrentUser();
     setCurrentUser(user);
+
+    // Check for Onboarding
+    if (user && user.role === 'golden') {
+        const hasSeen = localStorage.getItem(`moaqeb_onboarding_seen_${user.id}`);
+        if (!hasSeen) {
+            setOnboardingOpen(true);
+        }
+    }
 
     const loadData = async () => {
         let txs: Transaction[] = [];
@@ -417,6 +429,25 @@ export default function Dashboard() {
       localStorage.setItem('moaqeb_sound_enabled', String(checked));
   };
 
+  // Onboarding Navigation
+  const nextOnboardingStep = () => {
+      if (settings && onboardingStep < settings.onboardingSteps.length - 1) {
+          setOnboardingStep(prev => prev + 1);
+      } else {
+          // Finish
+          if (currentUser) {
+              localStorage.setItem(`moaqeb_onboarding_seen_${currentUser.id}`, 'true');
+          }
+          setOnboardingOpen(false);
+      }
+  };
+
+  const prevOnboardingStep = () => {
+      if (onboardingStep > 0) {
+          setOnboardingStep(prev => prev - 1);
+      }
+  };
+
   // Use Dynamic Settings for Benefits and Prices
   const monthlyBenefits = settings?.packages.monthly.benefits || [];
   const annualBenefits = settings?.packages.annual.benefits || [];
@@ -445,6 +476,7 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4">
+        {/* ... Header ... */}
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
@@ -556,9 +588,7 @@ export default function Dashboard() {
 
                   <Separator className="my-2 bg-gray-300/50" />
 
-                  {/* REMOVED EMPLOYEE LOGIN AS REQUESTED */}
-                  
-                  {/* ... Inquiry Dialog ... */}
+                  {/* ... Dialogs ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -1302,6 +1332,51 @@ export default function Dashboard() {
                         </button>
                     </div>
                 )}
+            </DialogContent>
+        </Dialog>
+
+        {/* Onboarding Modal */}
+        <Dialog open={onboardingOpen} onOpenChange={(val) => { if(!val) setOnboardingOpen(false); }}>
+            <DialogContent className="bg-gradient-to-br from-yellow-50 via-slate-50 to-yellow-50 border-4 border-double border-yellow-400 shadow-3d rounded-3xl max-w-md p-8" dir="rtl">
+                <div className="text-center space-y-6">
+                    <div className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center mx-auto shadow-lg text-white animate-pulse">
+                        <Crown className="w-10 h-10" />
+                    </div>
+                    
+                    <h2 className="text-2xl font-black text-yellow-700 drop-shadow-sm">
+                        أهلاً بك في العضوية الذهبية
+                    </h2>
+
+                    <div className="min-h-[120px] flex items-center justify-center">
+                        <p className="text-blue-800 text-base font-bold leading-relaxed whitespace-pre-line">
+                            {settings?.onboardingSteps[onboardingStep]}
+                        </p>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4">
+                        <button 
+                            onClick={prevOnboardingStep}
+                            className={`flex items-center gap-1 text-gray-500 hover:text-gray-700 font-bold ${onboardingStep === 0 ? 'invisible' : ''}`}
+                        >
+                            <ArrowRight className="w-4 h-4" />
+                            عودة
+                        </button>
+
+                        <div className="flex gap-1">
+                            {settings?.onboardingSteps.map((_, i) => (
+                                <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === onboardingStep ? 'bg-blue-600 w-4' : 'bg-gray-300'}`} />
+                            ))}
+                        </div>
+
+                        <button 
+                            onClick={nextOnboardingStep}
+                            className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                        >
+                            {onboardingStep === (settings?.onboardingSteps.length || 0) - 1 ? 'ابدأ الآن' : 'التالي'}
+                            {onboardingStep !== (settings?.onboardingSteps.length || 0) - 1 && <ArrowLeft className="w-4 h-4" />}
+                        </button>
+                    </div>
+                </div>
             </DialogContent>
         </Dialog>
 

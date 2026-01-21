@@ -165,6 +165,9 @@ export interface GlobalSettings {
       monthly: PackageDetails;
       annual: PackageDetails;
   };
+  // Onboarding Steps (New)
+  onboardingSteps: string[];
+  
   pagePermissions: {
     transactions: UserRole[];
     accounts: UserRole[];
@@ -207,7 +210,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v4'; // Updated version
+const SETTINGS_KEY = 'moaqeb_global_settings_v5'; // Incremented version
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -237,7 +240,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       member: { transactions: 20, clients: 10, agents: 5, expenses: 20 },
       golden: { transactions: 10000, clients: 10000, agents: 10000, expenses: 10000 }
   },
-  // Default Banks with Dummy Account Numbers
+  // Default Banks
   banks: [
       { id: 1, name: "الراجحي", accountNumber: "SA0000000000000000000000" },
       { id: 2, name: "الأهلي", accountNumber: "SA0000000000000000000000" },
@@ -276,6 +279,14 @@ const DEFAULT_SETTINGS: GlobalSettings = {
           ]
       }
   },
+  // Default Onboarding Steps
+  onboardingSteps: [
+      "مرحبا بكم في عضوية الذهب، انت الان ضمن الباقه الذهبية حتي فترة انتهاء اشتراكك.",
+      "لمعرفة وقت اشتراكك يمكنك الضغط على ملفك الشخصي،",
+      "كذلك يمكنك إصدار عضوية موظفين تابعين لمكتبك ومتابعة رواتب الموظفين ومعاملاتهم.",
+      "يمكنك الآن الوصول لخدمات الدعم الفني المباشر المخصصة للأعضاء الذهبيين.",
+      "نتمنى لك تجربة ممتعة مع مميزاتك الجديدة.. ابدأ الآن. ودايما يمكنك مراسلتنا علي رقم الواتس اب المخصص لأعضاء الذهب عبر\n00249915144606☎️\nوالموجود ثابت أسفل الموقع علي مدار 24ساعه"
+  ],
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
     accounts: ['visitor', 'member', 'golden', 'employee'],
@@ -320,7 +331,8 @@ export const getGlobalSettings = (): GlobalSettings => {
             packages: {
                 monthly: { ...DEFAULT_SETTINGS.packages.monthly, ...(parsed.packages?.monthly || {}) },
                 annual: { ...DEFAULT_SETTINGS.packages.annual, ...(parsed.packages?.annual || {}) }
-            }
+            },
+            onboardingSteps: parsed.onboardingSteps || DEFAULT_SETTINGS.onboardingSteps
         };
     }
     return DEFAULT_SETTINGS;
@@ -357,6 +369,7 @@ export const checkLimit = (
     return { allowed: true };
 };
 
+// ... (Rest of the file remains unchanged)
 // --- Subscription Requests (Unified via Supabase) ---
 
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
