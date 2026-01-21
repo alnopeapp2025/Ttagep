@@ -574,7 +574,7 @@ export default function ReportsPage() {
                                                 ) : item.kind === 'agent' ? (
                                                     <span>{item.name}</span>
                                                 ) : item.kind === 'expense' ? (
-                                                    <span>{item.title}</span>
+                                                    <span>{item.title.replace(/\|SD:.*?\|/, '').trim()}</span>
                                                 ) : null}
                                             </div>
                                             <div className="col-span-3 text-[9px] text-gray-500 flex flex-col">
@@ -609,26 +609,51 @@ export default function ReportsPage() {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {salaryLog.map(exp => (
-                            <div key={exp.id} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 shadow-sm">
-                                        <Receipt className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-800 text-sm">{exp.title}</h4>
-                                        <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
-                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
-                                            <span>•</span>
-                                            <span className="text-blue-500 font-medium">{exp.bank}</span>
+                        {salaryLog.map(exp => {
+                            // Extract stored date
+                            const dateMatch = exp.title.match(/\|SD:(.*?)\|/);
+                            const storedStartDate = dateMatch ? dateMatch[1] : null;
+                            const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').trim();
+
+                            const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
+                            
+                            // Use stored date if available, else fallback to current config (for legacy/display)
+                            // Note: In Reports Page we don't have access to current config state easily, so we rely on stored date or just show end date if missing.
+                            const displayStartDate = storedStartDate;
+
+                            return (
+                                <div key={exp.id} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                                            <Receipt className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-gray-800 text-sm">{cleanTitle}</h4>
+                                            <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
+                                                {isSalaryOrClearance && displayStartDate ? (
+                                                    <>
+                                                        <span className="text-red-500 font-bold">
+                                                            {new Date(displayStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
+                                                        </span>
+                                                        <span> وحتي </span>
+                                                        <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                        <span>•</span>
+                                                        <span className="text-blue-500 font-medium">{exp.bank}</span>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                    <span className="font-black text-lg text-green-600">
+                                        {exp.amount.toLocaleString()} ﷼
+                                    </span>
                                 </div>
-                                <span className="font-black text-lg text-green-600">
-                                    {exp.amount.toLocaleString()} ﷼
-                                </span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

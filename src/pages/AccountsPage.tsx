@@ -165,7 +165,7 @@ export default function AccountsPage() {
                 ...exps.map(e => ({ 
                     id: `exp-${e.id}`,
                     type: 'withdrawal', 
-                    title: `صرف: ${e.title}`, 
+                    title: `صرف: ${e.title.replace(/\|SD:.*?\|/, '').trim()}`, 
                     subTitle: 'مصروفات',
                     amount: e.amount, 
                     date: e.date,
@@ -483,9 +483,12 @@ export default function AccountsPage() {
       
       // 2. Add Expense
       let title = '';
-      if (payType === 'salary') title = `راتب شهري: ${emp.officeName}`;
+      // Store start date in title for historical accuracy
+      const dateTag = salaryStartDate ? `|SD:${salaryStartDate}|` : '';
+      
+      if (payType === 'salary') title = `راتب شهري: ${emp.officeName}${dateTag}`;
       else if (payType === 'commission') title = `سداد عمولة: ${emp.officeName}`;
-      else if (payType === 'stop_work') title = `تصفية مستحقات (توقف عن العمل): ${emp.officeName}`;
+      else if (payType === 'stop_work') title = `تصفية مستحقات (توقف عن العمل): ${emp.officeName}${dateTag}`;
 
       const newExp: Expense = {
           id: Date.now(),
@@ -949,7 +952,15 @@ export default function AccountsPage() {
                                     ) : (
                                         <div className="space-y-3">
                                             {empExpenses.map(exp => {
-                                                const isSalaryOrClearance = exp.title.includes('راتب') || exp.title.includes('تصفية') || exp.title.includes('مستحقات');
+                                                // Extract stored date
+                                                const dateMatch = exp.title.match(/\|SD:(.*?)\|/);
+                                                const storedStartDate = dateMatch ? dateMatch[1] : null;
+                                                const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').trim();
+
+                                                const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
+                                                
+                                                // Use stored date if available, else fallback to current config (for legacy/display)
+                                                const displayStartDate = storedStartDate || salaryStartDate;
                                                 
                                                 return (
                                                     <div key={exp.id} className="bg-white/60 p-3 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
@@ -958,12 +969,12 @@ export default function AccountsPage() {
                                                                 <Receipt className="w-4 h-4" />
                                                             </div>
                                                             <div>
-                                                                <p className="font-bold text-gray-800 text-sm">{exp.title}</p>
+                                                                <p className="font-bold text-gray-800 text-sm">{cleanTitle}</p>
                                                                 <div className="flex gap-1 text-[10px] text-gray-500 mt-0.5">
-                                                                    {isSalaryOrClearance && salaryStartDate ? (
+                                                                    {isSalaryOrClearance && displayStartDate ? (
                                                                         <>
                                                                             <span className="text-red-500 font-bold">
-                                                                                {new Date(salaryStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
+                                                                                {new Date(displayStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
                                                                             </span>
                                                                             <span> وحتي </span>
                                                                             <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
