@@ -4,11 +4,12 @@ import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wa
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, saveStoredTransactions, Transaction,
-  getStoredBalances, saveStoredBalances, BANKS_LIST,
+  getStoredBalances, saveStoredBalances,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit, updateAgentInCloud, deleteAgentFromCloud
+  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit, updateAgentInCloud, deleteAgentFromCloud,
+  getBankNames
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ function AgentsPage() {
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [banksList, setBanksList] = useState<string[]>([]);
   
   // Edit Mode
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -47,6 +49,7 @@ function AgentsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setBalances(getStoredBalances());
+    setBanksList(getBankNames());
     const loadData = async () => {
         if (user) {
             const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
@@ -554,7 +557,7 @@ function AgentsPage() {
                                     <SelectValue placeholder="اختر البنك" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                    {BANKS_LIST.map((bank) => (
+                                    {banksList.map((bank) => (
                                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
                                             <div className="flex justify-between w-full gap-4">
                                                 <span>{bank}</span>

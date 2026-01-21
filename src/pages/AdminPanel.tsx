@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
 import { 
     getGlobalSettings, GlobalSettings, saveGlobalSettings,
     getSubscriptionRequests, approveSubscription, SubscriptionRequest,
-    getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest
+    getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest,
+    BankAccount
 } from '@/lib/store';
 
 export default function AdminPanel() {
@@ -34,6 +35,12 @@ export default function AdminPanel() {
 
   // Limits Settings
   const [limitsMsg, setLimitsMsg] = useState('');
+
+  // Subscription Settings
+  const [subMsg, setSubMsg] = useState('');
+  const [newBankName, setNewBankName] = useState('');
+  const [newBankAcc, setNewBankAcc] = useState('');
+  const [newBenefit, setNewBenefit] = useState('');
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -145,6 +152,98 @@ export default function AdminPanel() {
       setTimeout(() => setLimitsMsg(''), 3000);
   };
 
+  // --- Subscription Management Handlers ---
+
+  const handleAddBank = () => {
+      if (!newBankName) return;
+      const newBank: BankAccount = {
+          id: Date.now(),
+          name: newBankName,
+          accountNumber: newBankAcc || '-'
+      };
+      setSettings(prev => ({
+          ...prev,
+          banks: [...prev.banks, newBank]
+      }));
+      setNewBankName('');
+      setNewBankAcc('');
+  };
+
+  const handleDeleteBank = (id: number) => {
+      if(confirm('هل أنت متأكد من حذف هذا البنك؟')) {
+          setSettings(prev => ({
+              ...prev,
+              banks: prev.banks.filter(b => b.id !== id)
+          }));
+      }
+  };
+
+  const handleUpdateBank = (id: number, field: 'name' | 'accountNumber', value: string) => {
+      setSettings(prev => ({
+          ...prev,
+          banks: prev.banks.map(b => b.id === id ? { ...b, [field]: value } : b)
+      }));
+  };
+
+  const handleUpdatePackagePrice = (type: 'monthly' | 'annual', price: string) => {
+      const val = parseFloat(price) || 0;
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: { ...prev.packages[type], price: val }
+          }
+      }));
+  };
+
+  const handleAddBenefit = (type: 'monthly' | 'annual') => {
+      if(!newBenefit) return;
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: { 
+                  ...prev.packages[type], 
+                  benefits: [...prev.packages[type].benefits, newBenefit] 
+              }
+          }
+      }));
+      setNewBenefit('');
+  };
+
+  const handleDeleteBenefit = (type: 'monthly' | 'annual', index: number) => {
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: { 
+                  ...prev.packages[type], 
+                  benefits: prev.packages[type].benefits.filter((_, i) => i !== index) 
+              }
+          }
+      }));
+  };
+
+  const handleUpdateBenefit = (type: 'monthly' | 'annual', index: number, value: string) => {
+      setSettings(prev => {
+          const newBenefits = [...prev.packages[type].benefits];
+          newBenefits[index] = value;
+          return {
+              ...prev,
+              packages: {
+                  ...prev.packages,
+                  [type]: { ...prev.packages[type], benefits: newBenefits }
+              }
+          };
+      });
+  };
+
+  const handleSaveSubscriptionSettings = () => {
+      saveGlobalSettings(settings);
+      setSubMsg('تم حفظ إعدادات الاشتراك والبنوك بنجاح');
+      setTimeout(() => setSubMsg(''), 3000);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
@@ -205,7 +304,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-5 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
+                <TabsList className="grid w-full grid-cols-6 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
@@ -214,6 +313,10 @@ export default function AdminPanel() {
                     </TabsTrigger>
                     <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
                     <TabsTrigger value="limits" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">حدود الإضافة</TabsTrigger>
+                    <TabsTrigger value="subscription" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1">
+                        <CreditCard className="w-3 h-3" />
+                        الاشتراكات
+                    </TabsTrigger>
                     <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">كلمة المرور</TabsTrigger>
                     <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">المظهر</TabsTrigger>
                 </TabsList>
@@ -458,6 +561,171 @@ export default function AdminPanel() {
                         
                         {limitsMsg && (
                             <p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{limitsMsg}</p>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="subscription">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <CreditCard className="w-5 h-5 text-green-600" />
+                            إعدادات الاشتراك والبنوك
+                        </h3>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Banks Management */}
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-gray-700 border-b pb-2">إدارة البنوك والحسابات</h4>
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                                    {settings.banks.map(bank => (
+                                        <div key={bank.id} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 space-y-2">
+                                            <div className="flex gap-2">
+                                                <Input 
+                                                    value={bank.name}
+                                                    onChange={(e) => handleUpdateBank(bank.id, 'name', e.target.value)}
+                                                    className="bg-gray-50 border-none h-8 text-xs font-bold"
+                                                    placeholder="اسم البنك"
+                                                />
+                                                <button 
+                                                    onClick={() => handleDeleteBank(bank.id)}
+                                                    className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                            <Input 
+                                                value={bank.accountNumber}
+                                                onChange={(e) => handleUpdateBank(bank.id, 'accountNumber', e.target.value)}
+                                                className="bg-gray-50 border-none h-8 text-xs font-mono text-left"
+                                                placeholder="رقم الحساب / الآيبان"
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 pt-2 border-t border-gray-200">
+                                    <Input 
+                                        value={newBankName}
+                                        onChange={(e) => setNewBankName(e.target.value)}
+                                        placeholder="اسم بنك جديد"
+                                        className="bg-white shadow-sm h-10 text-sm"
+                                    />
+                                    <Input 
+                                        value={newBankAcc}
+                                        onChange={(e) => setNewBankAcc(e.target.value)}
+                                        placeholder="رقم الحساب"
+                                        className="bg-white shadow-sm h-10 text-sm font-mono"
+                                        dir="ltr"
+                                    />
+                                    <button 
+                                        onClick={handleAddBank}
+                                        className="px-4 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Packages Management */}
+                            <div className="space-y-6">
+                                <h4 className="font-bold text-gray-700 border-b pb-2">إدارة الباقات</h4>
+                                
+                                {/* Monthly Package */}
+                                <div className="bg-white/50 p-4 rounded-xl border border-blue-100">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="font-bold text-blue-600">الباقة الشهرية</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">السعر:</span>
+                                            <Input 
+                                                type="number"
+                                                value={settings.packages.monthly.price}
+                                                onChange={(e) => handleUpdatePackagePrice('monthly', e.target.value)}
+                                                className="w-20 h-8 bg-white text-center font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-gray-500">المزايا (Benefit List)</Label>
+                                        {settings.packages.monthly.benefits.map((benefit, idx) => (
+                                            <div key={idx} className="flex gap-2">
+                                                <Input 
+                                                    value={benefit}
+                                                    onChange={(e) => handleUpdateBenefit('monthly', idx, e.target.value)}
+                                                    className="h-8 text-xs bg-white"
+                                                />
+                                                <button onClick={() => handleDeleteBenefit('monthly', idx)} className="text-red-500 hover:bg-red-50 p-1 rounded">
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                value={newBenefit}
+                                                onChange={(e) => setNewBenefit(e.target.value)}
+                                                placeholder="ميزة جديدة..."
+                                                className="h-8 text-xs bg-white"
+                                            />
+                                            <button onClick={() => handleAddBenefit('monthly')} className="text-green-600 hover:bg-green-50 p-1 rounded">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Annual Package */}
+                                <div className="bg-white/50 p-4 rounded-xl border border-yellow-100">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="font-bold text-yellow-600">الباقة السنوية</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">السعر:</span>
+                                            <Input 
+                                                type="number"
+                                                value={settings.packages.annual.price}
+                                                onChange={(e) => handleUpdatePackagePrice('annual', e.target.value)}
+                                                className="w-20 h-8 bg-white text-center font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-gray-500">المزايا (Benefit List)</Label>
+                                        {settings.packages.annual.benefits.map((benefit, idx) => (
+                                            <div key={idx} className="flex gap-2">
+                                                <Input 
+                                                    value={benefit}
+                                                    onChange={(e) => handleUpdateBenefit('annual', idx, e.target.value)}
+                                                    className="h-8 text-xs bg-white"
+                                                />
+                                                <button onClick={() => handleDeleteBenefit('annual', idx)} className="text-red-500 hover:bg-red-50 p-1 rounded">
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                value={newBenefit}
+                                                onChange={(e) => setNewBenefit(e.target.value)}
+                                                placeholder="ميزة جديدة..."
+                                                className="h-8 text-xs bg-white"
+                                            />
+                                            <button onClick={() => handleAddBenefit('annual')} className="text-green-600 hover:bg-green-50 p-1 rounded">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleSaveSubscriptionSettings}
+                            className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                        >
+                            <Save className="w-4 h-4" />
+                            حفظ التغييرات
+                        </button>
+                        
+                        {subMsg && (
+                            <p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{subMsg}</p>
                         )}
                     </div>
                 </TabsContent>

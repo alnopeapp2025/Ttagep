@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, StopCircle, Save, Receipt, History } from 'lucide-react';
 import { 
-  BANKS_LIST, 
   getStoredBalances, 
   saveStoredBalances, 
   getStoredPendingBalances, 
@@ -19,7 +18,8 @@ import {
   Transaction,
   getStoredAgentTransfers,
   addExpenseToCloud,
-  Expense
+  Expense,
+  getBankNames // Use dynamic bank names
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -120,10 +120,14 @@ export default function AccountsPage() {
   const [amountToPay, setAmountToPay] = useState('');
   const [paySuccess, setPaySuccess] = useState(false);
 
+  // Dynamic Bank List
+  const [banksList, setBanksList] = useState<string[]>([]);
+
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
+    setBanksList(getBankNames()); // Load dynamic bank names
 
     const loadData = async () => {
         if (user) {
@@ -317,7 +321,7 @@ export default function AccountsPage() {
   };
 
   const handleZeroTreasury = async () => {
-    const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
+    const zeroed = banksList.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
     
     setBalances(zeroed);
     setPendingBalances(zeroed);
@@ -325,7 +329,7 @@ export default function AccountsPage() {
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        for (const bank of BANKS_LIST) {
+        for (const bank of banksList) {
             await updateAccountInCloud(targetId, bank, 0, 0);
         }
     } else {
@@ -341,7 +345,7 @@ export default function AccountsPage() {
   };
 
   // Sort Banks by (Balance + Pending) Descending
-  const sortedBanks = [...BANKS_LIST].sort((a, b) => {
+  const sortedBanks = [...banksList].sort((a, b) => {
     const totalA = (balances[a] || 0) + (pendingBalances[a] || 0);
     const totalB = (balances[b] || 0) + (pendingBalances[b] || 0);
     return totalB - totalA;
@@ -1010,7 +1014,7 @@ export default function AccountsPage() {
                                   <SelectValue placeholder="اختر البنك" />
                               </SelectTrigger>
                               <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                  {BANKS_LIST.map(bank => (
+                                  {banksList.map(bank => (
                                       <SelectItem key={bank} value={bank} className="text-right">
                                           <div className="flex justify-between w-full gap-4">
                                               <span>{bank}</span>
@@ -1071,7 +1075,7 @@ export default function AccountsPage() {
                     <Select onValueChange={setTransferFrom} value={transferFrom}>
                         <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
                         <SelectContent dir="rtl">
-                        {BANKS_LIST.map(b => (
+                        {banksList.map(b => (
                             <SelectItem key={b} value={b} className="text-right cursor-pointer my-1">
                                 <div className="flex justify-between w-full gap-4">
                                     <span>{b}</span>
@@ -1099,7 +1103,7 @@ export default function AccountsPage() {
                     <Select onValueChange={setTransferTo} value={transferTo}>
                         <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
                         <SelectContent dir="rtl">
-                        {BANKS_LIST.map(b => (
+                        {banksList.map(b => (
                             <SelectItem key={b} value={b} className="text-right cursor-pointer my-1">
                                 <div className="flex justify-between w-full gap-4">
                                     <span>{b}</span>

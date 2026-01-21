@@ -25,12 +25,13 @@ import {
   getStoredTransactions, saveStoredTransactions, 
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
-  BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
+  getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
   getCurrentUser, User,
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
   fetchAccountsFromCloud, updateAccountInCloud,
-  Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud
+  Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud,
+  getBankNames
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { LimitModals } from '@/components/LimitModals';
@@ -110,6 +111,9 @@ export default function TransactionsPage() {
   // Limit Modal State
   const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
 
+  // Dynamic Bank List
+  const [banksList, setBanksList] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     manualType: '',
     selectedType: '',
@@ -132,6 +136,7 @@ export default function TransactionsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
+    setBanksList(getBankNames()); // Load dynamic bank names
 
     if (user) {
         const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
@@ -1043,7 +1048,7 @@ export default function TransactionsPage() {
                       <SelectValue placeholder="اختر البنك..." />
                     </SelectTrigger>
                     <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                      {BANKS_LIST.map((bank) => (
+                      {banksList.map((bank) => (
                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer focus:bg-white/50 my-1">{bank}</SelectItem>
                       ))}
                     </SelectContent>

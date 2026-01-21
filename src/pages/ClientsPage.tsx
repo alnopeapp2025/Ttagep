@@ -4,11 +4,11 @@ import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, CheckC
 import { 
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, saveStoredTransactions, Transaction,
-  BANKS_LIST,
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud
+  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud,
+  getBankNames
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,7 @@ function ClientsPage() {
   const [totalRefundDue, setTotalRefundDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [banksList, setBanksList] = useState<string[]>([]);
 
   // Edit Mode
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -47,6 +48,7 @@ function ClientsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setPendingBalances(getStoredPendingBalances());
+    setBanksList(getBankNames());
     
     const loadData = async () => {
         if (user) {
@@ -557,7 +559,7 @@ function ClientsPage() {
                                     <SelectValue placeholder="اختر البنك" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                    {BANKS_LIST.map((bank) => (
+                                    {banksList.map((bank) => (
                                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
                                             <div className="flex justify-between w-full gap-4">
                                                 <span>{bank}</span>

@@ -351,24 +351,14 @@ export default function Dashboard() {
       localStorage.setItem('moaqeb_sound_enabled', String(checked));
   };
 
-  const monthlyBenefits = [
-      "معاملات لا محدودة",
-      "تقارير متكاملة",
-      "عملاء بلا حدود",
-      "معقبين بلا حدود",
-      "نسخ احتياطي مؤمن",
-      "10 أرقام معقبين منجزين",
-      "10 دروس تعليمية",
-      "حسابات تفصيلية للتحويلات"
-  ];
+  // Use Dynamic Settings for Benefits and Prices
+  const monthlyBenefits = settings?.packages.monthly.benefits || [];
+  const annualBenefits = settings?.packages.annual.benefits || [];
+  const monthlyPrice = settings?.packages.monthly.price || 59;
+  const annualPrice = settings?.packages.annual.price || 299;
 
-  const annualBenefits = [
-      "جميع مزايا الباقة الشهرية",
-      "50 رقم معقب منجز",
-      "50 درس تعقيب خاص",
-      "أرقام مكاتب خدمات للتعاون",
-      "تقارير تفصيلية"
-  ];
+  // Use Dynamic Banks
+  const banksList = settings?.banks || [];
 
   return (
     <div className="min-h-screen pb-10">
@@ -669,7 +659,7 @@ export default function Dashboard() {
                                             >
                                                 <div className="text-center mb-2 border-b border-current pb-2 w-full">
                                                     <div className="text-sm font-bold">باقة شهرية</div>
-                                                    <div className="text-3xl font-black">59 <span className="text-xs font-medium">ريال</span></div>
+                                                    <div className="text-3xl font-black">{monthlyPrice} <span className="text-xs font-medium">ريال</span></div>
                                                 </div>
                                                 <ul className="space-y-1 text-[10px] w-full">
                                                     {monthlyBenefits.map((b, i) => (
@@ -689,7 +679,7 @@ export default function Dashboard() {
                                                 <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">الأكثر توفيراً</div>
                                                 <div className="text-center mb-2 border-b border-current pb-2 w-full">
                                                     <div className="text-sm font-bold">باقة سنوية</div>
-                                                    <div className="text-3xl font-black">299 <span className="text-xs font-medium">ريال</span></div>
+                                                    <div className="text-3xl font-black">{annualPrice} <span className="text-xs font-medium">ريال</span></div>
                                                 </div>
                                                 <ul className="space-y-1 text-[10px] w-full">
                                                     {annualBenefits.map((b, i) => (
@@ -725,10 +715,9 @@ export default function Dashboard() {
                                                     <SelectValue placeholder="اختر البنك" />
                                                 </SelectTrigger>
                                                 <SelectContent dir="rtl">
-                                                    <SelectItem value="الراجحي">الراجحي</SelectItem>
-                                                    <SelectItem value="الأهلي">الأهلي</SelectItem>
-                                                    <SelectItem value="الإنماء">الإنماء</SelectItem>
-                                                    <SelectItem value="الرياض">الرياض</SelectItem>
+                                                    {banksList.map(bank => (
+                                                        <SelectItem key={bank.id} value={bank.name}>{bank.name}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -758,7 +747,7 @@ export default function Dashboard() {
                                             <h3 className="font-bold text-lg mb-1">يرجى التحويل الآن</h3>
                                             <p className="text-sm opacity-90 mb-3">على حساب {selectedBank}</p>
                                             <div className="bg-white/20 p-2 rounded-lg font-mono text-lg select-all">
-                                                1234567890
+                                                {banksList.find(b => b.name === selectedBank)?.accountNumber || '---'}
                                             </div>
                                         </div>
                                         

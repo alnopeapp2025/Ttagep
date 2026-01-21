@@ -8,7 +8,6 @@ import {
   getStoredBalances, 
   saveStoredBalances, 
   getStoredPendingBalances, 
-  BANKS_LIST,
   getCurrentUser,
   addExpenseToCloud,
   fetchExpensesFromCloud,
@@ -18,7 +17,8 @@ import {
   User,
   getGlobalSettings,
   GlobalSettings,
-  checkLimit
+  checkLimit,
+  getBankNames
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ export default function ExpensesPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  const [banksList, setBanksList] = useState<string[]>([]);
 
   // Limit Modal State
   const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
@@ -51,6 +52,7 @@ export default function ExpensesPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
+    setBanksList(getBankNames());
     
     // Initial load from local storage
     setBalances(getStoredBalances());
@@ -327,7 +329,7 @@ export default function ExpensesPage() {
                                 <SelectValue placeholder="اختر البنك للخصم" />
                             </SelectTrigger>
                             <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right max-h-[300px]" dir="rtl">
-                                {BANKS_LIST.map((bank) => {
+                                {banksList.map((bank) => {
                                     const bal = balances[bank] || 0;
                                     return (
                                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1 w-full">

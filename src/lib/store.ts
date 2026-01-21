@@ -1,12 +1,13 @@
 import { supabase } from './supabase';
 
 // --- Constants ---
-export const BANKS_LIST = [
+// Default fallback list
+export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
 ];
 
-export const INITIAL_BALANCES: Record<string, number> = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
+export const INITIAL_BALANCES: Record<string, number> = DEFAULT_BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
 // --- Types ---
 export interface Transaction {
@@ -27,7 +28,6 @@ export interface Transaction {
   createdBy?: string; 
 }
 
-// Explicitly exporting User interface
 export interface User {
   id: number;
   officeName: string;
@@ -119,6 +119,18 @@ export interface SubscriptionRequest {
   bank?: string; 
 }
 
+// New Dynamic Types
+export interface BankAccount {
+    id: number;
+    name: string;
+    accountNumber: string;
+}
+
+export interface PackageDetails {
+    price: number;
+    benefits: string[];
+}
+
 export interface GlobalSettings {
   adminPasswordHash: string;
   siteTitle: string;
@@ -146,6 +158,12 @@ export interface GlobalSettings {
           agents: number;
           expenses: number;
       };
+  };
+  // Dynamic Banks & Packages
+  banks: BankAccount[];
+  packages: {
+      monthly: PackageDetails;
+      annual: PackageDetails;
   };
   pagePermissions: {
     transactions: UserRole[];
@@ -189,7 +207,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v3'; 
+const SETTINGS_KEY = 'moaqeb_global_settings_v4'; // Updated version
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -218,6 +236,45 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       visitor: { transactions: 5, clients: 3, agents: 2, expenses: 5 },
       member: { transactions: 20, clients: 10, agents: 5, expenses: 20 },
       golden: { transactions: 10000, clients: 10000, agents: 10000, expenses: 10000 }
+  },
+  // Default Banks with Dummy Account Numbers
+  banks: [
+      { id: 1, name: "الراجحي", accountNumber: "SA0000000000000000000000" },
+      { id: 2, name: "الأهلي", accountNumber: "SA0000000000000000000000" },
+      { id: 3, name: "الإنماء", accountNumber: "SA0000000000000000000000" },
+      { id: 4, name: "البلاد", accountNumber: "SA0000000000000000000000" },
+      { id: 5, name: "بنك stc", accountNumber: "0500000000" },
+      { id: 6, name: "الرياض", accountNumber: "SA0000000000000000000000" },
+      { id: 7, name: "الجزيرة", accountNumber: "SA0000000000000000000000" },
+      { id: 8, name: "ساب", accountNumber: "SA0000000000000000000000" },
+      { id: 9, name: "نقداً كاش", accountNumber: "-" },
+      { id: 10, name: "بنك آخر", accountNumber: "-" }
+  ],
+  // Default Packages
+  packages: {
+      monthly: {
+          price: 59,
+          benefits: [
+            "معاملات لا محدودة",
+            "تقارير متكاملة",
+            "عملاء بلا حدود",
+            "معقبين بلا حدود",
+            "نسخ احتياطي مؤمن",
+            "10 أرقام معقبين منجزين",
+            "10 دروس تعليمية",
+            "حسابات تفصيلية للتحويلات"
+          ]
+      },
+      annual: {
+          price: 299,
+          benefits: [
+            "جميع مزايا الباقة الشهرية",
+            "50 رقم معقب منجز",
+            "50 درس تعقيب خاص",
+            "أرقام مكاتب خدمات للتعاون",
+            "تقارير تفصيلية"
+          ]
+      }
   },
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
@@ -258,6 +315,11 @@ export const getGlobalSettings = (): GlobalSettings => {
                 ...DEFAULT_SETTINGS.limits, 
                 ...(parsed.limits || {}),
                 golden: { ...DEFAULT_SETTINGS.limits.golden, ...(parsed.limits?.golden || {}) }
+            },
+            banks: parsed.banks || DEFAULT_SETTINGS.banks,
+            packages: {
+                monthly: { ...DEFAULT_SETTINGS.packages.monthly, ...(parsed.packages?.monthly || {}) },
+                annual: { ...DEFAULT_SETTINGS.packages.annual, ...(parsed.packages?.annual || {}) }
             }
         };
     }
@@ -269,6 +331,12 @@ export const getGlobalSettings = (): GlobalSettings => {
 
 export const saveGlobalSettings = (settings: GlobalSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+};
+
+// Helper to get dynamic bank names for dropdowns
+export const getBankNames = (): string[] => {
+    const settings = getGlobalSettings();
+    return settings.banks.map(b => b.name);
 };
 
 export const checkLimit = (
