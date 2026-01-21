@@ -19,7 +19,7 @@ import {
   getStoredAgentTransfers,
   addExpenseToCloud,
   Expense,
-  getBankNames // Use dynamic bank names
+  getBankNames
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -948,24 +948,45 @@ export default function AccountsPage() {
                                         <p className="text-center text-gray-400 py-6">لا توجد مدفوعات سابقة.</p>
                                     ) : (
                                         <div className="space-y-3">
-                                            {empExpenses.map(exp => (
-                                                <div key={exp.id} className="bg-white/60 p-3 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-sm">
-                                                            <Receipt className="w-4 h-4" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-gray-800 text-sm">{exp.title}</p>
-                                                            <div className="flex gap-2 text-[10px] text-gray-500">
-                                                                <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
-                                                                <span>•</span>
-                                                                <span>{exp.bank}</span>
+                                            {empExpenses.map(exp => {
+                                                const isSalaryOrClearance = exp.title.includes('راتب') || exp.title.includes('تصفية') || exp.title.includes('مستحقات');
+                                                
+                                                return (
+                                                    <div key={exp.id} className="bg-white/60 p-3 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-sm">
+                                                                <Receipt className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-gray-800 text-sm">{exp.title}</p>
+                                                                <div className="flex gap-1 text-[10px] text-gray-500 mt-0.5">
+                                                                    {isSalaryOrClearance && salaryStartDate ? (
+                                                                        <>
+                                                                            <span className="text-red-500 font-bold">
+                                                                                {new Date(salaryStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
+                                                                            </span>
+                                                                            <span> وحتي </span>
+                                                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                                            <span>•</span>
+                                                                            <span>{exp.bank}</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="font-black text-green-600">{exp.amount.toLocaleString()} ﷼</span>
+                                                            {isSalaryOrClearance && (
+                                                                <span className="text-[10px] text-gray-500 font-medium mt-0.5">{exp.bank}</span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <span className="font-black text-green-600">{exp.amount.toLocaleString()} ﷼</span>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
