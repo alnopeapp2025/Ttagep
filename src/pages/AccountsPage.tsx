@@ -45,14 +45,20 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const getNextCycleDate = (startDateStr: string) => {
     if (!startDateStr) return null;
-    const date = new Date(startDateStr);
-    const day = date.getDate();
+    
+    // Parse as UTC to avoid timezone offsets affecting the day
+    const parts = startDateStr.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1; // 0-indexed
+    const day = parseInt(parts[2]);
+    
+    // Create UTC date for the start
+    const date = new Date(Date.UTC(year, month, day));
 
     if (day === 1) {
-        // Case 1: Starts on 1st -> Cycle ends at end of month, Next cycle starts 1st of next month
-        const next = new Date(date);
-        next.setMonth(next.getMonth() + 1);
-        return next;
+        // Case 1: Starts on 1st -> Cycle ends at end of month (Next cycle starts 1st of next month)
+        // e.g., 2025-01-01 -> 2025-02-01
+        return new Date(Date.UTC(year, month + 1, 1));
     } else {
         // Case 2: Other days -> Fixed 30 days cycle
         return new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -546,7 +552,7 @@ export default function AccountsPage() {
           
           // Post-Payment Actions
           if (payType === 'salary') {
-              // Update Start Date to Next Cycle
+              // Update Start Date to Next Cycle (Start of next month/cycle)
               const nextCycleStart = getNextCycleDate(salaryStartDate);
               if (nextCycleStart) {
                   const nextStartStr = nextCycleStart.toISOString().split('T')[0];
