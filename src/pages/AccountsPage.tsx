@@ -49,21 +49,21 @@ const SalaryTimer = ({ startDate }: { startDate: number }) => {
         const interval = setInterval(() => {
             const now = Date.now();
             const start = new Date(startDate);
-            // Calculate next pay date (30 days cycle)
+            // Calculate next pay date (Strictly 30 days cycle from start date)
             const nextPay = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
             
-            // If passed, add another 30 days
-            while (nextPay.getTime() < now) {
-                nextPay.setDate(nextPay.getDate() + 30);
-            }
-
             const diff = nextPay.getTime() - now;
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-            setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة : ${seconds} ثانية`);
+            if (diff <= 0) {
+                setTimeLeft("مستحق الدفع الآن");
+            } else {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة : ${seconds} ثانية`);
+            }
         }, 1000);
         return () => clearInterval(interval);
     }, [startDate]);
@@ -411,13 +411,13 @@ export default function AccountsPage() {
   const today = new Date().toISOString().split('T')[0];
   const last12Months = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Check if salary is due (30 days passed)
+  // Check if salary is due (Strictly 30 days)
   const isSalaryDue = () => {
       if (!salaryStartDate) return false;
       const start = new Date(salaryStartDate).getTime();
       const now = Date.now();
-      const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-      return diffDays >= 30; // Show after 30 days
+      const cycle = 30 * 24 * 60 * 60 * 1000;
+      return (now - start) >= cycle; // Show ONLY after 30 days
   };
 
   const handleSaveConfig = () => {
@@ -521,10 +521,13 @@ export default function AccountsPage() {
           
           // Post-Payment Actions
           if (payType === 'salary') {
-              // Restart Cycle
-              const todayStr = new Date().toISOString().split('T')[0];
-              setSalaryStartDate(todayStr);
-              const config = { startDate: todayStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: false };
+              // Restart Cycle: Set start date to TOMORROW
+              const nextDay = new Date();
+              nextDay.setDate(nextDay.getDate() + 1);
+              const nextDayStr = nextDay.toISOString().split('T')[0];
+              
+              setSalaryStartDate(nextDayStr);
+              const config = { startDate: nextDayStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: false };
               localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
           } else if (payType === 'stop_work') {
               // Mark as Stopped instead of clearing
