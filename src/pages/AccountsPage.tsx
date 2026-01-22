@@ -41,36 +41,60 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+// --- Helper Functions for Salary Logic ---
+
+const getNextCycleDate = (startDateStr: string) => {
+    if (!startDateStr) return null;
+    const date = new Date(startDateStr);
+    const day = date.getDate();
+
+    if (day === 1) {
+        // Case 1: Starts on 1st -> Cycle ends at end of month, Next cycle starts 1st of next month
+        const next = new Date(date);
+        next.setMonth(next.getMonth() + 1);
+        return next;
+    } else {
+        // Case 2: Other days -> Fixed 30 days cycle
+        return new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+};
+
 // Helper for Countdown
-const SalaryTimer = ({ startDate }: { startDate: number }) => {
+const SalaryTimer = ({ startDate }: { startDate: string }) => {
     const [timeLeft, setTimeLeft] = useState("");
+    const [label, setLabel] = useState("الوقت المتبقي للراتب القادم");
 
     useEffect(() => {
-        const interval = setInterval(() => {
+        const calculateTime = () => {
             const now = Date.now();
-            const start = new Date(startDate);
-            // Calculate next pay date (Strictly 30 days cycle from start date)
-            const nextPay = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const nextPayDate = getNextCycleDate(startDate);
             
-            const diff = nextPay.getTime() - now;
+            if (!nextPayDate) return;
+
+            const diff = nextPayDate.getTime() - now;
 
             if (diff <= 0) {
                 setTimeLeft("مستحق الدفع الآن");
+                setLabel("الوقت المتبقي للراتب القادم");
             } else {
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
+                setLabel(`المتبقي للراتب: ${days} يوم`);
                 setTimeLeft(`${days} يوم : ${hours} ساعة : ${minutes} دقيقة : ${seconds} ثانية`);
             }
-        }, 1000);
+        };
+
+        calculateTime();
+        const interval = setInterval(calculateTime, 1000);
         return () => clearInterval(interval);
     }, [startDate]);
 
     return (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-            <p className="text-blue-600 font-bold mb-2 text-sm">الوقت المتبقي للراتب القادم</p>
+            <p className="text-blue-600 font-bold mb-2 text-sm">{label}</p>
             <div className="font-mono text-xl sm:text-2xl font-black text-blue-800 dir-ltr tracking-wider">
                 {timeLeft || 'جاري الحساب...'}
             </div>
@@ -411,13 +435,14 @@ export default function AccountsPage() {
   const today = new Date().toISOString().split('T')[0];
   const last12Months = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Check if salary is due (Strictly 30 days)
+  // Check if salary is due (Using new logic)
   const isSalaryDue = () => {
       if (!salaryStartDate) return false;
-      const start = new Date(salaryStartDate).getTime();
+      const nextPayDate = getNextCycleDate(salaryStartDate);
+      if (!nextPayDate) return false;
+      
       const now = Date.now();
-      const cycle = 30 * 24 * 60 * 60 * 1000;
-      return (now - start) >= cycle; // Show ONLY after 30 days
+      return now >= nextPayDate.getTime();
   };
 
   const handleSaveConfig = () => {
@@ -521,14 +546,14 @@ export default function AccountsPage() {
           
           // Post-Payment Actions
           if (payType === 'salary') {
-              // Restart Cycle: Set start date to TOMORROW
-              const nextDay = new Date();
-              nextDay.setDate(nextDay.getDate() + 1);
-              const nextDayStr = nextDay.toISOString().split('T')[0];
-              
-              setSalaryStartDate(nextDayStr);
-              const config = { startDate: nextDayStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: false };
-              localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
+              // Update Start Date to Next Cycle
+              const nextCycleStart = getNextCycleDate(salaryStartDate);
+              if (nextCycleStart) {
+                  const nextStartStr = nextCycleStart.toISOString().split('T')[0];
+                  setSalaryStartDate(nextStartStr);
+                  const config = { startDate: nextStartStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: false };
+                  localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
+              }
           } else if (payType === 'stop_work') {
               // Mark as Stopped instead of clearing
               const config = { startDate: salaryStartDate, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: true };
@@ -899,7 +924,7 @@ export default function AccountsPage() {
                                                     <Clock className="w-6 h-6" />
                                                     <h4 className="font-bold text-lg">موعد الراتب القادم</h4>
                                                 </div>
-                                                <SalaryTimer startDate={new Date(salaryStartDate).getTime()} />
+                                                <SalaryTimer startDate={salaryStartDate} />
                                                 
                                                 {/* Action Buttons for Golden Member */}
                                                 {currentUser.role === 'golden' && (
