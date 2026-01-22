@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, StopCircle, Save, Receipt, History } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, StopCircle, Save, Receipt, History, Archive } from 'lucide-react';
 import { 
   getStoredBalances, 
   saveStoredBalances, 
@@ -19,7 +19,8 @@ import {
   getStoredAgentTransfers,
   addExpenseToCloud,
   Expense,
-  getBankNames
+  getBankNames,
+  deleteEmployee
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -111,7 +112,8 @@ export default function AccountsPage() {
   const [salaryType, setSalaryType] = useState<'monthly' | 'commission' | 'both'>('monthly');
   const [commissionRate, setCommissionRate] = useState('');
   const [salaryAmount, setSalaryAmount] = useState('');
-  const [isLocked, setIsLocked] = useState(false); // New state for locking
+  const [isLocked, setIsLocked] = useState(false); 
+  const [isStopped, setIsStopped] = useState(false); // New state for stopped employees
   
   // Pay Salary/Commission State
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -217,6 +219,7 @@ export default function AccountsPage() {
               setCommissionRate(parsed.rate || '');
               setSalaryAmount(parsed.amount || '');
               setIsLocked(parsed.isLocked || false);
+              setIsStopped(parsed.isStopped || false);
           } else {
               // Reset if no config
               setSalaryStartDate('');
@@ -224,6 +227,7 @@ export default function AccountsPage() {
               setCommissionRate('');
               setSalaryAmount('');
               setIsLocked(false);
+              setIsStopped(false);
           }
       }
   }, [selectedEmpId]);
@@ -403,9 +407,9 @@ export default function AccountsPage() {
 
   const remainingCommission = Math.max(0, empCommissionTotal - empCommissionPaid);
 
-  // Date Constraints
+  // Date Constraints - Updated to 12 Months
   const today = new Date().toISOString().split('T')[0];
-  const last31Days = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const last12Months = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Check if salary is due (30 days passed)
   const isSalaryDue = () => {
@@ -430,11 +434,13 @@ export default function AccountsPage() {
           type: salaryType,
           rate: commissionRate,
           amount: salaryAmount,
-          isLocked: true
+          isLocked: true,
+          isStopped: false
       };
       
       localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
       setIsLocked(true);
+      setIsStopped(false);
       alert('تم حفظ البيانات وتثبيتها بنجاح');
   };
 
@@ -518,18 +524,38 @@ export default function AccountsPage() {
               // Restart Cycle
               const todayStr = new Date().toISOString().split('T')[0];
               setSalaryStartDate(todayStr);
-              const config = { startDate: todayStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true };
+              const config = { startDate: todayStr, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: false };
               localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
           } else if (payType === 'stop_work') {
-              // Reset Everything
-              localStorage.removeItem(`salary_config_${selectedEmpId}`);
-              setSalaryStartDate('');
-              setSalaryType('monthly');
-              setCommissionRate('');
-              setSalaryAmount('');
-              setIsLocked(false);
+              // Mark as Stopped instead of clearing
+              const config = { startDate: salaryStartDate, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: true };
+              localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
+              setIsStopped(true);
           }
       }, 2000);
+  };
+
+  const handleArchiveEmployee = () => {
+      if(!selectedEmpId) return;
+      if(confirm('سيتم حذف الموظف نهائياً وقفل حسابه ونقل البيانات والرواتب إلى الأرشيف. هل أنت متأكد؟')) {
+          deleteEmployee(parseInt(selectedEmpId));
+          localStorage.removeItem(`salary_config_${selectedEmpId}`);
+          
+          // Refresh Employees List
+          const allEmps = getStoredEmployees();
+          const targetId = currentUser?.role === 'employee' && currentUser?.parentId ? currentUser.parentId : currentUser?.id;
+          const myEmps = allEmps.filter(e => e.parentId === targetId);
+          setEmployees(myEmps);
+          
+          // Reset Selection
+          setSelectedEmpId('');
+          setSalaryStartDate('');
+          setSalaryType('monthly');
+          setCommissionRate('');
+          setSalaryAmount('');
+          setIsLocked(false);
+          setIsStopped(false);
+      }
   };
 
   // Filter employees for display
@@ -764,7 +790,7 @@ export default function AccountsPage() {
                                                 value={salaryStartDate}
                                                 onChange={(e) => setSalaryStartDate(e.target.value)}
                                                 className="bg-white shadow-3d-inset border-none h-12 pl-10 disabled:opacity-70 disabled:cursor-not-allowed"
-                                                min={last31Days}
+                                                min={last12Months}
                                                 max={today}
                                                 disabled={isLocked}
                                             />
@@ -846,10 +872,21 @@ export default function AccountsPage() {
                                             حفظ وتثبيت البيانات
                                         </button>
                                     )}
+
+                                    {/* Archive Button (Only if Stopped) */}
+                                    {isStopped && currentUser.role === 'golden' && (
+                                        <button 
+                                            onClick={handleArchiveEmployee}
+                                            className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all flex items-center justify-center gap-2 mt-4 animate-in fade-in"
+                                        >
+                                            <Archive className="w-4 h-4" />
+                                            قفل حساب الموظف ونقلة للارشيف
+                                        </button>
+                                    )}
                                 </div>
 
-                                {/* Active Salary Dashboard (Only if Locked) */}
-                                {isLocked && (
+                                {/* Active Salary Dashboard (Only if Locked AND Not Stopped) */}
+                                {isLocked && !isStopped && (
                                     <div className="space-y-6 border-t border-gray-200 pt-6">
                                         
                                         {/* Timer Section */}
@@ -1031,12 +1068,12 @@ export default function AccountsPage() {
                               type="number" 
                               value={amountToPay} 
                               onChange={(e) => {
-                                  // If stop_work, prevent changing the amount (must pay full due)
-                                  if (payType === 'stop_work') return;
+                                  // If stop_work OR salary, prevent changing the amount (must pay full due)
+                                  if (payType === 'stop_work' || payType === 'salary') return;
                                   setAmountToPay(e.target.value)
                               }}
-                              readOnly={payType === 'stop_work'}
-                              className={`bg-white shadow-3d-inset border-none text-center font-bold text-lg ${payType === 'stop_work' ? 'opacity-80 bg-gray-50 cursor-not-allowed' : ''}`}
+                              readOnly={payType === 'stop_work' || payType === 'salary'}
+                              className={`bg-white shadow-3d-inset border-none text-center font-bold text-lg ${payType === 'stop_work' || payType === 'salary' ? 'opacity-80 bg-gray-50 cursor-not-allowed' : ''}`}
                           />
                       </div>
                       <div className="space-y-2">
