@@ -574,7 +574,7 @@ export default function ReportsPage() {
                                                 ) : item.kind === 'agent' ? (
                                                     <span>{item.name}</span>
                                                 ) : item.kind === 'expense' ? (
-                                                    <span>{item.title.replace(/\|SD:.*?\|/, '').trim()}</span>
+                                                    <span>{item.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim()}</span>
                                                 ) : null}
                                             </div>
                                             <div className="col-span-3 text-[9px] text-gray-500 flex flex-col">
@@ -613,7 +613,12 @@ export default function ReportsPage() {
                             // Extract stored date
                             const dateMatch = exp.title.match(/\|SD:(.*?)\|/);
                             const storedStartDate = dateMatch ? dateMatch[1] : null;
-                            const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').trim();
+                            
+                            // Extract stored End Date
+                            const endDateMatch = exp.title.match(/\|ED:(.*?)\|/);
+                            const storedEndDate = endDateMatch ? endDateMatch[1] : null;
+
+                            const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim();
 
                             const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
                             
@@ -636,7 +641,12 @@ export default function ReportsPage() {
                                                             {new Date(displayStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
                                                         </span>
                                                         <span> وحتي </span>
-                                                        <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                        <span>
+                                                            {storedEndDate 
+                                                                ? new Date(storedEndDate).toLocaleDateString('ar-SA') 
+                                                                : new Date(exp.date).toLocaleDateString('ar-SA') // Fallback
+                                                            }
+                                                        </span>
                                                     </>
                                                 ) : (
                                                     <>

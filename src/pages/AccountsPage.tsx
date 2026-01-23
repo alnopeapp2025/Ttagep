@@ -65,6 +65,16 @@ const getNextCycleDate = (startDateStr: string) => {
     }
 };
 
+// NEW: Helper to get the END date of the current cycle
+const getCurrentCycleEndDate = (startDateStr: string) => {
+    if (!startDateStr) return null;
+    const nextCycleStart = getNextCycleDate(startDateStr);
+    if (!nextCycleStart) return null;
+    
+    // End date is 1 day before next cycle start
+    return new Date(nextCycleStart.getTime() - 24 * 60 * 60 * 1000);
+};
+
 // Helper for Countdown
 const SalaryTimer = ({ startDate }: { startDate: string }) => {
     const [timeLeft, setTimeLeft] = useState("");
@@ -197,7 +207,7 @@ export default function AccountsPage() {
                 ...exps.map(e => ({ 
                     id: `exp-${e.id}`,
                     type: 'withdrawal', 
-                    title: `صرف: ${e.title.replace(/\|SD:.*?\|/, '').trim()}`, 
+                    title: `صرف: ${e.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim()}`, 
                     subTitle: 'مصروفات',
                     amount: e.amount, 
                     date: e.date,
@@ -523,9 +533,23 @@ export default function AccountsPage() {
       // Store start date in title for historical accuracy
       const dateTag = salaryStartDate ? `|SD:${salaryStartDate}|` : '';
       
-      if (payType === 'salary') title = `راتب شهري: ${emp.officeName}${dateTag}`;
+      // Calculate End Date for Salary
+      let endDateTag = '';
+      if (payType === 'salary' && salaryStartDate) {
+          const endDate = getCurrentCycleEndDate(salaryStartDate);
+          if (endDate) {
+              const endStr = endDate.toISOString().split('T')[0];
+              endDateTag = `|ED:${endStr}|`;
+          }
+      } else if (payType === 'stop_work') {
+          // For stop work, end date is today
+          const todayStr = new Date().toISOString().split('T')[0];
+          endDateTag = `|ED:${todayStr}|`;
+      }
+      
+      if (payType === 'salary') title = `راتب شهري: ${emp.officeName}${dateTag}${endDateTag}`;
       else if (payType === 'commission') title = `سداد عمولة: ${emp.officeName}`;
-      else if (payType === 'stop_work') title = `تصفية مستحقات (توقف عن العمل): ${emp.officeName}${dateTag}`;
+      else if (payType === 'stop_work') title = `تصفية مستحقات (توقف عن العمل): ${emp.officeName}${dateTag}${endDateTag}`;
 
       const newExp: Expense = {
           id: Date.now(),
@@ -1026,7 +1050,12 @@ export default function AccountsPage() {
                                                 // Extract stored date
                                                 const dateMatch = exp.title.match(/\|SD:(.*?)\|/);
                                                 const storedStartDate = dateMatch ? dateMatch[1] : null;
-                                                const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').trim();
+                                                
+                                                // Extract stored End Date
+                                                const endDateMatch = exp.title.match(/\|ED:(.*?)\|/);
+                                                const storedEndDate = endDateMatch ? endDateMatch[1] : null;
+
+                                                const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim();
 
                                                 const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
                                                 
@@ -1048,7 +1077,12 @@ export default function AccountsPage() {
                                                                                 {new Date(displayStartDate).toLocaleDateString('ar-SA', {day: 'numeric', month: 'numeric'})}
                                                                             </span>
                                                                             <span> وحتي </span>
-                                                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                                                            <span>
+                                                                                {storedEndDate 
+                                                                                    ? new Date(storedEndDate).toLocaleDateString('ar-SA') 
+                                                                                    : new Date(exp.date).toLocaleDateString('ar-SA') // Fallback
+                                                                                }
+                                                                            </span>
                                                                         </>
                                                                     ) : (
                                                                         <>
