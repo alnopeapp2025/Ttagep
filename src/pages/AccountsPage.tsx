@@ -969,7 +969,13 @@ export default function AccountsPage() {
                                                             </button>
                                                         )}
                                                         <button 
-                                                            onClick={() => openPayModal('stop_work')}
+                                                            onClick={() => {
+                                                                if (remainingCommission > 0) {
+                                                                    alert("يجب سداد العمولة المستحقة أولاً");
+                                                                    return;
+                                                                }
+                                                                openPayModal('stop_work');
+                                                            }}
                                                             className="px-6 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2"
                                                         >
                                                             <StopCircle className="w-4 h-4" />
