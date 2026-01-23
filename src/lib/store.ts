@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 
-// ... (Previous imports and constants remain unchanged)
-// REMOVED HARDCODED BANKS_LIST - Now managed via GlobalSettings
+// ... (Existing imports and constants remain unchanged)
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -9,7 +8,7 @@ export const DEFAULT_BANKS_LIST = [
 
 export const INITIAL_BALANCES: Record<string, number> = DEFAULT_BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
-// ... (All Interfaces remain unchanged)
+// ... (Existing Interfaces Transaction, User, Client, Agent, Expense, etc. remain unchanged)
 export interface Transaction {
   id: number;
   serialNo: string;
@@ -129,6 +128,13 @@ export interface PackageDetails {
     benefits: string[];
 }
 
+// NEW: Interface for Delete Page Texts
+export interface DeletePageTexts {
+    description: string;
+    warning: string;
+    footer: string;
+}
+
 export interface GlobalSettings {
   adminPasswordHash: string;
   siteTitle: string;
@@ -163,6 +169,8 @@ export interface GlobalSettings {
       annual: PackageDetails;
   };
   onboardingSteps: string[];
+  // NEW: Delete Page Texts in Settings
+  deletePageTexts: DeletePageTexts;
   pagePermissions: {
     transactions: UserRole[];
     accounts: UserRole[];
@@ -205,7 +213,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v5';
+const SETTINGS_KEY = 'moaqeb_global_settings_v6'; // Version incremented
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -276,6 +284,12 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       "يمكنك الآن الوصول لخدمات الدعم الفني المباشر المخصصة للأعضاء الذهبيين.",
       "نتمنى لك تجربة ممتعة مع مميزاتك الجديدة.. ابدأ الآن. ودايما يمكنك مراسلتنا علي رقم الواتس اب المخصص لأعضاء الذهب عبر\n00249915144606☎️\nوالموجود ثابت أسفل الموقع علي مدار 24ساعه"
   ],
+  // NEW: Default texts for Delete Page
+  deletePageTexts: {
+      description: "لحذف بياناتك وحسابك من تطبيق مان هويات لمكاتب الخدمات، يرجى تعبئة النموذج أدناه لتأكيد هويتك.",
+      warning: "تنبيه: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم فقدان جميع سجلات المعاملات والعملاء.",
+      footer: "تطبيق مان هويات لمكاتب الخدمات\nالمطور: ELTAIB HAMED ELTAIB"
+  },
   pagePermissions: {
     transactions: ['visitor', 'member', 'golden', 'employee'],
     accounts: ['visitor', 'member', 'golden', 'employee'],
@@ -321,7 +335,8 @@ export const getGlobalSettings = (): GlobalSettings => {
                 monthly: { ...DEFAULT_SETTINGS.packages.monthly, ...(parsed.packages?.monthly || {}) },
                 annual: { ...DEFAULT_SETTINGS.packages.annual, ...(parsed.packages?.annual || {}) }
             },
-            onboardingSteps: parsed.onboardingSteps || DEFAULT_SETTINGS.onboardingSteps
+            onboardingSteps: parsed.onboardingSteps || DEFAULT_SETTINGS.onboardingSteps,
+            deletePageTexts: { ...DEFAULT_SETTINGS.deletePageTexts, ...(parsed.deletePageTexts || {}) }
         };
     }
     return DEFAULT_SETTINGS;
@@ -353,7 +368,7 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// ... (Subscription functions remain unchanged)
+// ... (Rest of the file remains unchanged)
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
         const { data: existing } = await supabase
@@ -628,7 +643,6 @@ export const getStoredEmployees = (): User[] => {
     } catch { return []; }
 };
 
-// NEW: Delete Employee Function
 export const deleteEmployee = (employeeId: number) => {
     const employees = getStoredEmployees();
     const updatedEmployees = employees.filter(e => e.id !== employeeId);
@@ -701,9 +715,6 @@ export const loginUser = async (phone: string, password: string) => {
     return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول' };
   }
 };
-
-// ... (Rest of the file: changePassword, verifySecurityInfo, resetPassword, getCurrentUser, logoutUser, Transaction/Expense/Agent/Client/Account functions)
-// ... (Keeping everything else exactly as is)
 
 export const changePassword = async (phone: string, oldPass: string, newPass: string) => {
   try {

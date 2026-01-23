@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Trash2, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getGlobalSettings, GlobalSettings } from '@/lib/store';
 
 export default function DeleteDataPage() {
   const navigate = useNavigate();
@@ -10,6 +11,11 @@ export default function DeleteDataPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
+
+  useEffect(() => {
+      setSettings(getGlobalSettings());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +64,8 @@ export default function DeleteDataPage() {
                             <Trash2 className="w-10 h-10" />
                         </div>
                         <h3 className="text-lg font-bold text-gray-800">طلب حذف الحساب</h3>
-                        <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                            لحذف بياناتك وحسابك من تطبيق مان هويات لمكاتب الخدمات، يرجى تعبئة النموذج أدناه لتأكيد هويتك.
+                        <p className="text-xs text-gray-500 mt-2 leading-relaxed whitespace-pre-line">
+                            {settings?.deletePageTexts?.description || 'لحذف بياناتك وحسابك من تطبيق مان هويات لمكاتب الخدمات، يرجى تعبئة النموذج أدناه لتأكيد هويتك.'}
                         </p>
                     </div>
 
@@ -89,8 +95,8 @@ export default function DeleteDataPage() {
 
                     <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex gap-3 items-start">
                         <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
-                        <p className="text-xs text-yellow-700 font-bold">
-                            تنبيه: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم فقدان جميع سجلات المعاملات والعملاء.
+                        <p className="text-xs text-yellow-700 font-bold whitespace-pre-line">
+                            {settings?.deletePageTexts?.warning || 'تنبيه: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم فقدان جميع سجلات المعاملات والعملاء.'}
                         </p>
                     </div>
 
@@ -103,8 +109,9 @@ export default function DeleteDataPage() {
                     </button>
                     
                     <div className="text-center pt-4 border-t border-gray-200">
-                        <p className="text-[10px] text-gray-400">تطبيق مان هويات لمكاتب الخدمات</p>
-                        <p className="text-[10px] text-gray-400">المطور: ELTAIB HAMED ELTAIB</p>
+                        <p className="text-[10px] text-gray-400 whitespace-pre-line leading-relaxed">
+                            {settings?.deletePageTexts?.footer || 'تطبيق مان هويات لمكاتب الخدمات\nالمطور: ELTAIB HAMED ELTAIB'}
+                        </p>
                         <a href="/privacy-policy" className="text-[10px] text-blue-500 underline mt-1 block">سياسة الخصوصية</a>
                     </div>
                 </form>

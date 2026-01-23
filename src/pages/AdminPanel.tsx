@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare, FileWarning } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
@@ -45,6 +45,12 @@ export default function AdminPanel() {
 
   // Onboarding Settings
   const [onboardingMsg, setOnboardingMsg] = useState('');
+
+  // Delete Page Settings
+  const [deleteDescription, setDeleteDescription] = useState(settings.deletePageTexts?.description || '');
+  const [deleteWarning, setDeleteWarning] = useState(settings.deletePageTexts?.warning || '');
+  const [deleteFooter, setDeleteFooter] = useState(settings.deletePageTexts?.footer || '');
+  const [deletePageMsg, setDeletePageMsg] = useState('');
 
   // Simple Hash for Admin (Match Store)
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
@@ -268,6 +274,30 @@ export default function AdminPanel() {
       setTimeout(() => setOnboardingMsg(''), 3000);
   };
 
+  // --- Delete Page Handlers ---
+  const handleSaveDeletePage = () => {
+      setSettings(prev => ({
+          ...prev,
+          deletePageTexts: {
+              description: deleteDescription,
+              warning: deleteWarning,
+              footer: deleteFooter
+          }
+      }));
+      // We need to save the updated settings object to local storage
+      const newSettings = {
+          ...settings,
+          deletePageTexts: {
+              description: deleteDescription,
+              warning: deleteWarning,
+              footer: deleteFooter
+          }
+      };
+      saveGlobalSettings(newSettings);
+      setDeletePageMsg('تم حفظ نصوص صفحة الحذف بنجاح');
+      setTimeout(() => setDeletePageMsg(''), 3000);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
@@ -328,7 +358,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-7 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
+                <TabsList className="grid w-full grid-cols-8 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 relative">
                         طلبات التفعيل
                         {requests.filter(r => r.status === 'pending').length > 0 && (
@@ -344,6 +374,10 @@ export default function AdminPanel() {
                     <TabsTrigger value="onboarding" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1">
                         <MessageSquare className="w-3 h-3" />
                         شاشات الترحيب
+                    </TabsTrigger>
+                    <TabsTrigger value="deletePage" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1">
+                        <FileWarning className="w-3 h-3" />
+                        صفحة الحذف
                     </TabsTrigger>
                     <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">كلمة المرور</TabsTrigger>
                     <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">المظهر</TabsTrigger>
@@ -787,6 +821,61 @@ export default function AdminPanel() {
                             
                             {onboardingMsg && (
                                 <p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{onboardingMsg}</p>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* NEW: Delete Page Settings Tab */}
+                <TabsContent value="deletePage">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <FileWarning className="w-5 h-5 text-red-600" />
+                            إعدادات صفحة حذف الحساب
+                        </h3>
+
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-gray-600">النص أسفل العنوان (الوصف)</Label>
+                                <Textarea 
+                                    value={deleteDescription}
+                                    onChange={(e) => setDeleteDescription(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none min-h-[80px]"
+                                    placeholder="لحذف بياناتك وحسابك..."
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-yellow-600">نص التنبيه (داخل المربع الأصفر)</Label>
+                                <Textarea 
+                                    value={deleteWarning}
+                                    onChange={(e) => setDeleteWarning(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none min-h-[80px]"
+                                    placeholder="تنبيه: هذا الإجراء نهائي..."
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-gray-600">نص التذييل (Footer)</Label>
+                                <Textarea 
+                                    value={deleteFooter}
+                                    onChange={(e) => setDeleteFooter(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none min-h-[80px]"
+                                    placeholder="اسم التطبيق والمطور..."
+                                />
+                                <p className="text-[10px] text-gray-400">يمكنك استخدام زر Enter لإضافة سطر جديد.</p>
+                            </div>
+
+                            <button 
+                                onClick={handleSaveDeletePage}
+                                className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                حفظ النصوص
+                            </button>
+                            
+                            {deletePageMsg && (
+                                <p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{deletePageMsg}</p>
                             )}
                         </div>
                     </div>
