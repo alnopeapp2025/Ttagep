@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// ... (Existing securityQuestions and imports)
 const securityQuestions = [
   "اين ولدت والدتك؟",
   "ماهو اقرب صديق لك؟",
@@ -63,7 +62,7 @@ const securityQuestions = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  // ... (Existing state variables)
+  
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -118,7 +117,6 @@ export default function Dashboard() {
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [withdrawError, setWithdrawError] = useState('');
 
-  // ... (Existing useEffects)
   useEffect(() => {
     const globalSettings = getGlobalSettings();
     setSettings(globalSettings);
@@ -181,16 +179,140 @@ export default function Dashboard() {
       }
   }, [currentUser, profileOpen]);
 
-  // ... (Existing handlers: handleLogout, handleCreateEmployee, handleUpdateProfile, handleChangePassword, handleInquiry, etc.)
   const handleLogout = () => { logoutUser(); navigate('/login'); };
-  const handleCreateEmployee = async () => { /* ... */ };
-  const handleUpdateProfile = async () => { /* ... */ };
-  const handleChangePassword = async () => { /* ... */ };
-  const handleInquiry = () => { /* ... */ };
-  const calculateTimeLeft = (targetDate: number) => { /* ... */ };
-  const handleCreateBackup = () => { /* ... */ };
-  const handleRestoreBackup = () => { /* ... */ };
-  const formatBackupDate = (ts: string) => { /* ... */ };
+  
+  const handleCreateEmployee = async () => {
+    setEmpError('');
+    if (!currentUser || !newEmpName || !newEmpPass) return;
+    const res = await createEmployee({ name: newEmpName, password: newEmpPass, permissions: [] }, currentUser);
+    if (res.success) {
+        setEmpSuccess(`تم إنشاء حساب الموظف بنجاح. اسم الدخول: ${res.username}`);
+        setNewEmpName('');
+        setNewEmpPass('');
+    } else {
+        setEmpError(res.message || 'فشل إنشاء الموظف');
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+      setProfileError('');
+      if (!currentUser) return;
+      if (!editOfficeName || !editSecurityQuestion || !editSecurityAnswer || !verifyOldPass) {
+          setProfileError('يرجى ملء جميع الحقول وكلمة المرور للتأكيد');
+          return;
+      }
+      setProfileLoading(true);
+      try {
+          const res = await updateUserProfile(
+              currentUser.id, 
+              verifyOldPass, 
+              editOfficeName, 
+              editSecurityQuestion, 
+              editSecurityAnswer
+          );
+          if (res.success) {
+              setProfileSuccess('تم تحديث البيانات بنجاح');
+              const updated = getCurrentUser();
+              setCurrentUser(updated);
+              setTimeout(() => {
+                  setIsEditingProfile(false);
+                  setProfileSuccess('');
+                  setVerifyOldPass('');
+              }, 1500);
+          } else {
+              setProfileError(res.message || 'فشل التحديث');
+          }
+      } catch (e) {
+          setProfileError('حدث خطأ غير متوقع');
+      } finally {
+          setProfileLoading(false);
+      }
+  };
+
+  const handleChangePassword = async () => {
+    setPassError('');
+    if (!currentUser) return;
+    if (!oldPass || !newPass || !confirmPass) {
+        setPassError('يرجى ملء جميع الحقول');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        setPassError('كلمتا المرور غير متطابقتين');
+        return;
+    }
+    setPassLoading(true);
+    try {
+        const result = await changePassword(currentUser.phone, oldPass, newPass);
+        if (result.success) {
+            setPassSuccess(true);
+            setTimeout(() => {
+                setChangePassOpen(false);
+                setPassSuccess(false);
+                setOldPass('');
+                setNewPass('');
+                setConfirmPass('');
+            }, 2000);
+        } else {
+            setPassError(result.message || 'فشل التحديث');
+        }
+    } catch (err) {
+        setPassError('حدث خطأ غير متوقع');
+    } finally {
+        setPassLoading(false);
+    }
+  };
+
+  const handleInquiry = () => {
+    setInquiryError('');
+    setFoundTx(null);
+    const tx = transactions.find(t => t.serialNo === inquiryId);
+    if (!tx) {
+        setInquiryError('لم يتم العثور على معاملة بهذا الرقم، يرجى التحقق والمحاولة مرة أخرى.');
+    } else {
+        setFoundTx(tx);
+    }
+  };
+
+  const calculateTimeLeft = (targetDate: number) => {
+    const diff = targetDate - Date.now();
+    if (diff <= 0) return "منتهية";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days} يوم و ${hours} ساعة`;
+  };
+
+  const handleCreateBackup = () => {
+    const data = createBackup();
+    setLastBackup(Date.now().toString());
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_moaqeb_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleRestoreBackup = () => {
+    if (!restoreText) return;
+    const success = restoreBackup(restoreText);
+    if (success) {
+      alert('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل الصفحة.');
+      window.location.reload();
+    } else {
+      alert('فشل استعادة النسخة. تأكد من صحة الكود.');
+    }
+  };
+
+  const formatBackupDate = (ts: string) => {
+    const date = new Date(parseInt(ts));
+    const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
+    const dayName = date.toLocaleDateString('ar-SA', { weekday: 'long' });
+    const monthName = date.toLocaleDateString('ar-SA', { month: 'long' });
+    const year = date.toLocaleDateString('ar-SA', { year: 'numeric' });
+    return `${timeStr}، ${dayName}، ${monthName}، ${year}`;
+  };
   
   const tickerItems = [
     { label: "المعاملات النشطة", value: tickerStats.active, icon: Activity, color: "text-blue-600" },
@@ -286,7 +408,8 @@ export default function Dashboard() {
   const handleCopyReferral = () => {
       if (!currentUser) return;
       const link = `${window.location.origin}/register?ref=${currentUser.id}`;
-      navigator.clipboard.writeText(link);
+      const msg = `سجل في تطبيق مان هوبات لإدارة مكاتب الخدمات العامه واستفد من المزايا المتعدده..\n${link}`;
+      navigator.clipboard.writeText(msg);
       alert('تم نسخ رابط الدعوة بنجاح');
   };
 
@@ -432,8 +555,7 @@ export default function Dashboard() {
                     <Link to="/delete-data" className="text-xs text-gray-500 hover:text-red-600 underline transition-colors">حذف بياناتي</Link>
                   </div>
                   <Separator className="my-2 bg-gray-300/50" />
-                  {/* ... Inquiry, Backup, Pro, My Settings, System Settings, Delete Data Buttons ... */}
-                  {/* (Keeping existing buttons) */}
+                  
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -441,7 +563,6 @@ export default function Dashboard() {
                       </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
-                        {/* ... Inquiry Content ... */}
                         <DialogHeader><DialogTitle>الاستعلام عن معاملة</DialogTitle></DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="flex gap-2">
@@ -472,7 +593,6 @@ export default function Dashboard() {
                       </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
-                        {/* ... Backup Content ... */}
                         <DialogHeader><DialogTitle>النسخ الاحتياطي والاستعادة</DialogTitle></DialogHeader>
                         <div className="space-y-6 py-4">
                             {lastBackup && <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-700 font-bold text-center">آخر نسخة احتياطية كانت يوم: {formatBackupDate(lastBackup)}</div>}
@@ -493,7 +613,6 @@ export default function Dashboard() {
                         </DialogTrigger>
                     )}
                     <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-lg p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
-                        {/* ... Pro Content ... */}
                         <button onClick={() => setProOpen(false)} className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"><X className="w-4 h-4" /></button>
                         <DialogHeader><DialogTitle className="text-2xl font-black text-center mb-1 flex items-center justify-center gap-2"><Crown className="w-6 h-6" /> العضوية الذهبية</DialogTitle></DialogHeader>
                         {alreadySubscribed ? (
@@ -579,7 +698,6 @@ export default function Dashboard() {
                       </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
-                      {/* ... Delete Content ... */}
                       <DialogHeader><DialogTitle>إدارة وحذف البيانات</DialogTitle></DialogHeader>
                       <div className="space-y-3 py-4">
                         <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعقبين؟')) { clearAgents(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعقبين</button>
@@ -641,7 +759,9 @@ export default function Dashboard() {
                             </button>
                         </div>
                         <p className="text-xs text-gray-500 leading-relaxed mt-2">
-                            أرسل الرابط لغيرك واكسب <span className="text-green-600 font-bold">50 ريال</span> عند اشتراك شخص عبر رابطك في العضوية الذهبية.
+                            سجل في تطبيق مان هوبات لإدارة مكاتب الخدمات العامه واستفد من المزايا المتعدده..
+                            <br/>
+                            <span className="font-mono text-blue-600">Www.manhobat.com</span>
                         </p>
                     </div>
 
