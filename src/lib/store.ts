@@ -8,7 +8,7 @@ export const DEFAULT_BANKS_LIST = [
 
 export const INITIAL_BALANCES: Record<string, number> = DEFAULT_BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
-// ... (Existing Interfaces Transaction, User, Client, Agent, Expense, etc. remain unchanged)
+// --- Types ---
 export interface Transaction {
   id: number;
   serialNo: string;
@@ -225,6 +225,13 @@ const hashPassword = (pwd: string) => {
   return btoa(pwd).split('').reverse().join(''); 
 };
 
+// --- Golden Subscription Engine (v3) Constants ---
+export const SUBSCRIPTION_PLANS = {
+    WEEKLY: { id: 'weekly_5', price: 5, days: 7 },
+    MONTHLY: { id: 'monthly_15', price: 15, days: 30 },
+    YEARLY: { id: 'yearly_79', price: 79, days: 365 }
+};
+
 const DEFAULT_SETTINGS: GlobalSettings = {
   adminPasswordHash: hashPassword('1234'),
   siteTitle: 'مان هويات لمكاتب الخدمات',
@@ -363,6 +370,87 @@ export const checkLimit = (
         return { allowed: false, reason: role as 'visitor' | 'member' | 'golden' };
     }
     return { allowed: true };
+};
+
+// --- Golden Subscription Engine (v3) Logic ---
+
+// 1. Expiry Logic: Check and Downgrade if needed
+export const checkSubscriptionExpiry = async (userId: number) => {
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('role, subscription_expiry')
+            .eq('id', userId)
+            .single();
+
+        if (error || !user) return null;
+
+        if (user.role === 'golden' && user.subscription_expiry) {
+            const expiry = new Date(user.subscription_expiry).getTime();
+            if (Date.now() > expiry) {
+                // Expired: Downgrade to member
+                await supabase
+                    .from('users')
+                    .update({ role: 'member', subscription_expiry: null })
+                    .eq('id', userId);
+                
+                // Return downgraded user state
+                return { ...user, role: 'member', subscription_expiry: null };
+            }
+        }
+        return user;
+    } catch (err) {
+        console.error('Expiry check error:', err);
+        return null;
+    }
+};
+
+// 2. Google Play Success Handler (To be called by Bridge/Wrapper)
+export const handleGoogleSubscriptionSuccess = async (userId: number, planId: string, purchaseToken: string) => {
+    // Receipt Validation Placeholder
+    // In production, send purchaseToken to backend to verify with Google API
+    const isValid = true; 
+    if (!isValid) return { success: false, message: 'Invalid receipt' };
+
+    // Determine Duration
+    let daysToAdd = 0;
+    if (planId === SUBSCRIPTION_PLANS.WEEKLY.id) daysToAdd = 7;
+    else if (planId === SUBSCRIPTION_PLANS.MONTHLY.id) daysToAdd = 30;
+    else if (planId === SUBSCRIPTION_PLANS.YEARLY.id) daysToAdd = 365;
+    else return { success: false, message: 'Unknown plan' };
+
+    try {
+        // Get current expiry to extend it if active
+        const { data: user } = await supabase.from('users').select('subscription_expiry').eq('id', userId).single();
+        
+        let currentExpiry = user?.subscription_expiry ? new Date(user.subscription_expiry).getTime() : Date.now();
+        // If expired or null, start from now
+        if (currentExpiry < Date.now()) currentExpiry = Date.now();
+
+        const newExpiry = new Date(currentExpiry + (daysToAdd * 24 * 60 * 60 * 1000));
+
+        const { error } = await supabase
+            .from('users')
+            .update({
+                role: 'golden',
+                subscription_expiry: newExpiry.toISOString()
+            })
+            .eq('id', userId);
+
+        if (error) throw error;
+
+        // Update Local Storage
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.id === userId) {
+            const updated = { ...currentUser, role: 'golden', subscriptionExpiry: newExpiry.getTime() };
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updated));
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Sub update error:', err);
+        return { success: false, message: 'Database update failed' };
+    }
 };
 
 // ... (Rest of the file remains unchanged)
@@ -675,14 +763,19 @@ export const loginUser = async (phone: string, password: string) => {
       return { success: false, message: 'بيانات الدخول غير صحيحة' };
     }
 
+    // --- ENHANCED EXPIRY CHECK ---
     let expiry = null;
+    let role = data.role || 'member';
+
     if (data.subscription_expiry) {
         expiry = new Date(data.subscription_expiry).getTime();
-    }
-
-    let role = data.role || 'member';
-    if (role === 'golden' && expiry && expiry < Date.now()) {
-        role = 'member'; 
+        // Check if expired
+        if (role === 'golden' && expiry < Date.now()) {
+            role = 'member';
+            // Auto-downgrade in DB
+            await supabase.from('users').update({ role: 'member', subscription_expiry: null }).eq('id', data.id);
+            expiry = null;
+        }
     }
 
     const user: User = {
