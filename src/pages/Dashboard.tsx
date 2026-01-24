@@ -31,8 +31,7 @@ import {
   getGlobalSettings,
   GlobalSettings,
   createEmployee,
-  createSubscriptionRequest,
-  checkSubscriptionExpiry // Import new expiry check
+  createSubscriptionRequest
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -143,20 +142,6 @@ export default function Dashboard() {
         if (!hasSeen) {
             setOnboardingOpen(true);
         }
-    }
-
-    // --- Expiry Check Logic ---
-    if (user && user.id) {
-        checkSubscriptionExpiry(user.id).then(updatedUser => {
-            if (updatedUser) {
-                // If user was updated (downgraded), update state
-                if (updatedUser.role !== user.role) {
-                    setCurrentUser(updatedUser as User);
-                    // Update local storage to reflect downgrade immediately
-                    localStorage.setItem('moaqeb_current_user_v1', JSON.stringify(updatedUser));
-                }
-            }
-        });
     }
 
     const loadData = async () => {
