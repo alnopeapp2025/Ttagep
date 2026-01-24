@@ -434,7 +434,7 @@ export default function Dashboard() {
       if (settings && onboardingStep < settings.onboardingSteps.length - 1) {
           setOnboardingStep(prev => prev + 1);
       } else {
-          // Finish
+          // Finish - Save seen status
           if (currentUser) {
               localStorage.setItem(`moaqeb_onboarding_seen_${currentUser.id}`, 'true');
           }
@@ -1336,7 +1336,15 @@ export default function Dashboard() {
         </Dialog>
 
         {/* Onboarding Modal */}
-        <Dialog open={onboardingOpen} onOpenChange={(val) => { if(!val) setOnboardingOpen(false); }}>
+        <Dialog open={onboardingOpen} onOpenChange={(val) => { 
+            if(!val) {
+                // If user closes the modal (by clicking outside or X), save seen state
+                if (currentUser) {
+                    localStorage.setItem(`moaqeb_onboarding_seen_${currentUser.id}`, 'true');
+                }
+                setOnboardingOpen(false);
+            }
+        }}>
             <DialogContent className="bg-gradient-to-br from-yellow-50 via-slate-50 to-yellow-50 border-4 border-double border-yellow-400 shadow-3d rounded-3xl max-w-md p-8" dir="rtl">
                 <div className="text-center space-y-6">
                     <div className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center mx-auto shadow-lg text-white animate-pulse">
