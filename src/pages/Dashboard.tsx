@@ -481,12 +481,14 @@ export default function Dashboard() {
                 <DropdownMenu>
                   <DropdownMenuTrigger className="outline-none">
                     <div className="flex flex-col items-center justify-center mr-2 cursor-pointer group">
-                        {/* Affiliate Earnings Text */}
+                        
+                        {/* Affiliate Earnings Button - Updated UI */}
                         <button 
                             onClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
-                            className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full mb-1 hover:bg-green-100 transition-colors"
+                            className="bg-green-50 text-green-600 rounded-2xl px-3 py-2 mb-2 flex flex-col items-center justify-center shadow-sm border border-green-100 hover:bg-green-100 transition-colors"
                         >
-                            أرباحك: {currentUser.affiliateBalance || 0} ريال
+                            <span className="text-[10px] font-bold">أرباحك:</span>
+                            <span className="text-xs font-black">{currentUser.affiliateBalance || 0} ريال</span>
                         </button>
 
                         <div className="relative w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1 group-hover:scale-105 transition-transform border border-blue-200">
