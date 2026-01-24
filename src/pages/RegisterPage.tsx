@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle, Loader2, Share2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,14 +23,25 @@ const securityQuestions = [
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     officeName: '',
     phone: '',
     password: '',
     securityQuestion: '',
-    securityAnswer: ''
+    securityAnswer: '',
+    referralCode: ''
   });
+
+  useEffect(() => {
+      // Check for referral code in URL
+      const params = new URLSearchParams(location.search);
+      const ref = params.get('ref');
+      if (ref) {
+          setFormData(prev => ({ ...prev, referralCode: ref }));
+      }
+  }, [location]);
 
   const handleRegister = async () => {
     // Strict Validation
@@ -47,7 +58,8 @@ export default function RegisterPage() {
             phone: formData.phone,
             password: formData.password,
             securityQuestion: formData.securityQuestion,
-            securityAnswer: formData.securityAnswer
+            securityAnswer: formData.securityAnswer,
+            referralCode: formData.referralCode
         });
 
         if (result.success) {
@@ -155,6 +167,19 @@ export default function RegisterPage() {
                 placeholder="اكتب إجابتك هنا"
             />
             <HelpCircle className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-gray-200">
+            <Label className="font-bold text-blue-600">كود الدعوة (اختياري)</Label>
+            <div className="relative">
+              <Input 
+                value={formData.referralCode}
+                onChange={(e) => setFormData({...formData, referralCode: e.target.value})}
+                className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
+                placeholder="رقم دعوة الصديق"
+              />
+              <Share2 className="absolute left-3 top-3.5 w-5 h-5 text-blue-400" />
             </div>
           </div>
 
