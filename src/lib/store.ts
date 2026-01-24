@@ -128,7 +128,6 @@ export interface PackageDetails {
     benefits: string[];
 }
 
-// NEW: Interface for Delete Page Texts
 export interface DeletePageTexts {
     description: string;
     warning: string;
@@ -169,7 +168,6 @@ export interface GlobalSettings {
       annual: PackageDetails;
   };
   onboardingSteps: string[];
-  // NEW: Delete Page Texts in Settings
   deletePageTexts: DeletePageTexts;
   pagePermissions: {
     transactions: UserRole[];
@@ -213,7 +211,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v6'; // Version incremented
+const SETTINGS_KEY = 'moaqeb_global_settings_v6'; 
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -284,7 +282,6 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       "يمكنك الآن الوصول لخدمات الدعم الفني المباشر المخصصة للأعضاء الذهبيين.",
       "نتمنى لك تجربة ممتعة مع مميزاتك الجديدة.. ابدأ الآن. ودايما يمكنك مراسلتنا علي رقم الواتس اب المخصص لأعضاء الذهب عبر\n00249915144606☎️\nوالموجود ثابت أسفل الموقع علي مدار 24ساعه"
   ],
-  // NEW: Default texts for Delete Page
   deletePageTexts: {
       description: "لحذف بياناتك وحسابك من تطبيق مان هويات لمكاتب الخدمات، يرجى تعبئة النموذج أدناه لتأكيد هويتك.",
       warning: "تنبيه: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم فقدان جميع سجلات المعاملات والعملاء.",
@@ -1414,4 +1411,58 @@ export const clearClients = () => localStorage.removeItem(CLIENTS_KEY);
 export const clearTransactions = () => localStorage.removeItem(TX_KEY);
 export const clearAllData = () => {
   localStorage.clear();
+};
+
+export const handlePaymentSuccess = async (userId: number, amount: number) => {
+    try {
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('subscription_expiry, role')
+            .eq('id', userId)
+            .single();
+            
+        if (fetchError || !user) throw new Error('User not found');
+
+        let daysToAdd = 0;
+        // Allow some flexibility in amount (e.g. 4.99 vs 5)
+        if (amount >= 4.9 && amount <= 5.1) daysToAdd = 7;
+        else if (amount >= 14.9 && amount <= 15.1) daysToAdd = 30;
+        else if (amount >= 78.9 && amount <= 79.1) daysToAdd = 365;
+        else return { success: false, message: 'Unknown plan amount' };
+
+        const currentExpiry = user.subscription_expiry ? new Date(user.subscription_expiry).getTime() : 0;
+        const now = Date.now();
+        
+        // If currently active, add to expiry. If expired or null, start from now.
+        const basisTime = currentExpiry > now ? currentExpiry : now;
+        const newExpiry = new Date(basisTime + (daysToAdd * 24 * 60 * 60 * 1000));
+
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+                role: 'golden',
+                subscription_expiry: newExpiry.toISOString()
+            })
+            .eq('id', userId);
+
+        if (updateError) throw updateError;
+
+        // Update local storage if it matches current user
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.id === userId) {
+            const updatedUser = { ...currentUser, role: 'golden' as const, subscriptionExpiry: newExpiry.getTime() };
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+            
+            // Also update Golden Users list
+            const goldenUsers = getGoldenUsers();
+            const filtered = goldenUsers.filter(u => u.userId !== userId);
+            filtered.push({ userId: userId, expiry: newExpiry.getTime(), userName: currentUser.officeName });
+            localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(filtered));
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Payment processing error:', err);
+        return { success: false };
+    }
 };

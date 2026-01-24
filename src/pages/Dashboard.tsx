@@ -682,7 +682,10 @@ export default function Dashboard() {
                   <Dialog open={proOpen} onOpenChange={resetSubModal}>
                     {currentUser?.role !== 'golden' && (
                         <DialogTrigger asChild>
-                            <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
+                            <button 
+                                id="go-to-golden-btn"
+                                className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden"
+                            >
                                 <Crown className="w-5 h-5" />
                                 اشتراك ذهبي Pro
                                 <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
