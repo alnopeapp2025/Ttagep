@@ -683,7 +683,6 @@ export default function Dashboard() {
                     {currentUser?.role !== 'golden' && (
                         <DialogTrigger asChild>
                             <button 
-                                id="go-to-golden-btn"
                                 className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden"
                             >
                                 <Crown className="w-5 h-5" />
@@ -863,7 +862,7 @@ export default function Dashboard() {
                             <DialogTitle className="text-center text-xl font-bold text-gray-800">إعداداتي</DialogTitle>
                         </DialogHeader>
                         <div className="py-6 space-y-4">
-                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between">
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-center gap-4">
                                 <div className="flex items-center gap-3">
                                     {soundEnabled ? <Volume2 className="w-5 h-5 text-blue-600" /> : <VolumeX className="w-5 h-5 text-gray-400" />}
                                     <Label className="font-bold text-gray-700">كتم صوت الأزرار</Label>
