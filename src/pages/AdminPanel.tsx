@@ -23,21 +23,26 @@ export default function AdminPanel() {
   const [activeGolden, setActiveGolden] = useState<GoldenUserRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
 
-  // ... (Existing state variables)
+  // Form States
   const [newAdminPass, setNewAdminPass] = useState('');
   const [confirmAdminPass, setConfirmAdminPass] = useState('');
   const [passMsg, setPassMsg] = useState('');
+  
   const [siteTitle, setSiteTitle] = useState(settings.siteTitle || 'مان هويات لمكاتب الخدمات');
   const [marqueeText, setMarqueeText] = useState(settings.marquee?.text || 'مرحباً بكم في تطبيق مان هويات لمكاتب الخدمات');
   const [marqueeBg, setMarqueeBg] = useState(settings.marquee?.bgColor || '#DC2626');
   const [marqueeColor, setMarqueeColor] = useState(settings.marquee?.textColor || '#FFFFFF');
   const [appearanceMsg, setAppearanceMsg] = useState('');
+  
   const [limitsMsg, setLimitsMsg] = useState('');
+  
   const [subMsg, setSubMsg] = useState('');
   const [newBankName, setNewBankName] = useState('');
   const [newBankAcc, setNewBankAcc] = useState('');
   const [newBenefit, setNewBenefit] = useState('');
+  
   const [onboardingMsg, setOnboardingMsg] = useState('');
+  
   const [deleteDescription, setDeleteDescription] = useState(settings.deletePageTexts?.description || '');
   const [deleteWarning, setDeleteWarning] = useState(settings.deletePageTexts?.warning || '');
   const [deleteFooter, setDeleteFooter] = useState(settings.deletePageTexts?.footer || '');
@@ -61,27 +66,43 @@ export default function AdminPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  // ... (Existing handlers: handleLogin, handleApprove, handleReject, etc.)
-  const handleLogin = () => { if (hashPassword(password) === settings.adminPasswordHash) { setIsAuthenticated(true); setError(''); } else { setError('كلمة المرور غير صحيحة'); } };
-  const handleApprove = async (id: number) => { if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) { await approveSubscription(id); const reqs = await fetchSubscriptionRequestsFromCloud(); setRequests(reqs); setActiveGolden(getGoldenUsers()); } };
-  const handleReject = async (id: number) => { if(confirm('هل أنت متأكد من رفض وحذف هذا الطلب؟')) { await rejectSubscriptionRequest(id); const reqs = await fetchSubscriptionRequestsFromCloud(); setRequests(reqs); } };
-  const handleCancelSub = async (userId: number) => { if(confirm('هل أنت متأكد من حذف اشتراك هذا العضو؟ سيتم إلغاء صلاحياته فوراً.')) { await cancelSubscription(userId); setActiveGolden(getGoldenUsers()); } };
-  const formatExpiry = (ts: number) => { const date = new Date(ts); return date.toLocaleDateString('ar-SA', { day: 'numeric', month: 'numeric', hour: 'numeric', minute: 'numeric' }); };
-  const handleChangeAdminPassword = () => { /* ... */ };
-  const handleSaveAppearance = () => { /* ... */ };
-  const handleLimitChange = (role: 'visitor' | 'member' | 'golden', type: string, value: string) => { /* ... */ };
-  const handleSaveLimits = () => { /* ... */ };
-  const handleAddBank = () => { /* ... */ };
-  const handleDeleteBank = (id: number) => { /* ... */ };
-  const handleUpdateBank = (id: number, field: 'name' | 'accountNumber', value: string) => { /* ... */ };
-  const handleUpdatePackagePrice = (type: 'monthly' | 'annual', price: string) => { /* ... */ };
-  const handleAddBenefit = (type: 'monthly' | 'annual') => { /* ... */ };
-  const handleDeleteBenefit = (type: 'monthly' | 'annual', index: number) => { /* ... */ };
-  const handleUpdateBenefit = (type: 'monthly' | 'annual', index: number, value: string) => { /* ... */ };
-  const handleSaveSubscriptionSettings = () => { /* ... */ };
-  const handleUpdateOnboardingStep = (index: number, value: string) => { /* ... */ };
-  const handleSaveOnboarding = () => { /* ... */ };
-  const handleSaveDeletePage = () => { /* ... */ };
+  const handleLogin = () => { 
+      if (hashPassword(password) === settings.adminPasswordHash) { 
+          setIsAuthenticated(true); 
+          setError(''); 
+      } else { 
+          setError('كلمة المرور غير صحيحة'); 
+      } 
+  };
+
+  const handleApprove = async (id: number) => { 
+      if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) { 
+          await approveSubscription(id); 
+          const reqs = await fetchSubscriptionRequestsFromCloud(); 
+          setRequests(reqs); 
+          setActiveGolden(getGoldenUsers()); 
+      } 
+  };
+
+  const handleReject = async (id: number) => { 
+      if(confirm('هل أنت متأكد من رفض وحذف هذا الطلب؟')) { 
+          await rejectSubscriptionRequest(id); 
+          const reqs = await fetchSubscriptionRequestsFromCloud(); 
+          setRequests(reqs); 
+      } 
+  };
+
+  const handleCancelSub = async (userId: number) => { 
+      if(confirm('هل أنت متأكد من حذف اشتراك هذا العضو؟ سيتم إلغاء صلاحياته فوراً.')) { 
+          await cancelSubscription(userId); 
+          setActiveGolden(getGoldenUsers()); 
+      } 
+  };
+
+  const formatExpiry = (ts: number) => { 
+      const date = new Date(ts); 
+      return date.toLocaleDateString('ar-SA', { day: 'numeric', month: 'numeric', hour: 'numeric', minute: 'numeric' }); 
+  };
 
   const handleCompleteWithdrawal = async (id: number, userId: number) => {
       if (confirm('هل قمت بتحويل المبلغ وتصفير حساب المستخدم؟')) {
@@ -89,6 +110,188 @@ export default function AdminPanel() {
           const wReqs = await fetchWithdrawalRequests();
           setWithdrawals(wReqs);
       }
+  };
+
+  // --- Handlers for Settings ---
+
+  const handleChangeAdminPassword = () => {
+    if (newAdminPass !== confirmAdminPass) {
+        setPassMsg('كلمات المرور غير متطابقة');
+        return;
+    }
+    if (!newAdminPass) return;
+    
+    const newHash = hashPassword(newAdminPass);
+    const newSettings = { ...settings, adminPasswordHash: newHash };
+    setSettings(newSettings);
+    saveGlobalSettings(newSettings);
+    setPassMsg('تم تحديث كلمة المرور بنجاح');
+    setNewAdminPass('');
+    setConfirmAdminPass('');
+    setTimeout(() => setPassMsg(''), 3000);
+  };
+
+  const handleSaveAppearance = () => {
+      const newSettings = {
+          ...settings,
+          siteTitle,
+          marquee: {
+              text: marqueeText,
+              bgColor: marqueeBg,
+              textColor: marqueeColor
+          }
+      };
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+      setAppearanceMsg('تم حفظ إعدادات المظهر بنجاح');
+      setTimeout(() => setAppearanceMsg(''), 3000);
+  };
+
+  const handleLimitChange = (role: 'visitor' | 'member' | 'golden', type: string, value: string) => {
+      const val = parseInt(value) || 0;
+      setSettings(prev => ({
+          ...prev,
+          limits: {
+              ...prev.limits,
+              [role]: {
+                  ...prev.limits[role],
+                  [type]: val
+              }
+          }
+      }));
+  };
+
+  const handleSaveLimits = () => {
+      saveGlobalSettings(settings);
+      setLimitsMsg('تم حفظ الحدود بنجاح');
+      setTimeout(() => setLimitsMsg(''), 3000);
+  };
+
+  // Banks Management
+  const handleAddBank = () => {
+      if (!newBankName || !newBankAcc) return;
+      const newBank: BankAccount = {
+          id: Date.now(),
+          name: newBankName,
+          accountNumber: newBankAcc
+      };
+      setSettings(prev => ({
+          ...prev,
+          banks: [...prev.banks, newBank]
+      }));
+      setNewBankName('');
+      setNewBankAcc('');
+  };
+
+  const handleDeleteBank = (id: number) => {
+      setSettings(prev => ({
+          ...prev,
+          banks: prev.banks.filter(b => b.id !== id)
+      }));
+  };
+
+  const handleUpdateBank = (id: number, field: 'name' | 'accountNumber', value: string) => {
+      setSettings(prev => ({
+          ...prev,
+          banks: prev.banks.map(b => b.id === id ? { ...b, [field]: value } : b)
+      }));
+  };
+
+  // Packages Management
+  const handleUpdatePackagePrice = (type: 'monthly' | 'annual', price: string) => {
+      const val = parseInt(price) || 0;
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: {
+                  ...prev.packages[type],
+                  price: val
+              }
+          }
+      }));
+  };
+
+  const handleAddBenefit = (type: 'monthly' | 'annual') => {
+      if (!newBenefit) return;
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: {
+                  ...prev.packages[type],
+                  benefits: [...prev.packages[type].benefits, newBenefit]
+              }
+          }
+      }));
+      setNewBenefit('');
+  };
+
+  const handleDeleteBenefit = (type: 'monthly' | 'annual', index: number) => {
+      setSettings(prev => ({
+          ...prev,
+          packages: {
+              ...prev.packages,
+              [type]: {
+                  ...prev.packages[type],
+                  benefits: prev.packages[type].benefits.filter((_, i) => i !== index)
+              }
+          }
+      }));
+  };
+
+  const handleUpdateBenefit = (type: 'monthly' | 'annual', index: number, value: string) => {
+      setSettings(prev => {
+          const newBenefits = [...prev.packages[type].benefits];
+          newBenefits[index] = value;
+          return {
+              ...prev,
+              packages: {
+                  ...prev.packages,
+                  [type]: {
+                      ...prev.packages[type],
+                      benefits: newBenefits
+                  }
+              }
+          };
+      });
+  };
+
+  const handleSaveSubscriptionSettings = () => {
+      saveGlobalSettings(settings);
+      setSubMsg('تم حفظ إعدادات الاشتراك والبنوك بنجاح');
+      setTimeout(() => setSubMsg(''), 3000);
+  };
+
+  // Onboarding Management
+  const handleUpdateOnboardingStep = (index: number, value: string) => {
+      setSettings(prev => {
+          const newSteps = [...prev.onboardingSteps];
+          newSteps[index] = value;
+          return { ...prev, onboardingSteps: newSteps };
+      });
+  };
+
+  const handleSaveOnboarding = () => {
+      saveGlobalSettings(settings);
+      setOnboardingMsg('تم حفظ نصوص الترحيب بنجاح');
+      setTimeout(() => setOnboardingMsg(''), 3000);
+  };
+
+  // Delete Page Management
+  const handleSaveDeletePage = () => {
+      const newSettings = {
+          ...settings,
+          deletePageTexts: {
+              description: deleteDescription,
+              warning: deleteWarning,
+              footer: deleteFooter
+          }
+      };
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+      setDeletePageMsg('تم حفظ نصوص صفحة الحذف بنجاح');
+      setTimeout(() => setDeletePageMsg(''), 3000);
   };
 
   if (!isAuthenticated) {
@@ -132,10 +335,7 @@ export default function AdminPanel() {
                     <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">المظهر</TabsTrigger>
                 </TabsList>
 
-                {/* ... (Existing TabsContent: requests, active, limits, subscription, onboarding, deletePage, settings, appearance) ... */}
-                
                 <TabsContent value="requests">
-                    {/* ... Existing Requests Content ... */}
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">طلبات العضوية الذهبية (Unified Cloud)</h3>
                         {requests.length === 0 ? (
@@ -212,10 +412,9 @@ export default function AdminPanel() {
                     </div>
                 </TabsContent>
 
-                {/* ... (Other TabsContent: active, limits, subscription, onboarding, deletePage, settings, appearance) ... */}
                 <TabsContent value="active"><div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]"><h3 className="text-lg font-bold text-gray-800 mb-6">الأعضاء الذهبيين النشطين</h3>{activeGolden.length === 0 ? (<div className="text-center py-10 text-gray-500 text-sm">لا يوجد أعضاء نشطين حالياً</div>) : (<div className="space-y-3">{activeGolden.map(user => (<div key={user.userId} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base bg-yellow-500 shadow-md">{user.userName.charAt(0)}</div><div><h4 className="font-bold text-gray-800 text-sm">{user.userName}</h4><div className="flex flex-col text-[10px] mt-1 text-gray-500"><span>ينتهي في:</span><span className="font-bold text-red-500">{formatExpiry(user.expiry)}</span></div></div></div><button onClick={() => handleCancelSub(user.userId)} className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"><Trash2 className="w-3 h-3" /> حذف</button></div>))}</div>)}</div></TabsContent>
+                
                 <TabsContent value="limits">
-                    {/* ... Limits Content ... */}
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
                         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Sliders className="w-5 h-5 text-blue-600" /> إدارة حدود الإضافة</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -227,8 +426,8 @@ export default function AdminPanel() {
                         {limitsMsg && (<p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{limitsMsg}</p>)}
                     </div>
                 </TabsContent>
+                
                 <TabsContent value="subscription">
-                    {/* ... Subscription Content ... */}
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
                         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><CreditCard className="w-5 h-5 text-green-600" /> إعدادات الاشتراك والبنوك</h3>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -239,8 +438,8 @@ export default function AdminPanel() {
                         {subMsg && (<p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{subMsg}</p>)}
                     </div>
                 </TabsContent>
+                
                 <TabsContent value="onboarding">
-                    {/* ... Onboarding Content ... */}
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
                         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><MessageSquare className="w-5 h-5 text-yellow-600" /> إعدادات شاشات الترحيب (العضوية الذهبية)</h3>
                         <div className="space-y-6">
@@ -250,8 +449,8 @@ export default function AdminPanel() {
                         </div>
                     </div>
                 </TabsContent>
+                
                 <TabsContent value="deletePage">
-                    {/* ... Delete Page Content ... */}
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
                         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><FileWarning className="w-5 h-5 text-red-600" /> إعدادات صفحة حذف الحساب</h3>
                         <div className="space-y-6">
@@ -263,7 +462,9 @@ export default function AdminPanel() {
                         </div>
                     </div>
                 </TabsContent>
+                
                 <TabsContent value="settings"><div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50"><h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Key className="w-5 h-5 text-red-600" /> تغيير كلمة مرور الأدمن</h3><div className="flex flex-col md:flex-row gap-4 items-end"><div className="flex-1 w-full space-y-2"><Label>كلمة المرور الجديدة</Label><Input type="password" className="bg-white" value={newAdminPass} onChange={(e) => setNewAdminPass(e.target.value)} /></div><div className="flex-1 w-full space-y-2"><Label>تأكيد كلمة المرور</Label><Input type="password" className="bg-white" value={confirmAdminPass} onChange={(e) => setConfirmAdminPass(e.target.value)} /></div><button onClick={handleChangeAdminPassword} className="w-full md:w-auto px-6 py-2 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900">حفظ</button></div>{passMsg && <p className="text-green-600 font-bold text-sm mt-2">{passMsg}</p>}</div></TabsContent>
+                
                 <TabsContent value="appearance"><div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50"><h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Palette className="w-5 h-5 text-pink-600" /> إعدادات المظهر العام</h3><div className="space-y-6"><div className="space-y-2"><Label className="flex items-center gap-2"><Type className="w-4 h-4 text-gray-500" /> عنوان الموقع الرئيسي</Label><Input value={siteTitle} onChange={(e) => setSiteTitle(e.target.value)} className="bg-white shadow-3d-inset border-none" /></div><div className="border-t border-gray-200 pt-4 space-y-4"><Label className="text-base font-bold text-gray-700">شريط النص المتحرك</Label><div className="space-y-2"><Label>نص الشريط</Label><Input value={marqueeText} onChange={(e) => setMarqueeText(e.target.value)} className="bg-white shadow-3d-inset border-none" /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="space-y-2"><Label>لون الخلفية (Hex Code)</Label><div className="flex gap-2"><Input value={marqueeBg} onChange={(e) => setMarqueeBg(e.target.value)} className="bg-white shadow-3d-inset border-none flex-1" dir="ltr" /><div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: marqueeBg }}></div></div></div><div className="space-y-2"><Label>لون النص (Hex Code)</Label><div className="flex gap-2"><Input value={marqueeColor} onChange={(e) => setMarqueeColor(e.target.value)} className="bg-white shadow-3d-inset border-none flex-1" dir="ltr" /><div className="w-10 h-10 rounded-lg border shadow-sm" style={{ backgroundColor: marqueeColor }}></div></div></div></div></div><button onClick={handleSaveAppearance} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"><Save className="w-4 h-4" /> حفظ التغييرات</button>{appearanceMsg && (<p className="text-green-600 font-bold text-center animate-in fade-in">{appearanceMsg}</p>)}</div></div></TabsContent>
             </Tabs>
         </div>
