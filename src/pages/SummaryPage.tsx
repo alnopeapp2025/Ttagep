@@ -14,6 +14,79 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from '@/lib/supabase';
 
+// --- Vertical Service Ticker Component ---
+const VerticalServiceTicker = ({ services }: { services: string[] }) => {
+    const [topIndex, setTopIndex] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isRed, setIsRed] = useState(true);
+
+    useEffect(() => {
+        if (!services || services.length === 0) return;
+
+        // Timer 1: Hold Red for 3s
+        const timer1 = setTimeout(() => {
+            setIsRed(false); // Revert to original color
+            
+            // Start Transition (Move Down)
+            setIsTransitioning(true);
+
+            // Timer 2: End Transition after 1s (Movement Duration)
+            const timer2 = setTimeout(() => {
+                setTopIndex(prev => (prev + 1) % services.length);
+                setIsTransitioning(false);
+                setIsRed(true); // Reset to Red for the new item
+            }, 1000); 
+
+            return () => clearTimeout(timer2);
+
+        }, 3000); // 3 Seconds Hold
+
+        return () => clearTimeout(timer1);
+    }, [topIndex, services.length]);
+
+    if (!services || services.length === 0) return null;
+
+    // Helper to get cyclic service
+    const getS = (offset: number) => {
+        let idx = topIndex + offset;
+        while(idx < 0) idx += services.length;
+        return services[idx % services.length];
+    };
+
+    return (
+        <div className="h-24 overflow-hidden relative bg-yellow-100/50 rounded-xl border border-yellow-200 mb-6">
+            <div 
+                className={`absolute w-full flex flex-col transition-transform duration-1000 ease-in-out ${isTransitioning ? 'translate-y-8' : 'translate-y-0'}`}
+                style={{ top: '-2rem' }} // Shift up by 1 unit so Incoming is hidden initially
+            >
+                {/* Incoming (Next Top) - Always Red */}
+                <div className="h-8 flex items-center px-4 font-bold text-xs text-red-600 truncate">
+                    <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                    {getS(1)}
+                </div>
+                
+                {/* Current Top - Red then Normal */}
+                <div className={`h-8 flex items-center px-4 font-bold text-xs truncate transition-colors duration-300 ${isRed && !isTransitioning ? 'text-red-600' : 'text-yellow-800'}`}>
+                    <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                    {getS(0)}
+                </div>
+
+                {/* Current Mid - Normal */}
+                <div className="h-8 flex items-center px-4 font-bold text-xs text-yellow-800 truncate">
+                    <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                    {getS(-1)}
+                </div>
+
+                {/* Current Bot - Normal */}
+                <div className="h-8 flex items-center px-4 font-bold text-xs text-yellow-800 truncate">
+                    <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                    {getS(-2)}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function SummaryPage() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -298,19 +371,9 @@ export default function SummaryPage() {
                       </div>
                   </div>
 
-                  {/* Services Ticker for Golden */}
+                  {/* Vertical Services Ticker for Golden */}
                   {listing.isGolden ? (
-                      <div className="mb-6 overflow-hidden bg-yellow-100/50 rounded-xl py-2 border border-yellow-200">
-                          <div className="marquee-container">
-                              <div className="marquee-content flex gap-4 px-4">
-                                  {listing.services.map((s, i) => (
-                                      <span key={i} className="text-xs font-bold text-yellow-800 whitespace-nowrap flex items-center gap-1">
-                                          <CheckCircle2 className="w-3 h-3" /> {s}
-                                      </span>
-                                  ))}
-                              </div>
-                          </div>
-                      </div>
+                      <VerticalServiceTicker services={listing.services} />
                   ) : (
                       <div className="mb-6 flex flex-wrap gap-2">
                           {listing.services.slice(0, 3).map((s, i) => (
