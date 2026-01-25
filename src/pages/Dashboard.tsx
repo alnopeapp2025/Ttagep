@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/lib/supabase';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -155,6 +156,42 @@ export default function Dashboard() {
         clearInterval(interval);
     };
   }, []);
+
+  // Realtime subscription for User Balance Updates
+  useEffect(() => {
+      if (!currentUser) return;
+      
+      const channel = supabase
+        .channel('user-balance-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'users',
+            filter: `id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            if (payload.new) {
+                const newBalance = Number(payload.new.affiliate_balance) || 0;
+                setCurrentUser(prev => prev ? { ...prev, affiliateBalance: newBalance } : null);
+                
+                // Update local storage as well to persist
+                const stored = localStorage.getItem('moaqeb_current_user_v1');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    parsed.affiliateBalance = newBalance;
+                    localStorage.setItem('moaqeb_current_user_v1', JSON.stringify(parsed));
+                }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -744,6 +781,16 @@ export default function Dashboard() {
                     <div className="bg-white p-4 rounded-2xl shadow-3d-inset text-center border border-yellow-100">
                         <p className="text-gray-500 font-bold mb-1">رصيد أرباحك الحالي</p>
                         <h2 className="text-4xl font-black text-green-600">{currentUser?.affiliateBalance || 0} <span className="text-lg">ريال</span></h2>
+                    </div>
+
+                    {/* Instructions - ADDED HERE */}
+                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 mb-2">
+                        <p className="text-red-600 font-bold text-xs mb-2">لتربح 50 ريال لكل عميل اشترك عبر رابطك:</p>
+                        <ul className="text-[10px] text-red-500 space-y-1 list-decimal list-inside font-medium leading-relaxed">
+                            <li>قم بنسخ رابط الإحالة الخاص بك وارسله للعضو.</li>
+                            <li>بعد اشتراك العضو في الباقة الذهبية يزيد رصيدك بمقدار 50ريال.</li>
+                            <li>لسحبه أضغط على سحب الرصيد وينزل بحسابك الراجحي أو الأهلي فوراً.</li>
+                        </ul>
                     </div>
 
                     {/* Referral Link */}
