@@ -6,6 +6,12 @@ export const DEFAULT_BANKS_LIST = [
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
 ];
 
+export const SAUDI_CITIES = [
+  "الرياض", "جدة", "مكة المكرمة", "المدينة المنورة", "الدمام", "الخبر", "الظهران", 
+  "الأحساء", "الطائف", "تبوك", "بريدة", "خميس مشيط", "أبها", "حائل", "جازان", 
+  "نجران", "الجبيل", "الخرج", "عرعر", "ينبع", "عنيزة", "سكاكا", "القريات", "الباحة", "أخرى"
+];
+
 export const INITIAL_BALANCES: Record<string, number> = DEFAULT_BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
 // --- Types ---
@@ -113,6 +119,19 @@ export interface WithdrawalRequest {
     amount: number;
     bankAccount: string;
     status: 'pending' | 'completed';
+    createdAt: number;
+}
+
+export interface OfficeListing {
+    id: number;
+    userId: number;
+    officeName: string;
+    phone: string;
+    whatsapp: string;
+    workType: 'online' | 'office';
+    city?: string;
+    services: string[];
+    isGolden: boolean;
     createdAt: number;
 }
 
@@ -414,7 +433,6 @@ export const fetchSubscriptionRequestsFromCloud = async (): Promise<Subscription
 };
 
 export const getSubscriptionRequests = (): SubscriptionRequest[] => {
-    // Fallback for local dev if needed, but primarily using cloud now
     try {
         const stored = localStorage.getItem(SUB_REQUESTS_KEY);
         return stored ? JSON.parse(stored) : [];
@@ -455,7 +473,6 @@ export const approveSubscription = async (requestId: number) => {
         const durationMs = req.duration === 'سنة' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
         const expiryDate = Date.now() + durationMs;
 
-        // 1. Activate Golden Membership
         const { error: updateError } = await supabase
             .from('users')
             .update({ 
@@ -466,7 +483,6 @@ export const approveSubscription = async (requestId: number) => {
         
         if (updateError) throw updateError;
 
-        // 2. Affiliate Logic: Check if referred and add commission
         const { data: user } = await supabase
             .from('users')
             .select('referred_by')
@@ -489,7 +505,6 @@ export const approveSubscription = async (requestId: number) => {
             }
         }
 
-        // 3. Mark request as approved
         await supabase
             .from('subscription_requests')
             .update({ status: 'approved' })
@@ -739,7 +754,6 @@ export const updateUserProfile = async (userId: number, oldPass: string, newOffi
         
         if (updateError) throw updateError;
         
-        // Update local storage
         const currentUser = getCurrentUser();
         if (currentUser) {
             currentUser.officeName = newOfficeName;
@@ -874,6 +888,61 @@ export const completeWithdrawal = async (requestId: number, userId: number) => {
     } catch (err) {
         console.error('Complete withdrawal error:', err);
         return { success: false };
+    }
+};
+
+// --- Office Listing Functions ---
+
+export const addOfficeListingToCloud = async (listing: OfficeListing) => {
+    try {
+        const { data, error } = await supabase
+            .from('public_offices')
+            .insert([{
+                user_id: listing.userId,
+                office_name: listing.officeName,
+                phone: listing.phone,
+                whatsapp: listing.whatsapp,
+                work_type: listing.workType,
+                city: listing.city,
+                services: listing.services,
+                is_golden: listing.isGolden
+            }])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return { success: true, data };
+    } catch (err: any) {
+        console.error('Add office listing error:', err);
+        return { success: false, message: err.message };
+    }
+};
+
+export const fetchOfficeListingsFromCloud = async (): Promise<OfficeListing[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('public_offices')
+            .select('*')
+            .order('is_golden', { ascending: false }) // Golden first
+            .order('created_at', { ascending: false }); // Then newest
+        
+        if (error) throw error;
+
+        return data.map((item: any) => ({
+            id: item.id,
+            userId: item.user_id,
+            officeName: item.office_name,
+            phone: item.phone,
+            whatsapp: item.whatsapp,
+            workType: item.work_type,
+            city: item.city,
+            services: item.services || [],
+            isGolden: item.is_golden,
+            createdAt: new Date(item.created_at).getTime()
+        }));
+    } catch (err) {
+        console.error('Fetch office listings error:', err);
+        return [];
     }
 };
 
