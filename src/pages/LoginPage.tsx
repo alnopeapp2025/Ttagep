@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User, MessageSquare } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,10 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { loginUser, verifySecurityInfo, resetPassword, getStoredEmployees } from '@/lib/store';
-import { auth } from '@/lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { supabase } from '@/lib/supabase';
+import { loginUser, verifySecurityInfo, resetPassword } from '@/lib/store';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -40,13 +37,6 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // OTP Login State
-  const [useOtp, setUseOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
   
   // Refs for auto-focus
   const phoneRef = useRef<HTMLInputElement>(null);
@@ -99,31 +89,13 @@ export default function LoginPage() {
     }
   }, [forgotOpen]);
 
-  // Initialize Recaptcha
-  useEffect(() => {
-    if (!recaptchaVerifier && useOtp) {
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'callback': () => {
-                // reCAPTCHA solved, allow signInWithPhoneNumber.
-            }
-        });
-        setRecaptchaVerifier(verifier);
-    }
-  }, [useOtp]);
-
   const handleLogin = async () => {
     setError('');
     
-    if (!phone) {
+    if (!phone || !password) {
         setError('يرجى ملء جميع الحقول');
-        phoneRef.current?.focus();
-        return;
-    }
-
-    if (!useOtp && !password) {
-        setError('يرجى ملء جميع الحقول');
-        passwordRef.current?.focus();
+        if (!phone) phoneRef.current?.focus();
+        else if (!password) passwordRef.current?.focus();
         return;
     }
 
@@ -141,117 +113,6 @@ export default function LoginPage() {
     } finally {
         setLoading(false);
     }
-  };
-
-  const handleSendOtp = async () => {
-      setError('');
-      if (!phone || phone.length < 10) {
-          setError('يرجى إدخال رقم جوال صحيح');
-          return;
-      }
-
-      setLoading(true);
-      try {
-          // Format phone for Firebase: Remove leading 0, add +966
-          let formattedPhone = phone;
-          if (formattedPhone.startsWith('0')) {
-              formattedPhone = formattedPhone.substring(1);
-          }
-          formattedPhone = `+966${formattedPhone}`;
-
-          if (!recaptchaVerifier) return;
-
-          const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-          setConfirmationResult(confirmation);
-          setOtpSent(true);
-          setLoading(false);
-      } catch (err: any) {
-          console.error("OTP Error:", err);
-          setLoading(false);
-          if (err.code === 'auth/invalid-phone-number') {
-              setError('رقم الهاتف غير صحيح');
-          } else if (err.code === 'auth/too-many-requests') {
-              setError('محاولات كثيرة جداً، يرجى الانتظار قليلاً');
-          } else {
-              setError('فشل إرسال رمز التحقق: ' + err.message);
-          }
-      }
-  };
-
-  const handleVerifyOtp = async () => {
-      if (!otpCode || !confirmationResult) return;
-      setLoading(true);
-      try {
-          await confirmationResult.confirm();
-          
-          // OTP Verified - Now check if user exists in Supabase
-          // We need to find the user by phone number
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('phone', phone)
-            .single();
-
-          if (data) {
-              // User exists, log them in manually
-              // We reuse the logic from loginUser but bypass password check
-              // Or we can just set the local storage if we replicate the logic
-              
-              // Replicate loginUser logic for session
-              let expiry = null;
-              let role = data.role || 'member';
-
-              if (data.subscription_expiry) {
-                  expiry = new Date(data.subscription_expiry).getTime();
-                  if (role === 'golden' && expiry < Date.now()) {
-                      role = 'member';
-                  }
-              }
-
-              const user = {
-                  id: data.id,
-                  officeName: data.office_name,
-                  phone: data.phone,
-                  passwordHash: data.password_hash,
-                  securityQuestion: data.security_question,
-                  securityAnswer: data.security_answer,
-                  createdAt: new Date(data.created_at).getTime(),
-                  role: role as any,
-                  subscriptionExpiry: expiry || undefined,
-                  affiliateBalance: Number(data.affiliate_balance) || 0
-              };
-              
-              // Also check for Golden Users list update
-              if (role === 'golden' && expiry) {
-                  const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2';
-                  const stored = localStorage.getItem(GOLDEN_USERS_KEY);
-                  const goldenUsers = stored ? JSON.parse(stored) : [];
-                  if (!goldenUsers.find((u: any) => u.userId === user.id)) {
-                      goldenUsers.push({ userId: user.id, expiry: expiry, userName: user.officeName });
-                      localStorage.setItem(GOLDEN_USERS_KEY, JSON.stringify(goldenUsers));
-                  }
-              }
-
-              localStorage.setItem('moaqeb_current_user_v1', JSON.stringify(user));
-              navigate('/');
-          } else {
-              // Check if it's an employee (stored locally)
-              const employees = getStoredEmployees();
-              const emp = employees.find(e => e.phone === phone); // Employee phones are usually fake, but if they matched
-              if (emp) {
-                   localStorage.setItem('moaqeb_current_user_v1', JSON.stringify(emp));
-                   navigate('/');
-              } else {
-                  setError('رقم الهاتف غير مسجل في النظام. يرجى تسجيل عضوية جديدة.');
-                  setLoading(false);
-              }
-          }
-
-      } catch (err) {
-          console.error("Verify Error:", err);
-          setError('رمز التحقق غير صحيح');
-          setLoading(false);
-      }
   };
 
   const handleVerifySecurity = async () => {
@@ -310,9 +171,6 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#eef2f6] rounded-3xl shadow-3d p-8 border border-white/50 relative">
         
-        {/* Recaptcha Container */}
-        <div id="recaptcha-container"></div>
-
         {/* Success Message Overlay */}
         {successMsg && (
             <div className="absolute inset-0 bg-[#eef2f6]/95 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center animate-in fade-in duration-300">
@@ -352,80 +210,40 @@ export default function LoginPage() {
                 }}
                 className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !phone ? 'ring-2 ring-red-400' : ''}`}
                 placeholder="05xxxxxxxx"
-                disabled={otpSent}
               />
               <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
             </div>
           </div>
 
-          {!useOtp ? (
-              <div className="space-y-2 animate-in fade-in">
-                <Label className="font-bold text-gray-600">كلمة المرور</Label>
-                <div className="relative">
-                  <Input 
-                    ref={passwordRef}
-                    type="password"
-                    value={password}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) {
-                            setPassword(val);
-                            if(error) setError('');
-                        }
-                    }}
-                    className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !password ? 'ring-2 ring-red-400' : ''}`}
-                    placeholder="••••••••"
-                  />
-                  <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                </div>
-              </div>
-          ) : (
-              <div className="space-y-2 animate-in fade-in">
-                  {otpSent && (
-                      <>
-                        <Label className="font-bold text-gray-600">رمز التحقق (OTP)</Label>
-                        <div className="relative">
-                            <Input 
-                                type="text"
-                                value={otpCode}
-                                onChange={(e) => setOtpCode(e.target.value)}
-                                className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 text-center tracking-widest text-lg"
-                                placeholder="------"
-                            />
-                            <MessageSquare className="absolute left-3 top-3.5 w-5 h-5 text-green-500" />
-                        </div>
-                      </>
-                  )}
-              </div>
-          )}
-
-          {!useOtp ? (
-              <button 
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
-                دخول
-              </button>
-          ) : (
-              <button 
-                onClick={otpSent ? handleVerifyOtp : handleSendOtp}
-                disabled={loading}
-                className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (otpSent ? 'تحقق ودخول' : 'إرسال رمز التحقق')}
-              </button>
-          )}
-
-          <div className="flex justify-center mt-2">
-              <button 
-                onClick={() => { setUseOtp(!useOtp); setError(''); setOtpSent(false); setOtpCode(''); }}
-                className="text-xs font-bold text-blue-600 hover:underline"
-              >
-                  {useOtp ? 'العودة لتسجيل الدخول بكلمة المرور' : 'تسجيل الدخول برمز التحقق (OTP)'}
-              </button>
+          <div className="space-y-2 animate-in fade-in">
+            <Label className="font-bold text-gray-600">كلمة المرور</Label>
+            <div className="relative">
+                <Input 
+                ref={passwordRef}
+                type="password"
+                value={password}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) {
+                        setPassword(val);
+                        if(error) setError('');
+                    }
+                }}
+                className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !password ? 'ring-2 ring-red-400' : ''}`}
+                placeholder="••••••••"
+                />
+                <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+            </div>
           </div>
+
+          <button 
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
+            دخول
+          </button>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <button 
