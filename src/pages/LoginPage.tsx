@@ -210,7 +210,9 @@ export default function LoginPage() {
                 ref={phoneRef}
                 value={phone}
                 onChange={(e) => {
-                    setPhone(e.target.value);
+                    // Strict: Numbers only, max 10 digits
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(val);
                     if(error) setError('');
                 }}
                 className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !phone ? 'ring-2 ring-red-400' : ''}`}
@@ -228,8 +230,12 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => {
-                    setPassword(e.target.value);
-                    if(error) setError('');
+                    const val = e.target.value;
+                    // Strict: Max 10 chars, Alphanumeric only
+                    if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) {
+                        setPassword(val);
+                        if(error) setError('');
+                    }
                 }}
                 className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !password ? 'ring-2 ring-red-400' : ''}`}
                 placeholder="••••••••"
@@ -290,7 +296,10 @@ export default function LoginPage() {
                                         <Label>رقم الهاتف</Label>
                                         <Input 
                                             value={recPhone}
-                                            onChange={(e) => setRecPhone(e.target.value)}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                setRecPhone(val);
+                                            }}
                                             className="bg-white shadow-3d-inset border-none" 
                                             placeholder="05xxxxxxxx" 
                                         />
@@ -312,7 +321,10 @@ export default function LoginPage() {
                                         <Label>الإجابة</Label>
                                         <Input 
                                             value={recAnswer}
-                                            onChange={(e) => setRecAnswer(e.target.value)}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val.length <= 10 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setRecAnswer(val);
+                                            }}
                                             className="bg-white shadow-3d-inset border-none" 
                                             placeholder="إجابتك..." 
                                         />
@@ -334,7 +346,10 @@ export default function LoginPage() {
                                             <Input 
                                                 type="password"
                                                 value={newPass}
-                                                onChange={(e) => setNewPass(e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewPass(val);
+                                                }}
                                                 className="bg-white shadow-3d-inset border-none pl-10" 
                                                 placeholder="••••••••" 
                                             />
@@ -347,7 +362,10 @@ export default function LoginPage() {
                                             <Input 
                                                 type="password"
                                                 value={confirmPass}
-                                                onChange={(e) => setConfirmPass(e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setConfirmPass(val);
+                                                }}
                                                 className="bg-white shadow-3d-inset border-none pl-10" 
                                                 placeholder="••••••••" 
                                             />

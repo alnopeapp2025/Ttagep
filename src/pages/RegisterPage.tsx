@@ -50,6 +50,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!/^05\d{8}$/.test(formData.phone)) {
+        alert('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام');
+        return;
+    }
+
     setLoading(true);
     
     try {
@@ -102,11 +107,14 @@ export default function RegisterPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">اسم المكتب <span className="text-red-500">*</span></Label>
+            <Label className="font-bold text-gray-600">اسم المكتب (25 حرف كحد أقصى) <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 value={formData.officeName}
-                onChange={(e) => setFormData({...formData, officeName: e.target.value})}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 25 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setFormData({...formData, officeName: val});
+                }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="أدخل اسم المكتب"
               />
@@ -119,7 +127,10 @@ export default function RegisterPage() {
             <div className="relative">
               <Input 
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setFormData({...formData, phone: val});
+                }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="05xxxxxxxx"
               />
@@ -128,12 +139,15 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">كلمة المرور <span className="text-red-500">*</span></Label>
+            <Label className="font-bold text-gray-600">كلمة المرور (10 خانات إنجليزي/أرقام) <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setFormData({...formData, password: val});
+                }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="••••••••"
               />
@@ -158,11 +172,14 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-            <Label className="font-bold text-gray-600">إجابة السؤال <span className="text-red-500">*</span></Label>
+            <Label className="font-bold text-gray-600">إجابة السؤال (10 خانات) <span className="text-red-500">*</span></Label>
             <div className="relative">
             <Input 
                 value={formData.securityAnswer}
-                onChange={(e) => setFormData({...formData, securityAnswer: e.target.value})}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 10 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setFormData({...formData, securityAnswer: val});
+                }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="اكتب إجابتك هنا"
             />

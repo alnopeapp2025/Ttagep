@@ -253,6 +253,16 @@ export default function TransactionsPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Validation Helpers
+  const handleManualTypeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      // Allow letters (Arabic/English) and spaces only, max 20 chars
+      if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) {
+          setFormData({...formData, manualType: val});
+          if(errors.type) setErrors({...errors, type: ''});
+      }
+  };
+
   const handleSave = async () => {
     if (!validateForm()) return;
 
@@ -398,7 +408,7 @@ export default function TransactionsPage() {
   };
 
   const validateSaudiNumber = (num: string) => {
-    const regex = /^5[0-9]{8}$/;
+    const regex = /^05\d{8}$/; // Starts with 05, exactly 10 digits
     return regex.test(num);
   };
 
@@ -418,8 +428,9 @@ export default function TransactionsPage() {
 
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
-            if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
-            if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
+            // Normalize to 05 format if possible
+            if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
+            if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
             
             if (type === 'client') {
                 setNewClientName(rawName);
@@ -457,12 +468,12 @@ export default function TransactionsPage() {
     if(!newClientName.trim()) return;
 
     if (newClientPhone && !validateSaudiNumber(newClientPhone)) {
-        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.phone = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
 
     if (newClientWhatsapp && !validateSaudiNumber(newClientWhatsapp)) {
-        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
 
@@ -472,8 +483,8 @@ export default function TransactionsPage() {
     const newClient: Client = {
       id: Date.now(),
       name: newClientName,
-      phone: newClientPhone ? `966${newClientPhone}` : '',
-      whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
+      phone: newClientPhone ? `966${newClientPhone.substring(1)}` : '', // Convert 05 to 9665 for storage
+      whatsapp: newClientWhatsapp ? `966${newClientWhatsapp.substring(1)}` : '',
       createdAt: Date.now()
     };
     
@@ -516,12 +527,12 @@ export default function TransactionsPage() {
     if(!newAgentName.trim()) return;
 
     if (newAgentPhone && !validateSaudiNumber(newAgentPhone)) {
-        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.phone = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
 
     if (newAgentWhatsapp && !validateSaudiNumber(newAgentWhatsapp)) {
-        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
 
@@ -531,8 +542,8 @@ export default function TransactionsPage() {
     const newAgent: Agent = {
       id: Date.now(),
       name: newAgentName,
-      phone: newAgentPhone ? `966${newAgentPhone}` : '',
-      whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
+      phone: newAgentPhone ? `966${newAgentPhone.substring(1)}` : '',
+      whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp.substring(1)}` : '',
       createdAt: Date.now()
     };
 
@@ -759,12 +770,9 @@ export default function TransactionsPage() {
                     <div className="relative">
                         <Input 
                             ref={manualTypeRef}
-                            placeholder="اكتب المعاملة هنا.. مثلاً" 
+                            placeholder="اكتب المعاملة هنا.. (20 حرف كحد أقصى)" 
                             value={formData.manualType}
-                            onChange={(e) => {
-                                setFormData({...formData, manualType: e.target.value});
-                                if(errors.type) setErrors({...errors, type: ''});
-                            }}
+                            onChange={handleManualTypeChange}
                             onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
                             className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse"
                         />
@@ -790,8 +798,10 @@ export default function TransactionsPage() {
                  {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
+              {/* ... (Rest of the dialog content is same, just hidden for brevity) ... */}
               <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
+                {/* ... Agent Select & Quick Add ... */}
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <Select 
@@ -815,7 +825,9 @@ export default function TransactionsPage() {
                         </SelectContent>
                         </Select>
                     </div>
-                    <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}>
+                    {/* Quick Add Agent Dialog reused from AgentsPage logic but simplified here if needed, 
+                        assuming standard implementation. For brevity, keeping structure. */}
+                     <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}>
                         <DialogTrigger asChild>
                             <button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600">
                                 <Plus className="w-5 h-5" />
@@ -823,35 +835,21 @@ export default function TransactionsPage() {
                         </DialogTrigger>
                         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                             <DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader>
-                            
-                            <button 
-                                onClick={() => handleImportContact('agent')}
-                                className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
-                            >
-                                <Contact className="w-4 h-4" />
-                                أو من الهاتف
-                            </button>
-
+                            <button onClick={() => handleImportContact('agent')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button>
                             <div className="py-4 space-y-3">
                                 <Input 
-                                    placeholder="اسم المعقب" 
+                                    placeholder="اسم المعقب (20 حرف)" 
                                     value={newAgentName}
-                                    onChange={(e) => setNewAgentName(e.target.value)}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewAgentName(val);
+                                    }}
                                     className="bg-white shadow-3d-inset border-none"
                                 />
                                 <div className="space-y-1">
                                     <div className="relative flex items-center" dir="ltr">
                                         <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newAgentPhone} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewAgentPhone(val);
-                                                if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
+                                        <Input value={newAgentPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentPhone(val); if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" />
                                         <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
                                     </div>
                                     {agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}
@@ -859,16 +857,7 @@ export default function TransactionsPage() {
                                 <div className="space-y-1">
                                     <div className="relative flex items-center" dir="ltr">
                                         <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newAgentWhatsapp} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewAgentWhatsapp(val);
-                                                if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
+                                        <Input value={newAgentWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentWhatsapp(val); if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" />
                                         <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
                                     </div>
                                     {agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}
@@ -954,35 +943,21 @@ export default function TransactionsPage() {
                         </DialogTrigger>
                         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                             <DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader>
-                            
-                            <button 
-                                onClick={() => handleImportContact('client')}
-                                className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
-                            >
-                                <Contact className="w-4 h-4" />
-                                أو من الهاتف
-                            </button>
-
+                            <button onClick={() => handleImportContact('client')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button>
                             <div className="py-4 space-y-3">
                                 <Input 
-                                    placeholder="اسم العميل" 
+                                    placeholder="اسم العميل (20 حرف)" 
                                     value={newClientName}
-                                    onChange={(e) => setNewClientName(e.target.value)}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewClientName(val);
+                                    }}
                                     className="bg-white shadow-3d-inset border-none"
                                 />
                                 <div className="space-y-1">
                                     <div className="relative flex items-center" dir="ltr">
                                         <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newClientPhone} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewClientPhone(val);
-                                                if(clientErrors.phone) setClientErrors({...clientErrors, phone: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.phone ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
+                                        <Input value={newClientPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientPhone(val); if(clientErrors.phone) setClientErrors({...clientErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" />
                                         <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
                                     </div>
                                     {clientErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.phone}</p>}
@@ -990,16 +965,7 @@ export default function TransactionsPage() {
                                 <div className="space-y-1">
                                     <div className="relative flex items-center" dir="ltr">
                                         <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newClientWhatsapp} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewClientWhatsapp(val);
-                                                if(clientErrors.whatsapp) setClientErrors({...clientErrors, whatsapp: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
+                                        <Input value={newClientWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientWhatsapp(val); if(clientErrors.whatsapp) setClientErrors({...clientErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" />
                                         <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
                                     </div>
                                     {clientErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.whatsapp}</p>}
@@ -1071,6 +1037,7 @@ export default function TransactionsPage() {
         </Dialog>
       </div>
 
+      {/* ... Transactions List ... */}
       <div className="space-y-4">
         {transactions.length === 0 ? (
           <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-8 min-h-[300px] flex flex-col items-center justify-center text-center border border-white/20">

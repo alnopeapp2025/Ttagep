@@ -234,13 +234,29 @@ export default function SummaryPage() {
                     <DialogHeader><DialogTitle className="text-center font-black text-xl text-gray-800">إضافة مكتب جديد</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>اسم المكتب (حد أقصى 30 حرف)</Label>
-                            <Input maxLength={30} value={formData.officeName} onChange={(e) => setFormData({...formData, officeName: e.target.value})} className="bg-white shadow-3d-inset border-none" placeholder="اسم المكتب..." />
+                            <Label>اسم المكتب (حد أقصى 29 حرف)</Label>
+                            <Input 
+                                value={formData.officeName} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val.length <= 29 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setFormData({...formData, officeName: val});
+                                }} 
+                                className="bg-white shadow-3d-inset border-none" 
+                                placeholder="اسم المكتب..." 
+                            />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>رقم الاتصال</Label>
-                                <Input type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-white shadow-3d-inset border-none" placeholder="05xxxxxxxx" />
+                                <Input 
+                                    value={formData.phone} 
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                        setFormData({...formData, phone: val});
+                                    }} 
+                                    className="bg-white shadow-3d-inset border-none" 
+                                    placeholder="05xxxxxxxx" 
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>رقم الواتساب (9 أرقام يبدأ بـ 5)</Label>
@@ -275,11 +291,13 @@ export default function SummaryPage() {
                             <Label>الخدمات ({formData.services.length}/{currentUser.role === 'golden' ? 50 : 20})</Label>
                             <div className="flex gap-2">
                                 <Input 
-                                    maxLength={20} 
                                     value={formData.newService} 
-                                    onChange={(e) => setFormData({...formData, newService: e.target.value})} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setFormData({...formData, newService: val});
+                                    }} 
                                     className="bg-white shadow-3d-inset border-none" 
-                                    placeholder="اسم الخدمة..." 
+                                    placeholder="اسم الخدمة (20 حرف)" 
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddService()}
                                 />
                                 <button onClick={handleAddService} className="bg-green-600 text-white p-3 rounded-xl shadow-lg hover:bg-green-700"><Plus className="w-5 h-5" /></button>

@@ -946,7 +946,7 @@ export default function Dashboard() {
                             {!isEditingProfile ? (
                                 <><h3 className="text-xl font-black text-gray-800">{currentUser.officeName}</h3><p className="text-gray-500 text-sm">{currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو مسجل'}</p></>
                             ) : (
-                                <div className="w-full space-y-2"><Label>اسم المكتب</Label><Input value={editOfficeName} onChange={(e) => setEditOfficeName(e.target.value)} className="bg-white shadow-3d-inset border-none text-center" /></div>
+                                <div className="w-full space-y-2"><Label>اسم المكتب (25 حرف كحد أقصى)</Label><Input value={editOfficeName} onChange={(e) => { const val = e.target.value; if(val.length <= 25 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setEditOfficeName(val); }} className="bg-white shadow-3d-inset border-none text-center" /></div>
                             )}
                             {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (<p className="text-xs text-red-500 font-bold mt-1">ينتهي الاشتراك: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}</p>)}
                         </div>
@@ -958,7 +958,7 @@ export default function Dashboard() {
                         ) : (
                             <div className="space-y-4 animate-in fade-in">
                                 <div className="space-y-2"><Label>سؤال الأمان</Label><Select value={editSecurityQuestion} onValueChange={setEditSecurityQuestion}><SelectTrigger className="bg-white shadow-3d-inset border-none h-10 text-right flex-row-reverse"><SelectValue placeholder="اختر السؤال..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{securityQuestions.map((q) => (<SelectItem key={q} value={q} className="text-right cursor-pointer my-1">{q}</SelectItem>))}</SelectContent></Select></div>
-                                <div className="space-y-2"><Label>إجابة السؤال</Label><Input value={editSecurityAnswer} onChange={(e) => setEditSecurityAnswer(e.target.value)} className="bg-white shadow-3d-inset border-none" /></div>
+                                <div className="space-y-2"><Label>إجابة السؤال (10 خانات كحد أقصى)</Label><Input value={editSecurityAnswer} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setEditSecurityAnswer(val); }} className="bg-white shadow-3d-inset border-none" /></div>
                                 <div className="space-y-2 pt-2 border-t border-gray-200"><Label className="text-red-500">كلمة المرور الحالية (للتأكيد)</Label><Input type="password" value={verifyOldPass} onChange={(e) => setVerifyOldPass(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="••••••••" /></div>
                             </div>
                         )}
@@ -985,8 +985,8 @@ export default function Dashboard() {
                     <div className="py-4 space-y-4">
                         {passError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in"><AlertTriangle className="w-4 h-4" />{passError}</div>}
                         <div className="space-y-2"><Label>كلمة المرور الحالية</Label><div className="relative"><Input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
-                        <div className="space-y-2"><Label>كلمة المرور الجديدة</Label><div className="relative"><Input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
-                        <div className="space-y-2"><Label>تأكيد كلمة المرور الجديدة</Label><div className="relative"><Input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
+                        <div className="space-y-2"><Label>كلمة المرور الجديدة (10 خانات كحد أقصى)</Label><div className="relative"><Input type="password" value={newPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewPass(val); }} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
+                        <div className="space-y-2"><Label>تأكيد كلمة المرور الجديدة</Label><div className="relative"><Input type="password" value={confirmPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setConfirmPass(val); }} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
                         <button onClick={handleChangePassword} disabled={passLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2 disabled:opacity-70">{passLoading ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> : <Key className="w-4 h-4" />} تحديث كلمة المرور</button>
                     </div>
                 )}
@@ -1001,8 +1001,8 @@ export default function Dashboard() {
                 ) : (
                     <div className="py-4 space-y-4">
                         {empError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100 shadow-sm">{empError}</div>}
-                        <div className="space-y-2"><Label>اسم الموظف</Label><Input value={newEmpName} onChange={(e) => setNewEmpName(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="اسم الموظف" /></div>
-                        <div className="space-y-2"><Label>كلمة المرور</Label><Input type="password" value={newEmpPass} onChange={(e) => setNewEmpPass(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="••••" /></div>
+                        <div className="space-y-2"><Label>اسم الموظف (15 حرف كحد أقصى)</Label><Input value={newEmpName} onChange={(e) => { const val = e.target.value; if(val.length <= 15 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewEmpName(val); }} className="bg-white shadow-3d-inset border-none" placeholder="اسم الموظف" /></div>
+                        <div className="space-y-2"><Label>كلمة المرور (10 خانات إنجليزي/أرقام)</Label><Input type="password" value={newEmpPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewEmpPass(val); }} className="bg-white shadow-3d-inset border-none" placeholder="••••" /></div>
                         <button onClick={handleCreateEmployee} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2"><UserPlus className="w-4 h-4" /> إنشاء حساب</button>
                     </div>
                 )}

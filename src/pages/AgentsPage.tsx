@@ -103,7 +103,7 @@ function AgentsPage() {
   }, [agentTxs]);
 
   const validateSaudiNumber = (num: string) => {
-    const regex = /^5[0-9]{8}$/;
+    const regex = /^05\d{8}$/; // Starts with 05, exactly 10 digits
     return regex.test(num);
   };
 
@@ -121,8 +121,10 @@ function AgentsPage() {
           let rawPhone = contact.tel[0];
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
-            if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
-            if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
+            // Normalize to 05 format if possible
+            if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
+            if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            
             setNewAgentName(rawName);
             setNewAgentPhone(rawPhone);
             setNewAgentWhatsapp(rawPhone);
@@ -154,11 +156,11 @@ function AgentsPage() {
     const newErrors = { phone: '', whatsapp: '' };
     if (!newAgentName.trim()) return;
     if (newAgentPhone && !validateSaudiNumber(newAgentPhone)) {
-        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.phone = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
     if (newAgentWhatsapp && !validateSaudiNumber(newAgentWhatsapp)) {
-        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام';
         hasError = true;
     }
     setErrors(newErrors);
@@ -171,8 +173,8 @@ function AgentsPage() {
         const updatedAgent: Agent = {
             ...editingAgent,
             name: newAgentName,
-            phone: newAgentPhone ? `966${newAgentPhone}` : '',
-            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : ''
+            phone: newAgentPhone ? `966${newAgentPhone.substring(1)}` : '',
+            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp.substring(1)}` : ''
         };
         
         if (currentUser) {
@@ -194,8 +196,8 @@ function AgentsPage() {
         const newAgent: Agent = {
             id: Date.now(),
             name: newAgentName,
-            phone: newAgentPhone ? `966${newAgentPhone}` : '',
-            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
+            phone: newAgentPhone ? `966${newAgentPhone.substring(1)}` : '',
+            whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp.substring(1)}` : '',
             createdAt: Date.now(),
             createdBy: currentUser?.officeName
         };
@@ -242,11 +244,11 @@ function AgentsPage() {
       setNewAgentName(agent.name);
       
       let phone = agent.phone || '';
-      if(phone.startsWith('966')) phone = phone.substring(3);
+      if(phone.startsWith('966')) phone = '0' + phone.substring(3);
       setNewAgentPhone(phone);
 
       let wa = agent.whatsapp || '';
-      if(wa.startsWith('966')) wa = wa.substring(3);
+      if(wa.startsWith('966')) wa = '0' + wa.substring(3);
       setNewAgentWhatsapp(wa);
 
       setOpen(true);
@@ -390,10 +392,13 @@ function AgentsPage() {
                 )}
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>اسم المعقب</Label>
+                        <Label>اسم المعقب (20 حرف كحد أقصى)</Label>
                         <Input 
                             value={newAgentName} 
-                            onChange={(e) => setNewAgentName(e.target.value)} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewAgentName(val);
+                            }}
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
@@ -404,12 +409,12 @@ function AgentsPage() {
                             <Input 
                                 value={newAgentPhone} 
                                 onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                                     setNewAgentPhone(val);
                                     if(errors.phone) setErrors({...errors, phone: ''});
                                 }} 
                                 className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.phone ? 'ring-2 ring-red-400' : ''}`}
-                                placeholder="5xxxxxxxx"
+                                placeholder="05xxxxxxxx"
                             />
                             <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
                         </div>
@@ -422,12 +427,12 @@ function AgentsPage() {
                             <Input 
                                 value={newAgentWhatsapp} 
                                 onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                                     setNewAgentWhatsapp(val);
                                     if(errors.whatsapp) setErrors({...errors, whatsapp: ''});
                                 }} 
                                 className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
-                                placeholder="5xxxxxxxx"
+                                placeholder="05xxxxxxxx"
                             />
                             <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
                         </div>
@@ -479,7 +484,6 @@ function AgentsPage() {
                     >
                         <Pencil className="w-4 h-4" />
                     </button>
-                    {/* Delete button removed from here */}
                     {agent.phone && (
                         <button 
                             onClick={(e) => handlePhoneClick(e, agent.phone)}
