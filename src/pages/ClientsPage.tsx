@@ -274,6 +274,8 @@ function ClientsPage() {
           if(!currentUser) {
               saveStoredClients(updatedClients);
           }
+          setOpen(false);
+          setEditingClient(null);
       }
   };
 
@@ -441,6 +443,16 @@ function ClientsPage() {
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingClient ? 'تحديث' : 'حفظ')}
                     </button>
+
+                    {editingClient && (
+                        <button 
+                            onClick={(e) => handleDeleteClient(e, editingClient.id)}
+                            className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-bold shadow-sm hover:bg-red-200 flex items-center justify-center gap-2 mt-2"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            حذف العميل
+                        </button>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
@@ -470,12 +482,7 @@ function ClientsPage() {
                     >
                         <Pencil className="w-4 h-4" />
                     </button>
-                    <button 
-                        onClick={(e) => handleDeleteClient(e, client.id)}
-                        className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm hover:bg-red-100"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Delete button removed from here */}
                     {client.phone && (
                         <button 
                             onClick={(e) => handlePhoneClick(e, client.phone)}
