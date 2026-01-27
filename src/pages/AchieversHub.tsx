@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Briefcase, Lock, Crown } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Briefcase, Lock, Crown, Check, X, Edit, UserPlus } from 'lucide-react';
 import { 
     getStoredExtAgents, 
     saveStoredExtAgents,
@@ -11,7 +11,6 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 
 export default function AchieversHub() {
   const navigate = useNavigate();
@@ -26,50 +25,122 @@ export default function AchieversHub() {
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentPhone, setNewAgentPhone] = useState('');
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
-  const [newAgentServices, setNewAgentServices] = useState('');
+  
+  // Services Tags State
+  const [services, setServices] = useState<string[]>([]);
+  const [newServiceInput, setNewServiceInput] = useState('');
 
   // Premium Alert State
   const [showPremiumAlert, setShowPremiumAlert] = useState(false);
 
+  // User State
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [settings, setSettings] = useState(getGlobalSettings());
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const [myAgentId, setMyAgentId] = useState<number | null>(null);
 
   useEffect(() => {
-    setExtAgents(getStoredExtAgents());
+    const loadedAgents = getStoredExtAgents();
+    setExtAgents(loadedAgents);
     setLessons(getStoredLessons());
     setSettings(getGlobalSettings());
-    setCurrentUser(getCurrentUser());
+    
+    const user = getCurrentUser();
+    setCurrentUser(user);
+
+    // Check if current user already has an agent entry
+    if (user) {
+        const myAgent = loadedAgents.find(a => a.userId === user.id);
+        if (myAgent) {
+            setMyAgentId(myAgent.id);
+        }
+    }
   }, []);
 
-  const handleAddAgent = () => {
-    if(!newAgentName || !newAgentPhone) return;
+  const handleAddService = () => {
+      if (!newServiceInput.trim()) return;
+      if (services.length >= 9) return; // Max 9
+      
+      setServices([...services, newServiceInput.trim()]);
+      setNewServiceInput('');
+  };
+
+  const handleRemoveService = (index: number) => {
+      setServices(services.filter((_, i) => i !== index));
+  };
+
+  const handleSaveAgent = () => {
+    if(!newAgentName || !newAgentPhone || !currentUser) return;
     
-    const newAgent: ExternalAgent = {
-        id: Date.now(),
-        name: newAgentName,
-        phone: newAgentPhone,
-        whatsapp: newAgentWhatsapp,
-        services: newAgentServices,
-        createdAt: Date.now()
-    };
+    // Check if updating existing
+    if (myAgentId) {
+        const updatedAgents = extAgents.map(a => {
+            if (a.id === myAgentId) {
+                return {
+                    ...a,
+                    name: newAgentName,
+                    phone: newAgentPhone,
+                    whatsapp: newAgentWhatsapp,
+                    services: services
+                };
+            }
+            return a;
+        });
+        setExtAgents(updatedAgents);
+        saveStoredExtAgents(updatedAgents);
+    } else {
+        // Create New
+        const newAgent: ExternalAgent = {
+            id: Date.now(),
+            userId: currentUser.id,
+            name: newAgentName,
+            phone: newAgentPhone,
+            whatsapp: newAgentWhatsapp,
+            services: services,
+            createdAt: Date.now()
+        };
+        const updated = [newAgent, ...extAgents];
+        setExtAgents(updated);
+        saveStoredExtAgents(updated);
+        setMyAgentId(newAgent.id);
+    }
     
-    const updated = [newAgent, ...extAgents];
-    setExtAgents(updated);
-    saveStoredExtAgents(updated);
-    
-    setNewAgentName('');
-    setNewAgentPhone('');
-    setNewAgentWhatsapp('');
-    setNewAgentServices('');
     setOpenAgent(false);
+  };
+
+  const openAddModal = () => {
+      if (!currentUser) {
+          navigate('/login'); // Redirect visitors
+          return;
+      }
+
+      // Pre-fill if editing
+      if (myAgentId) {
+          const myAgent = extAgents.find(a => a.id === myAgentId);
+          if (myAgent) {
+              setNewAgentName(myAgent.name);
+              setNewAgentPhone(myAgent.phone);
+              setNewAgentWhatsapp(myAgent.whatsapp || '');
+              setServices(myAgent.services || []);
+          }
+      } else {
+          // Reset for new
+          setNewAgentName(currentUser.officeName.substring(0, 27)); // Auto-fill name
+          setNewAgentPhone(currentUser.phone);
+          setNewAgentWhatsapp('');
+          setServices([]);
+      }
+      setOpenAgent(true);
   };
 
   // Check if user has access (Golden or Employee)
   const isGolden = currentUser?.role === 'golden' || currentUser?.role === 'employee';
 
-  const handleContactClick = (type: 'phone' | 'whatsapp', value: string) => {
-      if (!isGolden) {
+  const handleContactClick = (type: 'phone' | 'whatsapp', value: string, agentUserId?: number) => {
+      // Allow if Golden OR if it's my own card
+      const isMyCard = currentUser && agentUserId === currentUser.id;
+      
+      if (!isGolden && !isMyCard) {
           setShowPremiumAlert(true);
           return;
       }
@@ -115,19 +186,30 @@ export default function AchieversHub() {
       {/* Content */}
       {activeTab === 'numbers' ? (
         <div className="space-y-6">
+            
+            {/* Add/Edit Button */}
             <Dialog open={openAgent} onOpenChange={setOpenAgent}>
-                <DialogTrigger asChild>
-                    <button className="w-full py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
-                        <Plus className="w-5 h-5" />
-                        أضف معقب منجز
-                    </button>
-                </DialogTrigger>
-                <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
-                    <DialogHeader><DialogTitle>إضافة معقب جديد</DialogTitle></DialogHeader>
+                <button 
+                    onClick={openAddModal}
+                    className={`w-full py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 ${myAgentId ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-[#eef2f6] text-blue-600'}`}
+                >
+                    {myAgentId ? <Edit className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+                    {myAgentId ? 'تعديل بياناتي كمعقب' : 'أضف نفسك كمعقب منجز'}
+                </button>
+                
+                <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-md" dir="rtl">
+                    <DialogHeader><DialogTitle>{myAgentId ? 'تعديل بياناتي' : 'إضافة نفسي كمعقب'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>اسم المعقب</Label>
-                            <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} className="bg-white shadow-3d-inset border-none" />
+                            <Label>الاسم (27 حرف كحد أقصى)</Label>
+                            <Input 
+                                value={newAgentName} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if(val.length <= 27) setNewAgentName(val);
+                                }} 
+                                className="bg-white shadow-3d-inset border-none" 
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>رقم الجوال (اتصال)</Label>
@@ -137,73 +219,114 @@ export default function AchieversHub() {
                             <Label>رقم الواتساب</Label>
                             <Input value={newAgentWhatsapp} onChange={(e) => setNewAgentWhatsapp(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="05xxxxxxxx" />
                         </div>
+                        
+                        {/* Services Tags Input */}
                         <div className="space-y-2">
-                            <Label>الخدمات التي يقدمها</Label>
-                            <Textarea value={newAgentServices} onChange={(e) => setNewAgentServices(e.target.value)} className="bg-white shadow-3d-inset border-none min-h-[80px]" placeholder="اكتب الخدمات هنا..." />
+                            <Label>الخدمات ({services.length}/9)</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    value={newServiceInput} 
+                                    onChange={(e) => setNewServiceInput(e.target.value)} 
+                                    className="bg-white shadow-3d-inset border-none" 
+                                    placeholder="اكتب الخدمة..." 
+                                    disabled={services.length >= 9}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddService()}
+                                />
+                                <button 
+                                    onClick={handleAddService}
+                                    disabled={services.length >= 9}
+                                    className="bg-green-600 text-white p-3 rounded-xl shadow-lg hover:bg-green-700 disabled:opacity-50"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {services.map((s, i) => (
+                                    <span key={i} className="bg-white px-3 py-1 rounded-full text-xs font-bold text-gray-600 shadow-sm flex items-center gap-2">
+                                        {s}
+                                        <button onClick={() => handleRemoveService(i)} className="text-red-500 hover:text-red-700"><X className="w-3 h-3" /></button>
+                                    </span>
+                                ))}
+                            </div>
                         </div>
-                        <button onClick={handleAddAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
+
+                        <button onClick={handleSaveAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-2">حفظ البيانات</button>
                     </div>
                 </DialogContent>
             </Dialog>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {extAgents.map(agent => (
-                    <div key={agent.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d border border-white/50 relative">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                                    <User className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-lg">{agent.name}</h3>
-                                    {agent.services && (
-                                        <div className="mt-2 flex items-start gap-1.5 text-xs text-gray-500 bg-white/50 p-2 rounded-lg">
-                                            <Briefcase className="w-3 h-3 mt-0.5 shrink-0" />
-                                            <p className="leading-relaxed">{agent.services}</p>
-                                        </div>
-                                    )}
+                {extAgents.map(agent => {
+                    const isMyCard = currentUser && agent.userId === currentUser.id;
+                    const canAccess = isGolden || isMyCard;
+
+                    return (
+                        <div key={agent.id} className={`p-4 rounded-2xl shadow-3d border relative transition-all ${isMyCard ? 'bg-blue-50 border-blue-200' : 'bg-[#eef2f6] border-white/50'}`}>
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3 w-full">
+                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                                        <User className="w-6 h-6" />
+                                    </div>
+                                    <div className="w-full">
+                                        <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                                            {agent.name}
+                                            {isMyCard && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">أنا</span>}
+                                        </h3>
+                                        
+                                        {/* Services Tags Display */}
+                                        {agent.services && agent.services.length > 0 && (
+                                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                                {agent.services.map((s, idx) => (
+                                                    <span key={idx} className="text-[10px] font-bold bg-white text-gray-600 px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
+                                                        {s}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+                            
+                            {/* Contact Buttons */}
+                            <div className="flex gap-2 mt-4 justify-end">
+                                 {agent.phone && (
+                                    <button 
+                                        onClick={() => handleContactClick('phone', agent.phone, agent.userId)}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                            canAccess 
+                                            ? 'bg-blue-100 text-blue-600 hover:scale-110' 
+                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                        }`}
+                                    >
+                                        <Phone className="w-5 h-5" />
+                                        {!canAccess && (
+                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                                <Lock className="w-3 h-3 text-yellow-500" />
+                                            </div>
+                                        )}
+                                    </button>
+                                 )}
+                                 {agent.whatsapp && (
+                                    <button 
+                                        onClick={() => handleContactClick('whatsapp', agent.whatsapp!, agent.userId)}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                            canAccess 
+                                            ? 'bg-green-100 text-green-600 hover:scale-110' 
+                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                        }`}
+                                    >
+                                        <MessageCircle className="w-5 h-5" />
+                                        {!canAccess && (
+                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                                <Lock className="w-3 h-3 text-yellow-500" />
+                                            </div>
+                                        )}
+                                    </button>
+                                 )}
+                            </div>
                         </div>
-                        
-                        <div className="flex gap-2 mt-4 justify-end">
-                             {agent.phone && (
-                                <button 
-                                    onClick={() => handleContactClick('phone', agent.phone)}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
-                                        isGolden 
-                                        ? 'bg-blue-100 text-blue-600 hover:scale-110' 
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
-                                    }`}
-                                >
-                                    <Phone className="w-5 h-5" />
-                                    {!isGolden && (
-                                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
-                                            <Lock className="w-3 h-3 text-yellow-500" />
-                                        </div>
-                                    )}
-                                </button>
-                             )}
-                             {agent.whatsapp && (
-                                <button 
-                                    onClick={() => handleContactClick('whatsapp', agent.whatsapp!)}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
-                                        isGolden 
-                                        ? 'bg-green-100 text-green-600 hover:scale-110' 
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
-                                    }`}
-                                >
-                                    <MessageCircle className="w-5 h-5" />
-                                    {!isGolden && (
-                                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
-                                            <Lock className="w-3 h-3 text-yellow-500" />
-                                        </div>
-                                    )}
-                                </button>
-                             )}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {extAgents.length === 0 && (
                     <div className="col-span-full text-center py-10 text-gray-400">
                         لا توجد أرقام معقبين حالياً.
