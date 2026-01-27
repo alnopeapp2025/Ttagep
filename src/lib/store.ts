@@ -78,11 +78,11 @@ export interface Expense {
 
 export interface ExternalAgent {
   id: number;
-  userId?: number; // Added to link to user
+  userId?: number;
   name: string;
   phone: string;
   whatsapp?: string;
-  services?: string[]; // Changed to array for Tags
+  services?: string[];
   createdAt: number;
 }
 
@@ -934,6 +934,447 @@ export const fetchOfficeListingsFromCloud = async (): Promise<OfficeListing[]> =
     } catch (err) {
         console.error('Fetch office listings error:', err);
         return [];
+    }
+};
+
+// --- Transaction Management (Cloud) ---
+// THIS WAS MISSING IN PREVIOUS BUILD - RE-ADDING
+export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([
+        {
+          user_id: userId,
+          serial_no: tx.serialNo,
+          type: tx.type,
+          client_price: tx.clientPrice,
+          agent_price: tx.agentPrice,
+          agent: tx.agent,
+          client_name: tx.clientName,
+          duration: tx.duration,
+          payment_method: tx.paymentMethod,
+          created_at: tx.createdAt, 
+          target_date: tx.targetDate, 
+          status: tx.status,
+          agent_paid: tx.agentPaid || false,
+          client_refunded: tx.clientRefunded || false,
+          created_by: tx.createdBy || '' 
+        }
+      ])
+      .select()
+      .single();
+    if (error) {
+      console.error('Supabase Insert Error (Transactions):', JSON.stringify(error, null, 2));
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('Error syncing transaction (Exception):', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+};
+
+export const updateTransactionInCloud = async (tx: Transaction) => {
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update({
+                type: tx.type,
+                client_price: tx.clientPrice,
+                agent_price: tx.agentPrice,
+                agent: tx.agent,
+                client_name: tx.clientName,
+                duration: tx.duration,
+                payment_method: tx.paymentMethod,
+                target_date: tx.targetDate, 
+                status: tx.status
+            })
+            .eq('id', tx.id);
+        if (error) {
+            console.error('Update transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update transaction exception:', err);
+        return false;
+    }
+};
+
+export const deleteTransactionFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('transactions').delete().eq('id', id);
+        if (error) {
+            console.error('Delete transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete transaction exception:', err);
+        return false;
+    }
+};
+
+export const fetchTransactionsFromCloud = async (userId: number): Promise<Transaction[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching transactions:', error);
+      return [];
+    }
+    return data.map((item: any) => ({
+      id: item.id,
+      serialNo: item.serial_no,
+      type: item.type,
+      clientPrice: item.client_price,
+      agentPrice: item.agent_price,
+      agent: item.agent,
+      clientName: item.client_name,
+      duration: item.duration,
+      paymentMethod: item.payment_method,
+      createdAt: parseDate(item.created_at),
+      targetDate: parseDate(item.target_date),
+      status: item.status,
+      agentPaid: item.agent_paid,
+      clientRefunded: item.client_refunded,
+      createdBy: item.created_by 
+    }));
+  } catch (err) {
+    console.error('Fetch transactions exception:', err);
+    return [];
+  }
+};
+
+export const updateTransactionStatusInCloud = async (id: number, updates: Partial<Transaction>) => {
+    const dbUpdates: any = {};
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.agentPaid !== undefined) dbUpdates.agent_paid = updates.agentPaid;
+    if (updates.clientRefunded !== undefined) dbUpdates.client_refunded = updates.clientRefunded;
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update(dbUpdates)
+            .eq('id', id);
+        if (error) {
+            console.error('Update transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update transaction exception:', err);
+        return false;
+    }
+}
+
+// --- Expense Management (Cloud) ---
+export const addExpenseToCloud = async (expense: Expense, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([
+        {
+          user_id: userId,
+          title: expense.title,
+          amount: expense.amount,
+          bank: expense.bank,
+          date: expense.date, 
+          created_by: expense.createdBy || '' 
+        }
+      ])
+      .select()
+      .single();
+    if (error) {
+      console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('Error syncing expense (Exception):', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+};
+
+export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      return [];
+    }
+    return data.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      amount: Number(item.amount),
+      bank: item.bank,
+      date: parseDate(item.date),
+      createdBy: item.created_by
+    }));
+  } catch (err) {
+    console.error('Fetch exception:', err);
+    return [];
+  }
+};
+
+export const deleteExpenseFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('expenses').delete().eq('id', id);
+        if (error) {
+            console.error('Delete error', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete exception', err);
+        return false;
+    }
+}
+
+// --- Agent Management (Cloud) ---
+export const addAgentToCloud = async (agent: Agent, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('agents')
+      .insert([
+        {
+          user_id: userId,
+          name: agent.name,
+          phone: agent.phone,
+          whatsapp: agent.whatsapp,
+          created_by: agent.createdBy || '', 
+          created_at: new Date(agent.createdAt).toISOString()
+        }
+      ])
+      .select()
+      .single();
+    if (error) {
+      console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('Error syncing agent (Exception):', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+};
+
+export const updateAgentInCloud = async (agent: Agent) => {
+    try {
+        const { error } = await supabase
+            .from('agents')
+            .update({
+                name: agent.name,
+                phone: agent.phone,
+                whatsapp: agent.whatsapp
+            })
+            .eq('id', agent.id);
+        if (error) {
+            console.error('Update agent error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update agent exception:', err);
+        return false;
+    }
+};
+
+export const deleteAgentFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('agents').delete().eq('id', id);
+        if (error) {
+            console.error('Delete agent error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete agent exception:', err);
+        return false;
+    }
+};
+
+export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching agents:', error);
+      return [];
+    }
+    return data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      whatsapp: item.whatsapp,
+      createdAt: parseDate(item.created_at),
+      createdBy: item.created_by
+    }));
+  } catch (err) {
+    console.error('Fetch agents exception:', err);
+    return [];
+  }
+};
+
+// --- Client Management (Cloud) ---
+export const addClientToCloud = async (client: Client, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([
+        {
+          user_id: userId, 
+          name: client.name,
+          phone: client.phone,
+          whatsapp: client.whatsapp,
+          created_by: client.createdBy || '',
+          created_at: new Date(client.createdAt).toISOString()
+        }
+      ])
+      .select()
+      .single();
+    if (error) {
+      console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
+      return { success: false, error: error.message };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('Error syncing client (Exception):', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+};
+
+export const updateClientInCloud = async (client: Client) => {
+    try {
+        const { error } = await supabase
+            .from('clients')
+            .update({
+                name: client.name,
+                phone: client.phone,
+                whatsapp: client.whatsapp
+            })
+            .eq('id', client.id);
+        if (error) {
+            console.error('Update client error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update client exception:', err);
+        return false;
+    }
+};
+
+export const deleteClientFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('clients').delete().eq('id', id);
+        if (error) {
+            console.error('Delete client error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete client exception:', err);
+        return false;
+    }
+};
+
+export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId) 
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+    return data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      whatsapp: item.whatsapp,
+      createdAt: parseDate(item.created_at),
+      createdBy: item.created_by
+    }));
+  } catch (err) {
+    console.error('Fetch clients exception:', err);
+    return [];
+  }
+};
+
+// --- Accounts Management (Cloud) ---
+export const fetchAccountsFromCloud = async (userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) {
+      console.error('Error fetching accounts:', error);
+      return { balances: INITIAL_BALANCES, pending: INITIAL_BALANCES };
+    }
+    
+    // Initialize with defaults to ensure all banks exist
+    const balances: Record<string, number> = { ...INITIAL_BALANCES };
+    const pending: Record<string, number> = { ...INITIAL_BALANCES };
+    
+    data.forEach((row: any) => {
+        if (row.bank_name) {
+            balances[row.bank_name] = Number(row.balance);
+            pending[row.bank_name] = Number(row.pending_balance);
+        }
+    });
+    return { balances, pending };
+  } catch (err) {
+    console.error('Fetch accounts exception:', err);
+    return { balances: INITIAL_BALANCES, pending: INITIAL_BALANCES };
+  }
+};
+
+export const updateAccountInCloud = async (userId: number, bankName: string, balance: number, pendingBalance: number) => {
+    try {
+        const { data } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('bank_name', bankName)
+            .maybeSingle();
+        
+        if (data) {
+            await supabase
+                .from('accounts')
+                .update({ 
+                    balance: balance, 
+                    pending_balance: pendingBalance,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', data.id);
+        } else {
+            await supabase
+                .from('accounts')
+                .insert([{ 
+                    user_id: userId, 
+                    bank_name: bankName, 
+                    balance: balance, 
+                    pending_balance: pendingBalance 
+                }]);
+        }
+        return true;
+    } catch (err) {
+        console.error('Update account exception:', err);
+        return false;
     }
 };
 
