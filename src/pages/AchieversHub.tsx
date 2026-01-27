@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Briefcase } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Briefcase, Lock, Crown } from 'lucide-react';
 import { 
     getStoredExtAgents, 
     saveStoredExtAgents,
@@ -28,10 +28,11 @@ export default function AchieversHub() {
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
   const [newAgentServices, setNewAgentServices] = useState('');
 
-  // We keep these for consistency but don't use them for blocking anymore
+  // Premium Alert State
+  const [showPremiumAlert, setShowPremiumAlert] = useState(false);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [settings, setSettings] = useState(getGlobalSettings());
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
   useEffect(() => {
@@ -64,6 +65,23 @@ export default function AchieversHub() {
     setOpenAgent(false);
   };
 
+  // Check if user has access (Golden or Employee)
+  const isGolden = currentUser?.role === 'golden' || currentUser?.role === 'employee';
+
+  const handleContactClick = (type: 'phone' | 'whatsapp', value: string) => {
+      if (!isGolden) {
+          setShowPremiumAlert(true);
+          return;
+      }
+
+      if (type === 'phone') {
+          window.location.href = `tel:${value}`;
+      } else {
+          const number = value.startsWith('0') ? '966' + value.substring(1) : value;
+          window.open(`https://wa.me/${number}`, '_blank');
+      }
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-20">
       <header className="mb-8 flex items-center gap-4">
@@ -94,7 +112,7 @@ export default function AchieversHub() {
         </button>
       </div>
 
-      {/* Content - Unlocked for Everyone */}
+      {/* Content */}
       {activeTab === 'numbers' ? (
         <div className="space-y-6">
             <Dialog open={openAgent} onOpenChange={setOpenAgent}>
@@ -150,22 +168,38 @@ export default function AchieversHub() {
                         
                         <div className="flex gap-2 mt-4 justify-end">
                              {agent.phone && (
-                                <a 
-                                    href={`tel:${agent.phone}`}
-                                    className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                                <button 
+                                    onClick={() => handleContactClick('phone', agent.phone)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                        isGolden 
+                                        ? 'bg-blue-100 text-blue-600 hover:scale-110' 
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                    }`}
                                 >
                                     <Phone className="w-5 h-5" />
-                                </a>
+                                    {!isGolden && (
+                                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                            <Lock className="w-3 h-3 text-yellow-500" />
+                                        </div>
+                                    )}
+                                </button>
                              )}
                              {agent.whatsapp && (
-                                <a 
-                                    href={`https://wa.me/${agent.whatsapp.startsWith('0') ? '966' + agent.whatsapp.substring(1) : agent.whatsapp}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                                <button 
+                                    onClick={() => handleContactClick('whatsapp', agent.whatsapp!)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                        isGolden 
+                                        ? 'bg-green-100 text-green-600 hover:scale-110' 
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                    }`}
                                 >
                                     <MessageCircle className="w-5 h-5" />
-                                </a>
+                                    {!isGolden && (
+                                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                            <Lock className="w-3 h-3 text-yellow-500" />
+                                        </div>
+                                    )}
+                                </button>
                              )}
                         </div>
                     </div>
@@ -200,6 +234,43 @@ export default function AchieversHub() {
             </div>
         </div>
       )}
+
+      {/* Premium Feature Alert Modal */}
+      <Dialog open={showPremiumAlert} onOpenChange={setShowPremiumAlert}>
+        <DialogContent className="bg-gradient-to-br from-yellow-50 to-white border-2 border-yellow-400 shadow-3d rounded-3xl max-w-sm" dir="rtl">
+            <DialogHeader>
+                <DialogTitle className="text-center text-xl font-black text-yellow-800 flex items-center justify-center gap-2">
+                    <Crown className="w-6 h-6 text-yellow-600" />
+                    ميزة ذهبية
+                </DialogTitle>
+            </DialogHeader>
+            <div className="py-6 text-center space-y-4">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2 text-yellow-600 shadow-inner">
+                    <Lock className="w-8 h-8" />
+                </div>
+                <p className="text-gray-700 font-bold">
+                    التواصل المباشر مع المعقبين المنجزين متاح فقط للأعضاء الذهبيين.
+                </p>
+                <p className="text-xs text-gray-500">
+                    رقي حسابك الآن واحصل على وصول كامل لأرقام أفضل المعقبين، بالإضافة لتقارير متقدمة وحدود لا نهائية.
+                </p>
+                <button 
+                    onClick={() => { setShowPremiumAlert(false); navigate('/?openPro=true'); }}
+                    className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
+                >
+                    <Crown className="w-5 h-5" />
+                    الترقية للعضوية الذهبية
+                </button>
+                <button 
+                    onClick={() => setShowPremiumAlert(false)}
+                    className="text-sm text-gray-400 hover:text-gray-600 font-medium"
+                >
+                    إغلاق
+                </button>
+            </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
