@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock, UserCheck, ArrowRightLeft, UserPlus, Receipt, History } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, UserCheck, ArrowRightLeft, UserPlus, Receipt, History, BarChart3, RotateCcw, TrendingDown, Wallet } from 'lucide-react';
 import { 
     getStoredTransactions, Transaction, 
     getStoredAgentTransfers, AgentTransferRecord, 
@@ -327,12 +327,55 @@ export default function ReportsPage() {
       </header>
 
       <Tabs defaultValue="general" className="w-full" dir="rtl">
-        <TabsList className="grid w-full grid-cols-5 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 overflow-x-auto">
-            <TabsTrigger value="general" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">عام</TabsTrigger>
-            <TabsTrigger value="agent-transfers" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تحويلات المعقبين</TabsTrigger>
-            <TabsTrigger value="refunds" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">مسترجعات العملاء</TabsTrigger>
-            <TabsTrigger value="employees" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm">تقرير الموظفين</TabsTrigger>
-            <TabsTrigger value="salary-log" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs sm:text-sm text-green-700">سجل الراتب</TabsTrigger>
+        {/* New Grid Layout for Tabs */}
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-3 bg-transparent h-auto p-0 mb-8">
+            <TabsTrigger 
+                value="general" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <BarChart3 className="w-6 h-6" />
+                <span className="font-bold text-sm">عام</span>
+            </TabsTrigger>
+
+            <TabsTrigger 
+                value="agent-transfers" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <ArrowRightLeft className="w-6 h-6" />
+                <span className="font-bold text-sm">تحويلات المعقبين</span>
+            </TabsTrigger>
+
+            <TabsTrigger 
+                value="refunds" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <RotateCcw className="w-6 h-6" />
+                <span className="font-bold text-sm">مرتجع العملاء</span>
+            </TabsTrigger>
+
+            <TabsTrigger 
+                value="employees" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <Users className="w-6 h-6" />
+                <span className="font-bold text-sm">تقارير الموظفين</span>
+            </TabsTrigger>
+
+            <TabsTrigger 
+                value="salary-log" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <History className="w-6 h-6" />
+                <span className="font-bold text-sm">سجل الرواتب</span>
+            </TabsTrigger>
+
+            <TabsTrigger 
+                value="expenses" 
+                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
+            >
+                <TrendingDown className="w-6 h-6" />
+                <span className="font-bold text-sm">المصروفات</span>
+            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -623,7 +666,6 @@ export default function ReportsPage() {
                             const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
                             
                             // Use stored date if available, else fallback to current config (for legacy/display)
-                            // Note: In Reports Page we don't have access to current config state easily, so we rely on stored date or just show end date if missing.
                             const displayStartDate = storedStartDate;
 
                             return (
@@ -664,6 +706,44 @@ export default function ReportsPage() {
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+            </div>
+        </TabsContent>
+
+        <TabsContent value="expenses">
+            <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <TrendingDown className="w-5 h-5 text-red-600" />
+                    سجل المصروفات العامة
+                </h3>
+                
+                {expenses.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
+                        لا توجد مصروفات مسجلة حالياً.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {expenses.map(exp => (
+                            <div key={exp.id} className="bg-white/60 p-4 rounded-2xl border border-white flex justify-between items-center hover:bg-white transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 shadow-sm">
+                                        <Receipt className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 text-sm">{exp.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim()}</h4>
+                                        <div className="flex gap-2 text-[10px] text-gray-500 mt-1">
+                                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                                            <span>•</span>
+                                            <span className="flex items-center gap-1"><Wallet className="w-3 h-3"/> {exp.bank || 'غير محدد'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span className="font-black text-lg text-red-600">
+                                    -{exp.amount.toLocaleString()} ﷼
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
