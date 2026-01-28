@@ -6,7 +6,8 @@ import {
     saveStoredExtAgents,
     getStoredLessons, 
     ExternalAgent, Lesson,
-    getGlobalSettings, getCurrentUser, User
+    getCurrentUser, 
+    User as UserType // Renamed to avoid conflict
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,7 @@ export default function AchieversHub() {
   const [showPremiumAlert, setShowPremiumAlert] = useState(false);
 
   // User State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [myAgentId, setMyAgentId] = useState<number | null>(null);
 
   useEffect(() => {
