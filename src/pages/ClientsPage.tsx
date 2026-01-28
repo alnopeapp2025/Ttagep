@@ -127,8 +127,11 @@ function ClientsPage() {
             rawPhone = rawPhone.replace(/\D/g, '');
             // Normalize to 05 format if possible
             if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
-            if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            else if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            else if (rawPhone.startsWith('00966')) rawPhone = '0' + rawPhone.substring(5);
             
+            if (rawPhone.length > 10) rawPhone = rawPhone.slice(0, 10);
+
             setNewClientName(rawName);
             setNewClientPhone(rawPhone);
             setNewClientWhatsapp(rawPhone);

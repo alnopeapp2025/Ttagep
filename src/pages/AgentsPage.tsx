@@ -113,29 +113,46 @@ function AgentsPage() {
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
         const opts = { multiple: false };
+        
+        // This call triggers the native permission prompt on Android/Chrome
         // @ts-ignore
         const contacts = await navigator.contacts.select(props, opts);
+        
         if (contacts.length) {
           const contact = contacts[0];
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
+          
           if (rawPhone) {
-            rawPhone = rawPhone.replace(/\D/g, '');
-            // Normalize to 05 format if possible
-            if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
-            if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            // Clean the number
+            rawPhone = rawPhone.replace(/\D/g, ''); // Remove non-digits
             
+            // Normalize to 05xxxxxxxx format
+            if (rawPhone.startsWith('966')) {
+                rawPhone = '0' + rawPhone.substring(3);
+            } else if (rawPhone.startsWith('5')) {
+                rawPhone = '0' + rawPhone;
+            } else if (rawPhone.startsWith('00966')) {
+                rawPhone = '0' + rawPhone.substring(5);
+            }
+            
+            // Ensure it's 10 digits max
+            if (rawPhone.length > 10) {
+                rawPhone = rawPhone.slice(0, 10);
+            }
+
             setNewAgentName(rawName);
             setNewAgentPhone(rawPhone);
             setNewAgentWhatsapp(rawPhone);
           }
         }
       } else {
-        alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.');
+        alert('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
-      console.error(ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
+      console.error("Contact Import Error:", ex);
+      // This alert shows if permission is denied or API fails
+      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية "جهات الاتصال" من إعدادات هاتفك.');
     }
   };
 

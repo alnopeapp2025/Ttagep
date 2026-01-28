@@ -419,8 +419,13 @@ export default function TransactionsPage() {
           let rawPhone = contact.tel[0];
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
+            // Normalize to 05 format
             if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
-            if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            else if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
+            else if (rawPhone.startsWith('00966')) rawPhone = '0' + rawPhone.substring(5);
+            
+            if (rawPhone.length > 10) rawPhone = rawPhone.slice(0, 10);
+
             if (type === 'client') {
                 setNewClientName(rawName);
                 setNewClientPhone(rawPhone);
@@ -433,11 +438,11 @@ export default function TransactionsPage() {
           }
         }
       } else {
-        alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.');
+        alert('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
       console.error(ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.');
+      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف.');
     }
   };
 
