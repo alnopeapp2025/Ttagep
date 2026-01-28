@@ -40,42 +40,30 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AlertModal, ConfirmModal } from '@/components/CustomAlerts';
 
 // --- Helper Functions for Salary Logic ---
-
 const getNextCycleDate = (startDateStr: string) => {
     if (!startDateStr) return null;
-    
-    // Parse as UTC to avoid timezone offsets affecting the day
     const parts = startDateStr.split('-');
     const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1; // 0-indexed
+    const month = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    
-    // Create UTC date for the start
     const date = new Date(Date.UTC(year, month, day));
-
     if (day === 1) {
-        // Case 1: Starts on 1st -> Cycle ends at end of month (Next cycle starts 1st of next month)
-        // e.g., 2025-01-01 -> 2025-02-01
         return new Date(Date.UTC(year, month + 1, 1));
     } else {
-        // Case 2: Other days -> Fixed 30 days cycle
         return new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000);
     }
 };
 
-// NEW: Helper to get the END date of the current cycle
 const getCurrentCycleEndDate = (startDateStr: string) => {
     if (!startDateStr) return null;
     const nextCycleStart = getNextCycleDate(startDateStr);
     if (!nextCycleStart) return null;
-    
-    // End date is 1 day before next cycle start
     return new Date(nextCycleStart.getTime() - 24 * 60 * 60 * 1000);
 };
 
-// Helper for Countdown
 const SalaryTimer = ({ startDate }: { startDate: string }) => {
     const [timeLeft, setTimeLeft] = useState("");
     const [label, setLabel] = useState("الوقت المتبقي للراتب القادم");
@@ -89,11 +77,8 @@ const SalaryTimer = ({ startDate }: { startDate: string }) => {
             
             if (!nextPayDate || !cycleEndDate) return;
 
-            // Generate Period Text (e.g., 12/1 to 2025/12/31)
             const startObj = new Date(startDate);
             const formattedStart = `${startObj.getMonth() + 1}/${startObj.getDate()}`;
-            const formattedEnd = cycleEndDate.toLocaleDateString('en-GB'); // YYYY/MM/DD or DD/MM/YYYY depending on locale, let's force format
-            // Force YYYY/MM/DD for clarity or standard date string
             const endYear = cycleEndDate.getFullYear();
             const endMonth = cycleEndDate.getMonth() + 1;
             const endDay = cycleEndDate.getDate();
@@ -128,7 +113,6 @@ const SalaryTimer = ({ startDate }: { startDate: string }) => {
             <div className="font-mono text-xl sm:text-2xl font-black text-blue-800 dir-ltr tracking-wider">
                 {timeLeft || 'جاري الحساب...'}
             </div>
-            {/* Period Date Display */}
             {timeLeft === "مستحق الدفع الآن" && (
                 <p className="text-xs text-gray-400 font-medium mt-1">
                     {periodText}
@@ -147,73 +131,75 @@ export default function AccountsPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
-  // New Data for Statement & Salaries
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [statementData, setStatementData] = useState<any[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
 
-  // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
   const [zeroOpen, setZeroOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
   const [zeroSuccess, setZeroSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Transfer Form
   const [transferFrom, setTransferFrom] = useState('');
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
 
-  // Salary System State
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [salaryStartDate, setSalaryStartDate] = useState('');
   const [salaryType, setSalaryType] = useState<'monthly' | 'commission' | 'both'>('monthly');
   const [commissionRate, setCommissionRate] = useState('');
   const [salaryAmount, setSalaryAmount] = useState('');
   const [isLocked, setIsLocked] = useState(false); 
-  const [isStopped, setIsStopped] = useState(false); // New state for stopped employees
+  const [isStopped, setIsStopped] = useState(false); 
   
-  // Pay Salary/Commission State
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [payType, setPayType] = useState<'salary' | 'commission' | 'stop_work'>('salary');
   const [payBank, setPayBank] = useState('');
   const [amountToPay, setAmountToPay] = useState('');
   const [paySuccess, setPaySuccess] = useState(false);
 
-  // Dynamic Bank List
   const [banksList, setBanksList] = useState<string[]>([]);
+
+  // Custom Alerts State
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'warning'}>({
+      isOpen: false, title: '', message: '', type: 'error'
+  });
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({
+      isOpen: false, title: '', message: '', onConfirm: () => {}
+  });
+
+  const showAlert = (title: string, message: string, type: 'success'|'error'|'warning' = 'error') => {
+      setAlertConfig({ isOpen: true, title, message, type });
+  };
 
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setSettings(getGlobalSettings());
-    setBanksList(getBankNames()); // Load dynamic bank names
+    setBanksList(getBankNames()); 
 
     const loadData = async () => {
         if (user) {
             const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
             
-            // Fetch Accounts
             const accData = await fetchAccountsFromCloud(targetId);
             setBalances(accData.balances);
             setPendingBalances(accData.pending);
             calculateTotals(accData.balances, accData.pending);
 
-            // Fetch Data for Statement & Salaries
             const [txs, exps] = await Promise.all([
                 fetchTransactionsFromCloud(targetId),
                 fetchExpensesFromCloud(targetId)
             ]);
             
-            // Get local transfers as well
             const transfers = getStoredAgentTransfers();
 
             setTransactions(txs);
             setAllExpenses(exps);
 
-            // Prepare Statement (Merge Txs, Expenses, Transfers)
             const statement = [
                 ...txs.map(t => ({ 
                     id: `tx-${t.id}`,
@@ -246,18 +232,15 @@ export default function AccountsPage() {
             
             setStatementData(statement);
 
-            // Fetch Employees
             const allEmps = getStoredEmployees();
             const myEmps = allEmps.filter(e => e.parentId === targetId);
             setEmployees(myEmps);
             
-            // If logged in as employee, auto-select self
             if (user.role === 'employee') {
                 setSelectedEmpId(user.id.toString());
             }
 
         } else {
-            // Local fallback
             const localBal = getStoredBalances();
             const localPending = getStoredPendingBalances();
             setBalances(localBal);
@@ -268,7 +251,6 @@ export default function AccountsPage() {
     loadData();
   }, []);
 
-  // Load Employee Config when selected
   useEffect(() => {
       if (selectedEmpId) {
           const config = localStorage.getItem(`salary_config_${selectedEmpId}`);
@@ -281,7 +263,6 @@ export default function AccountsPage() {
               setIsLocked(parsed.isLocked || false);
               setIsStopped(parsed.isStopped || false);
           } else {
-              // Reset if no config
               setSalaryStartDate('');
               setSalaryType('monthly');
               setCommissionRate('');
@@ -292,7 +273,6 @@ export default function AccountsPage() {
       }
   }, [selectedEmpId]);
 
-  // Realtime Subscription
   useEffect(() => {
     if (!currentUser) return;
 
@@ -408,50 +388,41 @@ export default function AccountsPage() {
     }, 2000);
   };
 
-  // Sort Banks by (Balance + Pending) Descending
   const sortedBanks = [...banksList].sort((a, b) => {
     const totalA = (balances[a] || 0) + (pendingBalances[a] || 0);
     const totalB = (balances[b] || 0) + (pendingBalances[b] || 0);
     return totalB - totalA;
   });
 
-  // --- Salary & Commission Logic ---
-
   const getSelectedEmployee = () => employees.find(e => e.id.toString() === selectedEmpId);
 
-  // 1. Calculate Commission (Only Completed Transactions)
   const getEmployeeTransactions = () => {
       if (!selectedEmpId) return [];
       const emp = getSelectedEmployee();
       if (!emp) return [];
       
-      // Filter: Created by Employee OR Agent is Employee
-      // AND Status is COMPLETED (Requirement)
       return transactions.filter(t => 
           ((t.createdBy && t.createdBy === emp.officeName) || 
           (!t.createdBy && t.agent === emp.officeName)) &&
-          t.status === 'completed' // Only completed count for commission
+          t.status === 'completed'
       );
   };
 
   const empTransactions = getEmployeeTransactions();
   
-  // Total Commission Generated (UPDATED LOGIC: Client Price - Agent Price)
   const empCommissionTotal = empTransactions.reduce((sum, t) => {
       const clientPrice = parseFloat(t.clientPrice) || 0;
       const agentPrice = parseFloat(t.agentPrice) || 0;
-      const profit = Math.max(0, clientPrice - agentPrice); // Ensure no negative commission
+      const profit = Math.max(0, clientPrice - agentPrice);
       const rate = parseFloat(commissionRate) || 0;
       return sum + (profit * (rate / 100));
   }, 0);
 
-  // 2. Calculate Paid Salary/Commission (From Expenses)
   const getEmployeeExpenses = () => {
       if (!selectedEmpId) return [];
       const emp = getSelectedEmployee();
       if (!emp) return [];
       
-      // Filter expenses related to this employee (Salary or Commission)
       return allExpenses.filter(e => 
           e.title.includes(emp.officeName) && 
           (e.title.includes('راتب') || e.title.includes('عمولة') || e.title.includes('مستحقات'))
@@ -460,18 +431,15 @@ export default function AccountsPage() {
 
   const empExpenses = getEmployeeExpenses();
   
-  // Calculate how much commission has been paid already
   const empCommissionPaid = empExpenses
       .filter(e => e.title.includes('عمولة'))
       .reduce((sum, e) => sum + e.amount, 0);
 
   const remainingCommission = Math.max(0, empCommissionTotal - empCommissionPaid);
 
-  // Date Constraints - Updated to 12 Months
   const today = new Date().toISOString().split('T')[0];
   const last12Months = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Check if salary is due (Using new logic)
   const isSalaryDue = () => {
       if (!salaryStartDate) return false;
       const nextPayDate = getNextCycleDate(salaryStartDate);
@@ -482,9 +450,8 @@ export default function AccountsPage() {
   };
 
   const handleSaveConfig = () => {
-      // Check Permission: Only Admin/Golden can save config
       if (currentUser?.role === 'employee') {
-          alert("هذه الخاصية متاحة فقط لمدير المكتب أو المسؤول أو العضو الذي أصدر عضوية الموظف");
+          showAlert("صلاحية مرفوضة", "هذه الخاصية متاحة فقط لمدير المكتب أو المسؤول أو العضو الذي أصدر عضوية الموظف", "error");
           return;
       }
 
@@ -502,7 +469,7 @@ export default function AccountsPage() {
       localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
       setIsLocked(true);
       setIsStopped(false);
-      alert('تم حفظ البيانات وتثبيتها بنجاح');
+      showAlert("تم الحفظ", "تم حفظ البيانات وتثبيتها بنجاح", "success");
   };
 
   const openPayModal = (type: 'salary' | 'commission' | 'stop_work') => {
@@ -515,7 +482,6 @@ export default function AccountsPage() {
       } else if (type === 'commission') {
           setAmountToPay(remainingCommission.toFixed(2));
       } else if (type === 'stop_work') {
-          // Calculate Pro-rated Salary
           if (!salaryStartDate || !salaryAmount) {
               setAmountToPay('0');
           } else {
@@ -537,10 +503,9 @@ export default function AccountsPage() {
       
       if (!emp) return;
 
-      // 1. Deduct from Balance
       const currentBalance = balances[payBank] || 0;
       if (currentBalance < amount) {
-          alert('رصيد البنك غير كافي');
+          showAlert("رصيد غير كافي", "رصيد البنك المختار غير كافي لإتمام العملية", "error");
           return;
       }
 
@@ -548,12 +513,9 @@ export default function AccountsPage() {
       newBalances[payBank] = currentBalance - amount;
       setBalances(newBalances);
       
-      // 2. Add Expense
       let title = '';
-      // Store start date in title for historical accuracy
       const dateTag = salaryStartDate ? `|SD:${salaryStartDate}|` : '';
       
-      // Calculate End Date for Salary
       let endDateTag = '';
       if (payType === 'salary' && salaryStartDate) {
           const endDate = getCurrentCycleEndDate(salaryStartDate);
@@ -562,7 +524,6 @@ export default function AccountsPage() {
               endDateTag = `|ED:${endStr}|`;
           }
       } else if (payType === 'stop_work') {
-          // For stop work, end date is today
           const todayStr = new Date().toISOString().split('T')[0];
           endDateTag = `|ED:${todayStr}|`;
       }
@@ -585,7 +546,6 @@ export default function AccountsPage() {
           await addExpenseToCloud(newExp, targetId);
           await updateAccountInCloud(targetId, payBank, newBalances[payBank], pendingBalances[payBank] || 0);
           
-          // Refresh Expenses locally to update log immediately
           setAllExpenses(prev => [newExp, ...prev]);
       }
 
@@ -594,9 +554,7 @@ export default function AccountsPage() {
           setPaySuccess(false);
           setPayModalOpen(false);
           
-          // Post-Payment Actions
           if (payType === 'salary') {
-              // Update Start Date to Next Cycle (Start of next month/cycle)
               const nextCycleStart = getNextCycleDate(salaryStartDate);
               if (nextCycleStart) {
                   const nextStartStr = nextCycleStart.toISOString().split('T')[0];
@@ -605,7 +563,6 @@ export default function AccountsPage() {
                   localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
               }
           } else if (payType === 'stop_work') {
-              // Mark as Stopped instead of clearing
               const config = { startDate: salaryStartDate, type: salaryType, rate: commissionRate, amount: salaryAmount, isLocked: true, isStopped: true };
               localStorage.setItem(`salary_config_${selectedEmpId}`, JSON.stringify(config));
               setIsStopped(true);
@@ -615,33 +572,50 @@ export default function AccountsPage() {
 
   const handleArchiveEmployee = () => {
       if(!selectedEmpId) return;
-      if(confirm('سيتم حذف الموظف نهائياً وقفل حسابه ونقل البيانات والرواتب إلى الأرشيف. هل أنت متأكد؟')) {
-          deleteEmployee(parseInt(selectedEmpId));
-          localStorage.removeItem(`salary_config_${selectedEmpId}`);
-          
-          // Refresh Employees List
-          const allEmps = getStoredEmployees();
-          const targetId = currentUser?.role === 'employee' && currentUser?.parentId ? currentUser.parentId : currentUser?.id;
-          const myEmps = allEmps.filter(e => e.parentId === targetId);
-          setEmployees(myEmps);
-          
-          // Reset Selection
-          setSelectedEmpId('');
-          setSalaryStartDate('');
-          setSalaryType('monthly');
-          setCommissionRate('');
-          setSalaryAmount('');
-          setIsLocked(false);
-          setIsStopped(false);
-      }
+      setConfirmConfig({
+          isOpen: true,
+          title: "أرشفة الموظف",
+          message: "سيتم حذف الموظف نهائياً وقفل حسابه ونقل البيانات والرواتب إلى الأرشيف. هل أنت متأكد؟",
+          onConfirm: () => {
+              deleteEmployee(parseInt(selectedEmpId));
+              localStorage.removeItem(`salary_config_${selectedEmpId}`);
+              
+              const allEmps = getStoredEmployees();
+              const targetId = currentUser?.role === 'employee' && currentUser?.parentId ? currentUser.parentId : currentUser?.id;
+              const myEmps = allEmps.filter(e => e.parentId === targetId);
+              setEmployees(myEmps);
+              
+              setSelectedEmpId('');
+              setSalaryStartDate('');
+              setSalaryType('monthly');
+              setCommissionRate('');
+              setSalaryAmount('');
+              setIsLocked(false);
+              setIsStopped(false);
+          }
+      });
   };
 
-  // Filter employees for display
   const displayedEmployees = currentUser?.role === 'employee' 
       ? employees.filter(e => e.id === currentUser.id)
       : employees;
 
   return (
+    <>
+    <AlertModal 
+        isOpen={alertConfig.isOpen} 
+        onClose={() => setAlertConfig({...alertConfig, isOpen: false})} 
+        title={alertConfig.title} 
+        message={alertConfig.message} 
+        type={alertConfig.type} 
+    />
+    <ConfirmModal 
+        isOpen={confirmConfig.isOpen} 
+        onClose={() => setConfirmConfig({...confirmConfig, isOpen: false})} 
+        onConfirm={confirmConfig.onConfirm} 
+        title={confirmConfig.title} 
+        message={confirmConfig.message} 
+    />
     <div className="max-w-6xl mx-auto pb-20">
       <header className="mb-8 flex items-center gap-4">
         <button 
@@ -682,7 +656,7 @@ export default function AccountsPage() {
            </div>
         </div>
 
-        {/* Action Buttons - Raised to align with gray border area */}
+        {/* Action Buttons */}
         <div className="flex gap-4 justify-center px-4 -mt-6 relative z-20">
             <button 
             onClick={() => {
@@ -803,7 +777,6 @@ export default function AccountsPage() {
                     نظام الرواتب والنسب
                 </h3>
 
-                {/* Check if Golden & Has Employees (or is Employee) */}
                 {currentUser?.role !== 'golden' && currentUser?.role !== 'employee' ? (
                     <div className="text-center py-12 bg-white/50 rounded-2xl border-2 border-dashed border-yellow-300">
                         <Crown className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
@@ -826,7 +799,6 @@ export default function AccountsPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* Employee Icons Selection */}
                         <div className="space-y-2">
                             <Label className="text-gray-700 font-bold">اختر الموظف</Label>
                             <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-1">
@@ -857,8 +829,6 @@ export default function AccountsPage() {
 
                         {selectedEmpId && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                                
-                                {/* Configuration Form */}
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label>تاريخ بداية العمل</Label>
@@ -876,7 +846,6 @@ export default function AccountsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Salary Type Selection */}
                                     <div className="bg-white/50 p-4 rounded-2xl border border-white">
                                         <Label className="mb-3 block font-bold text-gray-700">نظام الراتب</Label>
                                         <div className="flex gap-2">
@@ -904,7 +873,6 @@ export default function AccountsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Salary Amount Input */}
                                     {(salaryType === 'monthly' || salaryType === 'both') && (
                                         <div className="space-y-2">
                                             <Label>قيمة الراتب الشهري</Label>
@@ -922,7 +890,6 @@ export default function AccountsPage() {
                                         </div>
                                     )}
 
-                                    {/* Commission Rate Input */}
                                     {(salaryType === 'commission' || salaryType === 'both') && (
                                         <div className="space-y-2">
                                             <Label>نسبة الموظف (%)</Label>
@@ -940,7 +907,6 @@ export default function AccountsPage() {
                                         </div>
                                     )}
 
-                                    {/* Save Button (Only if not locked) */}
                                     {!isLocked && (
                                         <button 
                                             onClick={handleSaveConfig}
@@ -951,7 +917,6 @@ export default function AccountsPage() {
                                         </button>
                                     )}
 
-                                    {/* Archive Button (Only if Stopped) */}
                                     {isStopped && currentUser.role === 'golden' && (
                                         <button 
                                             onClick={handleArchiveEmployee}
@@ -963,11 +928,9 @@ export default function AccountsPage() {
                                     )}
                                 </div>
 
-                                {/* Active Salary Dashboard (Only if Locked AND Not Stopped) */}
                                 {isLocked && !isStopped && (
                                     <div className="space-y-6 border-t border-gray-200 pt-6">
                                         
-                                        {/* Timer Section */}
                                         {(salaryType === 'monthly' || salaryType === 'both') && (
                                             <div className="bg-white p-6 rounded-2xl shadow-3d-inset text-center space-y-2 border border-blue-100">
                                                 <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
@@ -976,7 +939,6 @@ export default function AccountsPage() {
                                                 </div>
                                                 <SalaryTimer startDate={salaryStartDate} />
                                                 
-                                                {/* Action Buttons for Golden Member */}
                                                 {currentUser.role === 'golden' && (
                                                     <div className="flex gap-3 mt-4 justify-center">
                                                         {isSalaryDue() && (
@@ -991,7 +953,7 @@ export default function AccountsPage() {
                                                         <button 
                                                             onClick={() => {
                                                                 if (remainingCommission > 0) {
-                                                                    alert("يجب سداد العمولة المستحقة أولاً");
+                                                                    showAlert("تنبيه", "يجب سداد العمولة المستحقة أولاً", "warning");
                                                                     return;
                                                                 }
                                                                 openPayModal('stop_work');
@@ -1006,7 +968,6 @@ export default function AccountsPage() {
                                             </div>
                                         )}
 
-                                        {/* Commission Table */}
                                         {(salaryType === 'commission' || salaryType === 'both') && (
                                             <div className="space-y-4">
                                                 <div className="flex items-center gap-4 bg-white p-4 rounded-2xl shadow-sm">
@@ -1061,7 +1022,6 @@ export default function AccountsPage() {
                                     </div>
                                 )}
 
-                                {/* Salary Log (Always Visible for Selected Employee) */}
                                 <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
                                     <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                                         <History className="w-5 h-5 text-purple-600" />
@@ -1073,19 +1033,12 @@ export default function AccountsPage() {
                                     ) : (
                                         <div className="space-y-3">
                                             {empExpenses.map(exp => {
-                                                // Extract stored date
                                                 const dateMatch = exp.title.match(/\|SD:(.*?)\|/);
                                                 const storedStartDate = dateMatch ? dateMatch[1] : null;
-                                                
-                                                // Extract stored End Date
                                                 const endDateMatch = exp.title.match(/\|ED:(.*?)\|/);
                                                 const storedEndDate = endDateMatch ? endDateMatch[1] : null;
-
                                                 const cleanTitle = exp.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim();
-
                                                 const isSalaryOrClearance = cleanTitle.includes('راتب') || cleanTitle.includes('تصفية') || cleanTitle.includes('مستحقات');
-                                                
-                                                // Use stored date if available, else fallback to current config (for legacy/display)
                                                 const displayStartDate = storedStartDate || salaryStartDate;
                                                 
                                                 return (
@@ -1106,7 +1059,7 @@ export default function AccountsPage() {
                                                                             <span>
                                                                                 {storedEndDate 
                                                                                     ? new Date(storedEndDate).toLocaleDateString('ar-SA') 
-                                                                                    : new Date(exp.date).toLocaleDateString('ar-SA') // Fallback
+                                                                                    : new Date(exp.date).toLocaleDateString('ar-SA')
                                                                                 }
                                                                             </span>
                                                                         </>
@@ -1140,7 +1093,6 @@ export default function AccountsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Pay Modal (Salary / Commission / Stop Work) */}
       <Dialog open={payModalOpen} onOpenChange={setPayModalOpen}>
           <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
               <DialogHeader>
@@ -1162,7 +1114,6 @@ export default function AccountsPage() {
                               type="number" 
                               value={amountToPay} 
                               onChange={(e) => {
-                                  // If stop_work OR salary, prevent changing the amount (must pay full due)
                                   if (payType === 'stop_work' || payType === 'salary') return;
                                   setAmountToPay(e.target.value)
                               }}
@@ -1201,7 +1152,6 @@ export default function AccountsPage() {
           </DialogContent>
       </Dialog>
 
-      {/* Dialogs (Transfer & Zero) - Same as before */}
       <Dialog open={transferOpen} onOpenChange={(open) => {
           if(!open) {
               setSuccessMsg(false);
@@ -1327,5 +1277,6 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
