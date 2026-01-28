@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Edit, UserPlus, Lock, Crown, X } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User as UserIcon, Plus, MessageCircle, Edit, UserPlus, Lock, Crown, X } from 'lucide-react';
 import { 
     getStoredExtAgents, 
     saveStoredExtAgents,
@@ -267,7 +267,7 @@ export default function AchieversHub() {
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-3 w-full">
                                     <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                                        <User className="w-6 h-6" />
+                                        <UserIcon className="w-6 h-6" />
                                     </div>
                                     <div className="w-full">
                                         <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
