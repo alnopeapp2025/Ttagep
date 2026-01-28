@@ -482,7 +482,9 @@ export default function AccountsPage() {
       } else if (type === 'commission') {
           setAmountToPay(remainingCommission.toFixed(2));
       } else if (type === 'stop_work') {
-          if (!salaryStartDate || !salaryAmount) {
+          if (!salaryStartDate || (!salaryAmount && salaryType !== 'commission')) {
+              setAmountToPay('0');
+          } else if (salaryType === 'commission') {
               setAmountToPay('0');
           } else {
               const start = new Date(salaryStartDate).getTime();
@@ -975,13 +977,34 @@ export default function AccountsPage() {
                                                         <p className="text-xs text-green-600 font-bold mb-1">العمولة المستحقة (المتبقية)</p>
                                                         <p className="text-xl font-black text-green-700">{remainingCommission.toLocaleString()} ﷼</p>
                                                     </div>
-                                                    {currentUser.role === 'golden' && remainingCommission > 0 && (
-                                                        <button 
-                                                            onClick={() => openPayModal('commission')}
-                                                            className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 text-xs"
-                                                        >
-                                                            سداد العمولة
-                                                        </button>
+                                                    {currentUser.role === 'golden' && (
+                                                        <div className="flex flex-col gap-2 justify-center">
+                                                            {remainingCommission > 0 && (
+                                                                <button 
+                                                                    onClick={() => openPayModal('commission')}
+                                                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 text-xs"
+                                                                >
+                                                                    سداد العمولة
+                                                                </button>
+                                                            )}
+                                                            
+                                                            {/* Stop Work Button for Commission Only */}
+                                                            {salaryType === 'commission' && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        if (remainingCommission > 0) {
+                                                                            showAlert("تنبيه", "يجب سداد العمولة المستحقة أولاً", "warning");
+                                                                            return;
+                                                                        }
+                                                                        openPayModal('stop_work');
+                                                                    }}
+                                                                    className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-2 text-xs"
+                                                                >
+                                                                    <StopCircle className="w-4 h-4" />
+                                                                    توقف عن العمل
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
 
