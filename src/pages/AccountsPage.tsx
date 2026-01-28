@@ -79,13 +79,27 @@ const getCurrentCycleEndDate = (startDateStr: string) => {
 const SalaryTimer = ({ startDate }: { startDate: string }) => {
     const [timeLeft, setTimeLeft] = useState("");
     const [label, setLabel] = useState("الوقت المتبقي للراتب القادم");
+    const [periodText, setPeriodText] = useState("");
 
     useEffect(() => {
         const calculateTime = () => {
             const now = Date.now();
             const nextPayDate = getNextCycleDate(startDate);
+            const cycleEndDate = getCurrentCycleEndDate(startDate);
             
-            if (!nextPayDate) return;
+            if (!nextPayDate || !cycleEndDate) return;
+
+            // Generate Period Text (e.g., 12/1 to 2025/12/31)
+            const startObj = new Date(startDate);
+            const formattedStart = `${startObj.getMonth() + 1}/${startObj.getDate()}`;
+            const formattedEnd = cycleEndDate.toLocaleDateString('en-GB'); // YYYY/MM/DD or DD/MM/YYYY depending on locale, let's force format
+            // Force YYYY/MM/DD for clarity or standard date string
+            const endYear = cycleEndDate.getFullYear();
+            const endMonth = cycleEndDate.getMonth() + 1;
+            const endDay = cycleEndDate.getDate();
+            const fullEnd = `${endYear}/${endMonth}/${endDay}`;
+            
+            setPeriodText(`${formattedStart} وحتى ${fullEnd}`);
 
             const diff = nextPayDate.getTime() - now;
 
@@ -114,6 +128,12 @@ const SalaryTimer = ({ startDate }: { startDate: string }) => {
             <div className="font-mono text-xl sm:text-2xl font-black text-blue-800 dir-ltr tracking-wider">
                 {timeLeft || 'جاري الحساب...'}
             </div>
+            {/* Period Date Display */}
+            {timeLeft === "مستحق الدفع الآن" && (
+                <p className="text-xs text-gray-400 font-medium mt-1">
+                    {periodText}
+                </p>
+            )}
         </div>
     );
 };

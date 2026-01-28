@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Briefcase, Lock, Crown, Check, X, Edit, UserPlus } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User, Plus, MessageCircle, Edit, UserPlus, Lock, Crown, X } from 'lucide-react';
 import { 
     getStoredExtAgents, 
     saveStoredExtAgents,
     getStoredLessons, 
     ExternalAgent, Lesson,
-    getGlobalSettings, getCurrentUser
+    getGlobalSettings, getCurrentUser, User
 } from '@/lib/store';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -34,26 +34,28 @@ export default function AchieversHub() {
   const [showPremiumAlert, setShowPremiumAlert] = useState(false);
 
   // User State
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [settings, setSettings] = useState(getGlobalSettings());
-  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [myAgentId, setMyAgentId] = useState<number | null>(null);
 
   useEffect(() => {
-    const loadedAgents = getStoredExtAgents();
-    setExtAgents(loadedAgents);
-    setLessons(getStoredLessons());
-    setSettings(getGlobalSettings());
-    
-    const user = getCurrentUser();
-    setCurrentUser(user);
+    // Load Data safely
+    try {
+        const loadedAgents = getStoredExtAgents() || [];
+        setExtAgents(loadedAgents);
+        setLessons(getStoredLessons() || []);
+        
+        const user = getCurrentUser();
+        setCurrentUser(user);
 
-    // Check if current user already has an agent entry
-    if (user) {
-        const myAgent = loadedAgents.find(a => a.userId === user.id);
-        if (myAgent) {
-            setMyAgentId(myAgent.id);
+        // Check if current user already has an agent entry
+        if (user) {
+            const myAgent = loadedAgents.find(a => a.userId === user.id);
+            if (myAgent) {
+                setMyAgentId(myAgent.id);
+            }
         }
+    } catch (e) {
+        console.error("Error loading AchieversHub data", e);
     }
   }, []);
 
