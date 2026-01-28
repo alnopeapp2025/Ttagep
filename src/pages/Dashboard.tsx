@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins
+  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -68,8 +68,12 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  
+  // Settings State
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('moaqeb_sound_enabled') !== 'false');
+  const [hideEarnings, setHideEarnings] = useState(localStorage.getItem('moaqeb_hide_earnings') === 'true');
   const [mySettingsOpen, setMySettingsOpen] = useState(false);
+
   const [tickerIndex, setTickerIndex] = useState(0);
   const [tickerStats, setTickerStats] = useState({ active: 0, inProgress: 0, completedWeek: 0 });
   const [inquiryOpen, setInquiryOpen] = useState(false);
@@ -424,6 +428,11 @@ export default function Dashboard() {
       localStorage.setItem('moaqeb_sound_enabled', String(checked));
   };
 
+  const toggleHideEarnings = (checked: boolean) => {
+      setHideEarnings(checked);
+      localStorage.setItem('moaqeb_hide_earnings', String(checked));
+  };
+
   const nextOnboardingStep = () => {
       if (settings && onboardingStep < settings.onboardingSteps.length - 1) {
           setOnboardingStep(prev => prev + 1);
@@ -519,13 +528,15 @@ export default function Dashboard() {
                   <DropdownMenuTrigger className="outline-none">
                     <div className="flex flex-col items-center justify-center mr-2 cursor-pointer group">
                         
-                        {/* Affiliate Earnings Button - Updated UI */}
+                        {/* Affiliate Earnings Button - Updated UI with Hide Feature */}
                         <button 
                             onClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
                             className="bg-green-50 text-green-600 rounded-2xl px-3 py-2 mb-2 flex flex-col items-center justify-center shadow-sm border border-green-100 hover:bg-green-100 transition-colors"
                         >
                             <span className="text-[10px] font-bold">أرباحك:</span>
-                            <span className="text-xs font-black">{currentUser.affiliateBalance || 0} ريال</span>
+                            <span className="text-xs font-black">
+                                {hideEarnings ? '****' : (currentUser.affiliateBalance || 0)} ريال
+                            </span>
                         </button>
 
                         <div className="relative w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1 group-hover:scale-105 transition-transform border border-blue-200">
@@ -717,10 +728,20 @@ export default function Dashboard() {
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                         <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">إعداداتي</DialogTitle></DialogHeader>
                         <div className="py-6 space-y-4">
-                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-center gap-4">
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">{soundEnabled ? <Volume2 className="w-5 h-5 text-blue-600" /> : <VolumeX className="w-5 h-5 text-gray-400" />}<Label className="font-bold text-gray-700">كتم صوت الأزرار</Label></div>
                                 <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
                             </div>
+                            
+                            {/* Hide Earnings Toggle */}
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    {hideEarnings ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-blue-600" />}
+                                    <Label className="font-bold text-gray-700">إخفاء الأرباح</Label>
+                                </div>
+                                <Switch checked={hideEarnings} onCheckedChange={toggleHideEarnings} />
+                            </div>
+
                             <button onClick={() => setMySettingsOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
                         </div>
                     </DialogContent>
