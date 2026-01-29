@@ -231,7 +231,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v7'; // Incremented version for SEO
+const SETTINGS_KEY = 'moaqeb_global_settings_v7'; 
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -387,8 +387,204 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// ... (Rest of the store functions remain unchanged) ...
-// Keeping existing exports for compatibility
+// --- Local Storage Functions (Restored) ---
+
+export const getStoredTransactions = (): Transaction[] => {
+  try {
+    const stored = localStorage.getItem(TX_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredTransactions = (txs: Transaction[]) => {
+  localStorage.setItem(TX_KEY, JSON.stringify(txs));
+};
+
+export const getStoredBalances = (): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem(BAL_KEY);
+    return stored ? JSON.parse(stored) : INITIAL_BALANCES;
+  } catch {
+    return INITIAL_BALANCES;
+  }
+};
+
+export const saveStoredBalances = (balances: Record<string, number>) => {
+  localStorage.setItem(BAL_KEY, JSON.stringify(balances));
+};
+
+export const getStoredPendingBalances = (): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem(PENDING_BAL_KEY);
+    return stored ? JSON.parse(stored) : INITIAL_BALANCES;
+  } catch {
+    return INITIAL_BALANCES;
+  }
+};
+
+export const saveStoredPendingBalances = (balances: Record<string, number>) => {
+  localStorage.setItem(PENDING_BAL_KEY, JSON.stringify(balances));
+};
+
+export const getStoredClients = (): Client[] => {
+  try {
+    const stored = localStorage.getItem(CLIENTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredClients = (clients: Client[]) => {
+  localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
+};
+
+export const getStoredAgents = (): Agent[] => {
+  try {
+    const stored = localStorage.getItem(AGENTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredAgents = (agents: Agent[]) => {
+  localStorage.setItem(AGENTS_KEY, JSON.stringify(agents));
+};
+
+export const getStoredExpenses = (): Expense[] => {
+  try {
+    const stored = localStorage.getItem(EXPENSES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredExpenses = (expenses: Expense[]) => {
+  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+};
+
+export const getStoredExtAgents = (): ExternalAgent[] => {
+    try {
+        const stored = localStorage.getItem(EXT_AGENTS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
+export const saveStoredExtAgents = (agents: ExternalAgent[]) => {
+    localStorage.setItem(EXT_AGENTS_KEY, JSON.stringify(agents));
+};
+
+export const getStoredLessons = (): Lesson[] => {
+    try {
+        const stored = localStorage.getItem(LESSONS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
+export const saveStoredLessons = (lessons: Lesson[]) => {
+    localStorage.setItem(LESSONS_KEY, JSON.stringify(lessons));
+};
+
+export const getStoredAgentTransfers = (): AgentTransferRecord[] => {
+    try {
+        const stored = localStorage.getItem(AGENT_TRANSFERS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
+export const saveStoredAgentTransfers = (records: AgentTransferRecord[]) => {
+    localStorage.setItem(AGENT_TRANSFERS_KEY, JSON.stringify(records));
+};
+
+export const getStoredClientRefunds = (): ClientRefundRecord[] => {
+    try {
+        const stored = localStorage.getItem(CLIENT_REFUNDS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
+export const saveStoredClientRefunds = (records: ClientRefundRecord[]) => {
+    localStorage.setItem(CLIENT_REFUNDS_KEY, JSON.stringify(records));
+};
+
+// --- Utility Functions (Restored) ---
+
+export const calculateAchievers = (transactions: Transaction[]) => {
+  const achieversMap: Record<string, { count: number; total: number }> = {};
+  
+  transactions.forEach(tx => {
+    if (tx.status === 'completed' && tx.agent && tx.agent !== 'إنجاز بنفسي') {
+      if (!achieversMap[tx.agent]) {
+        achieversMap[tx.agent] = { count: 0, total: 0 };
+      }
+      achieversMap[tx.agent].count += 1;
+      achieversMap[tx.agent].total += parseFloat(tx.agentPrice) || 0;
+    }
+  });
+
+  return Object.entries(achieversMap)
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.count - a.count);
+};
+
+export const createBackup = () => {
+  const data = {
+    transactions: getStoredTransactions(),
+    clients: getStoredClients(),
+    agents: getStoredAgents(),
+    expenses: getStoredExpenses(),
+    balances: getStoredBalances(),
+    pendingBalances: getStoredPendingBalances(),
+    settings: getGlobalSettings(),
+    timestamp: Date.now()
+  };
+  return JSON.stringify(data);
+};
+
+export const restoreBackup = (json: string) => {
+  try {
+    const data = JSON.parse(json);
+    if (data.transactions) saveStoredTransactions(data.transactions);
+    if (data.clients) saveStoredClients(data.clients);
+    if (data.agents) saveStoredAgents(data.agents);
+    if (data.expenses) saveStoredExpenses(data.expenses);
+    if (data.balances) saveStoredBalances(data.balances);
+    if (data.pendingBalances) saveStoredPendingBalances(data.pendingBalances);
+    if (data.settings) saveGlobalSettings(data.settings);
+    localStorage.setItem(LAST_BACKUP_KEY, Date.now().toString());
+    return true;
+  } catch (e) {
+    console.error("Restore failed", e);
+    return false;
+  }
+};
+
+export const getLastBackupTime = () => {
+    return localStorage.getItem(LAST_BACKUP_KEY);
+};
+
+export const clearAgents = () => {
+    localStorage.removeItem(AGENTS_KEY);
+};
+
+export const clearClients = () => {
+    localStorage.removeItem(CLIENTS_KEY);
+};
+
+export const clearTransactions = () => {
+    localStorage.removeItem(TX_KEY);
+};
+
+export const clearAllData = () => {
+    localStorage.clear();
+    window.location.reload();
+};
+
+// --- Subscription Requests ---
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
         const { data: existing } = await supabase
