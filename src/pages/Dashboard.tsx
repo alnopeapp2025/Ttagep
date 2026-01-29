@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff
+  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -953,6 +953,47 @@ export default function Dashboard() {
             <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">هل تحتاج إلى مساعدة؟</p>
                 <a href="mailto:Tageep2026@gmail.com" className="text-blue-600 font-bold underline">تواصل مع الدعم الفني</a>
+            </div>
+        </div>
+
+        {/* Footer Buttons Section */}
+        <div className="max-w-6xl mx-auto px-4 mt-8 mb-4">
+            <div className="flex justify-between items-end gap-4">
+                
+                {/* Right Side: Download App (Visible to All) */}
+                <a 
+                    href="https://play.google.com/store/apps/details?id=apli3885642.ofh"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-gray-800 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-gray-900 transition-all transform hover:-translate-y-1"
+                >
+                    <Smartphone className="w-6 h-6" />
+                    <div className="text-right">
+                        <p className="text-[9px] opacity-80 font-normal">حمل التطبيق من</p>
+                        <p className="text-xs font-bold">Google Play</p>
+                    </div>
+                </a>
+
+                {/* Left Side: Support (Golden Only) */}
+                {currentUser?.role === 'golden' && (
+                    <a 
+                        href="https://wa.me/966501148480"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-green-600 transition-all transform hover:-translate-y-1"
+                    >
+                        <MessageCircle className="w-6 h-6" />
+                        <div className="text-right">
+                            <p className="text-[9px] opacity-80 font-normal">الدعم الفني</p>
+                            <p className="text-xs font-bold">24 ساعة</p>
+                        </div>
+                    </a>
+                )}
+            </div>
+            
+            {/* Existing Copyright */}
+            <div className="mt-6 flex flex-col items-center gap-3 text-gray-500">
+                <p className="text-[10px] opacity-60">جميع الحقوق محفوظة © 2025</p>
             </div>
         </div>
 
