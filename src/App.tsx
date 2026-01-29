@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import TransactionsPage from './pages/TransactionsPage';
@@ -14,8 +15,36 @@ import AdminPanel from './pages/AdminPanel';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import DeleteDataPage from './pages/DeleteDataPage';
 import SummaryPage from './pages/SummaryPage';
+import { getGlobalSettings } from './lib/store';
 
 function App() {
+  // SEO Injection Effect
+  useEffect(() => {
+    const settings = getGlobalSettings();
+    if (settings.seo) {
+        // Update Title
+        document.title = settings.seo.title || 'مان هويات لمكاتب الخدمات';
+
+        // Update Meta Description
+        let metaDesc = document.querySelector('meta[name="description"]');
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta');
+            metaDesc.setAttribute('name', 'description');
+            document.head.appendChild(metaDesc);
+        }
+        metaDesc.setAttribute('content', settings.seo.description || '');
+
+        // Update Meta Keywords
+        let metaKeywords = document.querySelector('meta[name="keywords"]');
+        if (!metaKeywords) {
+            metaKeywords = document.createElement('meta');
+            metaKeywords.setAttribute('name', 'keywords');
+            document.head.appendChild(metaKeywords);
+        }
+        metaKeywords.setAttribute('content', settings.seo.keywords || '');
+    }
+  }, []);
+
   return (
     // basename set to '/' for root domain deployment (manhobat.com)
     <Router basename="/">

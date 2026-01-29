@@ -163,6 +163,12 @@ export interface PackageDetails {
     benefits: string[];
 }
 
+export interface SeoSettings {
+    title: string;
+    description: string;
+    keywords: string;
+}
+
 export interface GlobalSettings {
   adminPasswordHash: string;
   siteTitle: string;
@@ -209,6 +215,7 @@ export interface GlobalSettings {
       warning: string;
       footer: string;
   };
+  seo: SeoSettings;
 }
 
 // --- Local Storage Helpers ---
@@ -224,7 +231,7 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; 
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v6'; 
+const SETTINGS_KEY = 'moaqeb_global_settings_v7'; // Incremented version for SEO
 const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 const GOLDEN_USERS_KEY = 'moaqeb_golden_users_v2'; 
 
@@ -317,6 +324,11 @@ const DEFAULT_SETTINGS: GlobalSettings = {
       description: 'لحذف بياناتك وحسابك من تطبيق مان هويات لمكاتب الخدمات، يرجى تعبئة النموذج أدناه لتأكيد هويتك.',
       warning: 'تنبيه: هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم فقدان جميع سجلات المعاملات والعملاء.',
       footer: 'تطبيق مان هويات لمكاتب الخدمات\nالمطور: ELTAIB HAMED ELTAIB'
+  },
+  seo: {
+      title: 'تطبيق مان هوبات - إدارة مكاتب الخدمات العامة والاستقدام بكل سهولة، تطبيق لكل معقب ولكل صاحب ومسؤل مكتب لادارتة باحترافية',
+      description: 'معقب، تعقيب، المعقب الإلكتروني، نخبة المعقبين يجتمعون في منصة مان هوبات. الحل الأمثل لإدارة مكاتب الخدمات العامة ومكاتب الاستقدام، وتسهيل إدارة معاملات إجراءات تمديد الزيارات والمعاملات الحكومية للأفراد والشركات في المملكة العربية السعودية بكل احترافية',
+      keywords: 'مان هوبات، إدارة مكاتب الخدمات والاستقدام، مكتب خدمات عامة، معقب إلكتروني، تعقيب معاملات، تمديد زيارة، منصة قوى، مساند، استقدام عمالة، إدارة مكاتب التعقيب، معقبين، تعقيب، موقع تعقيب، السعودية'
   }
 };
 
@@ -342,7 +354,8 @@ export const getGlobalSettings = (): GlobalSettings => {
                 annual: { ...DEFAULT_SETTINGS.packages.annual, ...(parsed.packages?.annual || {}) }
             },
             onboardingSteps: parsed.onboardingSteps || DEFAULT_SETTINGS.onboardingSteps,
-            deletePageTexts: { ...DEFAULT_SETTINGS.deletePageTexts, ...(parsed.deletePageTexts || {}) }
+            deletePageTexts: { ...DEFAULT_SETTINGS.deletePageTexts, ...(parsed.deletePageTexts || {}) },
+            seo: { ...DEFAULT_SETTINGS.seo, ...(parsed.seo || {}) }
         };
     }
     return DEFAULT_SETTINGS;
@@ -938,7 +951,6 @@ export const fetchOfficeListingsFromCloud = async (): Promise<OfficeListing[]> =
 };
 
 // --- Transaction Management (Cloud) ---
-// THIS WAS MISSING IN PREVIOUS BUILD - RE-ADDING
 export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
   try {
     const { data, error } = await supabase
@@ -1376,199 +1388,4 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
         console.error('Update account exception:', err);
         return false;
     }
-};
-
-// --- Local Storage Functions (Fallbacks / Local Mode) ---
-
-export const getStoredTransactions = (): Transaction[] => {
-  try {
-    const stored = localStorage.getItem(TX_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveStoredTransactions = (txs: Transaction[]) => {
-  localStorage.setItem(TX_KEY, JSON.stringify(txs));
-};
-
-export const getStoredBalances = (): Record<string, number> => {
-  try {
-    const stored = localStorage.getItem(BAL_KEY);
-    return stored ? JSON.parse(stored) : INITIAL_BALANCES;
-  } catch {
-    return INITIAL_BALANCES;
-  }
-};
-
-export const saveStoredBalances = (balances: Record<string, number>) => {
-  localStorage.setItem(BAL_KEY, JSON.stringify(balances));
-};
-
-export const getStoredPendingBalances = (): Record<string, number> => {
-  try {
-    const stored = localStorage.getItem(PENDING_BAL_KEY);
-    return stored ? JSON.parse(stored) : INITIAL_BALANCES;
-  } catch {
-    return INITIAL_BALANCES;
-  }
-};
-
-export const saveStoredPendingBalances = (balances: Record<string, number>) => {
-  localStorage.setItem(PENDING_BAL_KEY, JSON.stringify(balances));
-};
-
-export const getStoredClients = (): Client[] => {
-  try {
-    const stored = localStorage.getItem(CLIENTS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveStoredClients = (clients: Client[]) => {
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
-};
-
-export const getStoredAgents = (): Agent[] => {
-  try {
-    const stored = localStorage.getItem(AGENTS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveStoredAgents = (agents: Agent[]) => {
-  localStorage.setItem(AGENTS_KEY, JSON.stringify(agents));
-};
-
-export const getStoredExpenses = (): Expense[] => {
-  try {
-    const stored = localStorage.getItem(EXPENSES_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-export const saveStoredExpenses = (expenses: Expense[]) => {
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-};
-
-export const getStoredExtAgents = (): ExternalAgent[] => {
-    try {
-        const stored = localStorage.getItem(EXT_AGENTS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-};
-
-export const saveStoredExtAgents = (agents: ExternalAgent[]) => {
-    localStorage.setItem(EXT_AGENTS_KEY, JSON.stringify(agents));
-};
-
-export const getStoredLessons = (): Lesson[] => {
-    try {
-        const stored = localStorage.getItem(LESSONS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-};
-
-export const saveStoredLessons = (lessons: Lesson[]) => {
-    localStorage.setItem(LESSONS_KEY, JSON.stringify(lessons));
-};
-
-export const getStoredAgentTransfers = (): AgentTransferRecord[] => {
-    try {
-        const stored = localStorage.getItem(AGENT_TRANSFERS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-};
-
-export const saveStoredAgentTransfers = (records: AgentTransferRecord[]) => {
-    localStorage.setItem(AGENT_TRANSFERS_KEY, JSON.stringify(records));
-};
-
-export const getStoredClientRefunds = (): ClientRefundRecord[] => {
-    try {
-        const stored = localStorage.getItem(CLIENT_REFUNDS_KEY);
-        return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-};
-
-export const saveStoredClientRefunds = (records: ClientRefundRecord[]) => {
-    localStorage.setItem(CLIENT_REFUNDS_KEY, JSON.stringify(records));
-};
-
-export const getLastBackupTime = () => localStorage.getItem(LAST_BACKUP_KEY);
-
-export const createBackup = () => {
-    const data = {
-        transactions: getStoredTransactions(),
-        balances: getStoredBalances(),
-        pendingBalances: getStoredPendingBalances(),
-        clients: getStoredClients(),
-        agents: getStoredAgents(),
-        expenses: getStoredExpenses(),
-        extAgents: getStoredExtAgents(),
-        lessons: getStoredLessons(),
-        agentTransfers: getStoredAgentTransfers(),
-        clientRefunds: getStoredClientRefunds(),
-        timestamp: Date.now()
-    };
-    return JSON.stringify(data);
-};
-
-export const restoreBackup = (json: string) => {
-    try {
-        const data = JSON.parse(json);
-        if (data.transactions) saveStoredTransactions(data.transactions);
-        if (data.balances) saveStoredBalances(data.balances);
-        if (data.pendingBalances) saveStoredPendingBalances(data.pendingBalances);
-        if (data.clients) saveStoredClients(data.clients);
-        if (data.agents) saveStoredAgents(data.agents);
-        if (data.expenses) saveStoredExpenses(data.expenses);
-        if (data.extAgents) saveStoredExtAgents(data.extAgents);
-        if (data.lessons) saveStoredLessons(data.lessons);
-        if (data.agentTransfers) saveStoredAgentTransfers(data.agentTransfers);
-        if (data.clientRefunds) saveStoredClientRefunds(data.clientRefunds);
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-export const clearAgents = () => {
-    localStorage.removeItem(AGENTS_KEY);
-    localStorage.removeItem(AGENT_TRANSFERS_KEY);
-};
-
-export const clearClients = () => {
-    localStorage.removeItem(CLIENTS_KEY);
-    localStorage.removeItem(CLIENT_REFUNDS_KEY);
-};
-
-export const clearTransactions = () => {
-    localStorage.removeItem(TX_KEY);
-};
-
-export const clearAllData = () => {
-    localStorage.clear();
-    window.location.reload();
-};
-
-export const calculateAchievers = (txs: Transaction[]) => {
-    const counts: Record<string, {count: number, total: number}> = {};
-    txs.forEach(t => {
-        if (t.status === 'completed' && t.agent && t.agent !== 'إنجاز بنفسي') {
-            if (!counts[t.agent]) counts[t.agent] = { count: 0, total: 0 };
-            counts[t.agent].count++;
-            counts[t.agent].total += parseFloat(t.clientPrice) || 0;
-        }
-    });
-    return Object.entries(counts)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.count - a.count);
 };

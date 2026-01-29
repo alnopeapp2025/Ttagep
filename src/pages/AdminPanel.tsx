@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare, FileWarning, Coins } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare, FileWarning, Coins, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
@@ -47,6 +47,12 @@ export default function AdminPanel() {
   const [deleteWarning, setDeleteWarning] = useState(settings.deletePageTexts?.warning || '');
   const [deleteFooter, setDeleteFooter] = useState(settings.deletePageTexts?.footer || '');
   const [deletePageMsg, setDeletePageMsg] = useState('');
+
+  // SEO States
+  const [seoTitle, setSeoTitle] = useState(settings.seo?.title || '');
+  const [seoDescription, setSeoDescription] = useState(settings.seo?.description || '');
+  const [seoKeywords, setSeoKeywords] = useState(settings.seo?.keywords || '');
+  const [seoMsg, setSeoMsg] = useState('');
 
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
 
@@ -294,6 +300,22 @@ export default function AdminPanel() {
       setTimeout(() => setDeletePageMsg(''), 3000);
   };
 
+  // SEO Management
+  const handleSaveSeo = () => {
+      const newSettings = {
+          ...settings,
+          seo: {
+              title: seoTitle,
+              description: seoDescription,
+              keywords: seoKeywords
+          }
+      };
+      setSettings(newSettings);
+      saveGlobalSettings(newSettings);
+      setSeoMsg('تم حفظ إعدادات SEO بنجاح');
+      setTimeout(() => setSeoMsg(''), 3000);
+  };
+
   if (!isAuthenticated) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
@@ -323,7 +345,7 @@ export default function AdminPanel() {
 
         <div className="max-w-5xl mx-auto">
             <Tabs defaultValue="requests" className="w-full">
-                <TabsList className="grid w-full grid-cols-9 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
+                <TabsList className="grid w-full grid-cols-10 mb-6 bg-white shadow-3d p-1 rounded-xl h-12 overflow-x-auto">
                     <TabsTrigger value="requests" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 relative">طلبات التفعيل {requests.filter(r => r.status === 'pending').length > 0 && (<span className="absolute top-2 left-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />)}</TabsTrigger>
                     <TabsTrigger value="withdrawals" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 relative flex gap-1"><Coins className="w-3 h-3" /> طلبات السحب {withdrawals.filter(r => r.status === 'pending').length > 0 && (<span className="absolute top-2 left-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />)}</TabsTrigger>
                     <TabsTrigger value="active" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">الأعضاء النشطين</TabsTrigger>
@@ -331,10 +353,12 @@ export default function AdminPanel() {
                     <TabsTrigger value="subscription" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1"><CreditCard className="w-3 h-3" /> الاشتراكات</TabsTrigger>
                     <TabsTrigger value="onboarding" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1"><MessageSquare className="w-3 h-3" /> شاشات الترحيب</TabsTrigger>
                     <TabsTrigger value="deletePage" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1"><FileWarning className="w-3 h-3" /> صفحة الحذف</TabsTrigger>
+                    <TabsTrigger value="seo" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100 flex gap-1"><Globe className="w-3 h-3" /> SEO</TabsTrigger>
                     <TabsTrigger value="settings" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">كلمة المرور</TabsTrigger>
                     <TabsTrigger value="appearance" className="rounded-lg h-10 font-bold text-xs sm:text-sm data-[state=active]:bg-gray-100">المظهر</TabsTrigger>
                 </TabsList>
 
+                {/* ... (Existing Tabs Content) ... */}
                 <TabsContent value="requests">
                     <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">طلبات العضوية الذهبية (Unified Cloud)</h3>
@@ -459,6 +483,43 @@ export default function AdminPanel() {
                             <div className="space-y-2"><Label className="text-sm font-bold text-gray-600">نص التذييل (Footer)</Label><Textarea value={deleteFooter} onChange={(e) => setDeleteFooter(e.target.value)} className="bg-white shadow-3d-inset border-none min-h-[80px]" placeholder="اسم التطبيق والمطور..." /><p className="text-[10px] text-gray-400">يمكنك استخدام زر Enter لإضافة سطر جديد.</p></div>
                             <button onClick={handleSaveDeletePage} className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"><Save className="w-4 h-4" /> حفظ النصوص</button>
                             {deletePageMsg && (<p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{deletePageMsg}</p>)}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="seo">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> إعدادات محركات البحث (SEO)</h3>
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-gray-600">عنوان الصفحة (Title Tag)</Label>
+                                <Input 
+                                    value={seoTitle} 
+                                    onChange={(e) => setSeoTitle(e.target.value)} 
+                                    className="bg-white shadow-3d-inset border-none" 
+                                    placeholder="عنوان الموقع..." 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-gray-600">وصف الصفحة (Meta Description)</Label>
+                                <Textarea 
+                                    value={seoDescription} 
+                                    onChange={(e) => setSeoDescription(e.target.value)} 
+                                    className="bg-white shadow-3d-inset border-none min-h-[100px]" 
+                                    placeholder="وصف مختصر للموقع يظهر في نتائج البحث..." 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-bold text-gray-600">الكلمات المفتاحية (Meta Keywords)</Label>
+                                <Textarea 
+                                    value={seoKeywords} 
+                                    onChange={(e) => setSeoKeywords(e.target.value)} 
+                                    className="bg-white shadow-3d-inset border-none min-h-[80px]" 
+                                    placeholder="كلمات دلالية مفصولة بفواصل..." 
+                                />
+                            </div>
+                            <button onClick={handleSaveSeo} className="w-full mt-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"><Save className="w-4 h-4" /> حفظ التغييرات</button>
+                            {seoMsg && (<p className="text-green-600 font-bold text-center mt-3 animate-in fade-in">{seoMsg}</p>)}
                         </div>
                     </div>
                 </TabsContent>
