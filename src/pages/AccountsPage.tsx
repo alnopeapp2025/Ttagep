@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle, CheckCircle2, FileText, Users, Calendar, Clock, Percent, Crown, User as UserIcon, ArrowUpRight, ArrowDownLeft, Send, X, StopCircle, Save, Receipt, History, Archive } from 'lucide-react';
 import { 
@@ -162,6 +162,11 @@ export default function AccountsPage() {
   const [paySuccess, setPaySuccess] = useState(false);
 
   const [banksList, setBanksList] = useState<string[]>([]);
+
+  // Refs for focusing
+  const dateRef = useRef<HTMLInputElement>(null);
+  const salaryAmountRef = useRef<HTMLInputElement>(null);
+  const commissionRateRef = useRef<HTMLInputElement>(null);
 
   // Custom Alerts State
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'warning'}>({
@@ -455,7 +460,26 @@ export default function AccountsPage() {
           return;
       }
 
-      if (!selectedEmpId || !salaryStartDate) return;
+      if (!selectedEmpId) return;
+
+      // Validation Logic
+      if (!salaryStartDate) {
+          showAlert("تنبيه", "يرجى اختيار تاريخ بداية العمل", "warning");
+          setTimeout(() => dateRef.current?.focus(), 300);
+          return;
+      }
+
+      if ((salaryType === 'monthly' || salaryType === 'both') && !salaryAmount) {
+          showAlert("تنبيه", "يرجى إدخال قيمة الراتب الشهري", "warning");
+          setTimeout(() => salaryAmountRef.current?.focus(), 300);
+          return;
+      }
+
+      if ((salaryType === 'commission' || salaryType === 'both') && !commissionRate) {
+          showAlert("تنبيه", "يرجى إدخال نسبة الموظف", "warning");
+          setTimeout(() => commissionRateRef.current?.focus(), 300);
+          return;
+      }
       
       const config = {
           startDate: salaryStartDate,
@@ -836,6 +860,7 @@ export default function AccountsPage() {
                                         <Label>تاريخ بداية العمل</Label>
                                         <div className="relative">
                                             <Input 
+                                                ref={dateRef}
                                                 type="date" 
                                                 value={salaryStartDate}
                                                 onChange={(e) => setSalaryStartDate(e.target.value)}
@@ -880,6 +905,7 @@ export default function AccountsPage() {
                                             <Label>قيمة الراتب الشهري</Label>
                                             <div className="relative">
                                                 <Input 
+                                                    ref={salaryAmountRef}
                                                     type="number"
                                                     value={salaryAmount}
                                                     onChange={(e) => setSalaryAmount(e.target.value)}
@@ -897,6 +923,7 @@ export default function AccountsPage() {
                                             <Label>نسبة الموظف (%)</Label>
                                             <div className="relative">
                                                 <Input 
+                                                    ref={commissionRateRef}
                                                     type="number" 
                                                     placeholder="مثلاً 10" 
                                                     value={commissionRate}

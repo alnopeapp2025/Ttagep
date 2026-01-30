@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User } from 'lucide-react';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check, User, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,6 +34,7 @@ export default function LoginPage() {
   
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Toggle Eye
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -198,18 +199,17 @@ export default function LoginPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">رقم الهاتف</Label>
+            <Label className="font-bold text-gray-600">رقم الهاتف أو الاسم</Label>
             <div className="relative">
               <Input 
                 ref={phoneRef}
                 value={phone}
                 onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    setPhone(val);
+                    setPhone(e.target.value);
                     if(error) setError('');
                 }}
                 className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !phone ? 'ring-2 ring-red-400' : ''}`}
-                placeholder="05xxxxxxxx"
+                placeholder="أدخل رقم الهاتف أو الاسم"
               />
               <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
             </div>
@@ -220,7 +220,7 @@ export default function LoginPage() {
             <div className="relative">
                 <Input 
                 ref={passwordRef}
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => {
                     const val = e.target.value;
@@ -232,7 +232,13 @@ export default function LoginPage() {
                 className={`bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12 ${error && !password ? 'ring-2 ring-red-400' : ''}`}
                 placeholder="••••••••"
                 />
-                <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-3.5 text-gray-400 hover:text-gray-600"
+                >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
             </div>
           </div>
 

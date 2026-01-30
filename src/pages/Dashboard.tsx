@@ -91,27 +91,38 @@ export default function Dashboard() {
   const [selectedDuration, setSelectedDuration] = useState<'شهر' | 'سنة' | ''>('');
   const [subSuccess, setSubSuccess] = useState('');
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
+  
+  // Employee Creation
   const [createEmpOpen, setCreateEmpOpen] = useState(false);
   const [newEmpName, setNewEmpName] = useState('');
   const [newEmpPass, setNewEmpPass] = useState('');
+  const [showEmpPass, setShowEmpPass] = useState(false); // Toggle Eye
   const [empSuccess, setEmpSuccess] = useState('');
   const [empError, setEmpError] = useState('');
+
+  // Profile
   const [profileOpen, setProfileOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editOfficeName, setEditOfficeName] = useState('');
   const [editSecurityQuestion, setEditSecurityQuestion] = useState('');
   const [editSecurityAnswer, setEditSecurityAnswer] = useState('');
   const [verifyOldPass, setVerifyOldPass] = useState('');
+  const [showVerifyPass, setShowVerifyPass] = useState(false); // Toggle Eye
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
+
+  // Change Password
   const [changePassOpen, setChangePassOpen] = useState(false);
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [showOldPass, setShowOldPass] = useState(false); // Toggle Eye
+  const [showNewPass, setShowNewPass] = useState(false); // Toggle Eye
   const [passError, setPassError] = useState('');
   const [passSuccess, setPassSuccess] = useState(false);
   const [passLoading, setPassLoading] = useState(false);
+
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
@@ -303,6 +314,7 @@ export default function Dashboard() {
     }
   };
 
+  // ... (Other handlers like handleInquiry, handleCreateBackup etc. remain unchanged)
   const handleInquiry = () => {
     setInquiryError('');
     setFoundTx(null);
@@ -528,10 +540,10 @@ export default function Dashboard() {
                   <DropdownMenuTrigger className="outline-none">
                     <div className="flex flex-col items-center justify-center mr-2 cursor-pointer group">
                         
-                        {/* Affiliate Earnings Button - Updated UI with Hide Feature */}
+                        {/* Affiliate Earnings Button - Double Click */}
                         <button 
-                            onClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
-                            className="bg-green-50 text-green-600 rounded-2xl px-3 py-2 mb-2 flex flex-col items-center justify-center shadow-sm border border-green-100 hover:bg-green-100 transition-colors"
+                            onDoubleClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
+                            className="bg-green-50 text-green-600 rounded-2xl px-3 py-2 mb-2 flex flex-col items-center justify-center shadow-sm border border-green-100 hover:bg-green-100 transition-colors select-none"
                         >
                             <span className="text-[10px] font-bold">أرباحك:</span>
                             <span className="text-xs font-black">
@@ -606,6 +618,7 @@ export default function Dashboard() {
                   </div>
                   <Separator className="my-2 bg-gray-300/50" />
                   
+                  {/* ... (Inquiry, Backup, Pro Modals remain unchanged) ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -663,7 +676,8 @@ export default function Dashboard() {
                         </DialogTrigger>
                     )}
                     <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-lg p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
-                        <button onClick={() => setProOpen(false)} className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"><X className="w-4 h-4" /></button>
+                       {/* ... Pro Content ... */}
+                       <button onClick={() => setProOpen(false)} className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"><X className="w-4 h-4" /></button>
                         <DialogHeader><DialogTitle className="text-2xl font-black text-center mb-1 flex items-center justify-center gap-2"><Crown className="w-6 h-6" /> العضوية الذهبية</DialogTitle></DialogHeader>
                         {alreadySubscribed ? (
                              <div className="py-10 text-center animate-in zoom-in">
@@ -734,12 +748,15 @@ export default function Dashboard() {
                             </div>
                             
                             {/* Hide Earnings Toggle */}
-                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    {hideEarnings ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-blue-600" />}
-                                    <Label className="font-bold text-gray-700">إخفاء الأرباح</Label>
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex flex-col gap-2">
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-3">
+                                        {hideEarnings ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-blue-600" />}
+                                        <Label className="font-bold text-gray-700">إخفاء الأرباح</Label>
+                                    </div>
+                                    <Switch checked={hideEarnings} onCheckedChange={toggleHideEarnings} />
                                 </div>
-                                <Switch checked={hideEarnings} onCheckedChange={toggleHideEarnings} />
+                                <p className="text-[10px] text-red-500 font-bold text-center mt-1">نقرتين سريعين علي ارباحك لفتح الشاشه</p>
                             </div>
 
                             <button onClick={() => setMySettingsOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
@@ -747,9 +764,7 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  <button onClick={() => navigate('/admins')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                    <Settings className="w-5 h-5 text-gray-600" /> إعدادات النظام
-                  </button>
+                  {/* Admin Button Removed as requested */}
 
                   <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                     <DialogTrigger asChild>
@@ -790,6 +805,7 @@ export default function Dashboard() {
         {/* Affiliate Modal */}
         <Dialog open={affiliateOpen} onOpenChange={setAffiliateOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                {/* ... (Affiliate modal content remains same) ... */}
                 <DialogHeader>
                     <DialogTitle className="text-center text-xl font-black text-gray-800 flex items-center justify-center gap-2">
                         <Coins className="w-6 h-6 text-yellow-500" />
@@ -798,13 +814,11 @@ export default function Dashboard() {
                 </DialogHeader>
                 
                 <div className="py-4 space-y-6">
-                    {/* Stats */}
                     <div className="bg-white p-4 rounded-2xl shadow-3d-inset text-center border border-yellow-100">
                         <p className="text-gray-500 font-bold mb-1">رصيد أرباحك الحالي</p>
                         <h2 className="text-4xl font-black text-green-600">{currentUser?.affiliateBalance || 0} <span className="text-lg">ريال</span></h2>
                     </div>
 
-                    {/* Instructions - ADDED HERE */}
                     <div className="bg-red-50 p-3 rounded-xl border border-red-100 mb-2">
                         <p className="text-red-600 font-bold text-xs mb-2">لتربح 50 ريال لكل عميل اشترك عبر رابطك:</p>
                         <ul className="text-[10px] text-red-500 space-y-1 list-decimal list-inside font-medium leading-relaxed">
@@ -814,7 +828,6 @@ export default function Dashboard() {
                         </ul>
                     </div>
 
-                    {/* Referral Link */}
                     <div className="space-y-2">
                         <Label className="text-blue-600 font-bold">رابط الإحالة الخاص بك</Label>
                         <div className="flex gap-2">
@@ -835,7 +848,6 @@ export default function Dashboard() {
                         </p>
                     </div>
 
-                    {/* Withdraw Button */}
                     <button 
                         onClick={() => setWithdrawOpen(true)}
                         disabled={(currentUser?.affiliateBalance || 0) < 110}
@@ -845,7 +857,6 @@ export default function Dashboard() {
                         سحب الرصيد
                     </button>
                     
-                    {/* Min Withdraw Notice - Only show if user has earned something but less than 110 */}
                     {(currentUser?.affiliateBalance || 0) >= 50 && (currentUser?.affiliateBalance || 0) < 110 && (
                         <p className="text-center text-xs text-red-500 font-bold">
                             الحد الأدنى للسحب هو 110 ريال
@@ -858,6 +869,7 @@ export default function Dashboard() {
         {/* Withdraw Request Modal */}
         <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                {/* ... (Withdraw modal content remains same) ... */}
                 <DialogHeader>
                     <DialogTitle className="text-center text-xl font-bold text-gray-800">طلب سحب الرصيد</DialogTitle>
                 </DialogHeader>
@@ -916,6 +928,7 @@ export default function Dashboard() {
 
         <div className="my-10"><Separator className="bg-gray-300" /></div>
 
+        {/* ... (Achievers, Ticker, Footer) ... */}
         <div id="achievers-section" className="mb-12 scroll-mt-10">
           <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2"><Trophy className="w-6 h-6 text-yellow-500" /> قائمة أفضل المنجزين</h3>
           {achievers.length === 0 ? (
@@ -997,7 +1010,7 @@ export default function Dashboard() {
             </div>
         </div>
 
-        {/* ... (Existing Profile, Change Pass, Create Emp, Onboarding Modals) ... */}
+        {/* Profile Modal */}
         <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                 <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">الملف الشخصي</DialogTitle></DialogHeader>
@@ -1021,7 +1034,25 @@ export default function Dashboard() {
                             <div className="space-y-4 animate-in fade-in">
                                 <div className="space-y-2"><Label>سؤال الأمان</Label><Select value={editSecurityQuestion} onValueChange={setEditSecurityQuestion}><SelectTrigger className="bg-white shadow-3d-inset border-none h-10 text-right flex-row-reverse"><SelectValue placeholder="اختر السؤال..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{securityQuestions.map((q) => (<SelectItem key={q} value={q} className="text-right cursor-pointer my-1">{q}</SelectItem>))}</SelectContent></Select></div>
                                 <div className="space-y-2"><Label>إجابة السؤال (10 خانات كحد أقصى)</Label><Input value={editSecurityAnswer} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setEditSecurityAnswer(val); }} className="bg-white shadow-3d-inset border-none" /></div>
-                                <div className="space-y-2 pt-2 border-t border-gray-200"><Label className="text-red-500">كلمة المرور الحالية (للتأكيد)</Label><Input type="password" value={verifyOldPass} onChange={(e) => setVerifyOldPass(e.target.value)} className="bg-white shadow-3d-inset border-none" placeholder="••••••••" /></div>
+                                <div className="space-y-2 pt-2 border-t border-gray-200">
+                                    <Label className="text-red-500">كلمة المرور الحالية (للتأكيد)</Label>
+                                    <div className="relative">
+                                        <Input 
+                                            type={showVerifyPass ? "text" : "password"} 
+                                            value={verifyOldPass} 
+                                            onChange={(e) => setVerifyOldPass(e.target.value)} 
+                                            className="bg-white shadow-3d-inset border-none pl-10" 
+                                            placeholder="••••••••" 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowVerifyPass(!showVerifyPass)}
+                                            className="absolute left-3 top-2.5 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showVerifyPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         {profileError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold text-center border border-red-100">{profileError}</div>}
@@ -1046,8 +1077,42 @@ export default function Dashboard() {
                 ) : (
                     <div className="py-4 space-y-4">
                         {passError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in"><AlertTriangle className="w-4 h-4" />{passError}</div>}
-                        <div className="space-y-2"><Label>كلمة المرور الحالية</Label><div className="relative"><Input type="password" value={oldPass} onChange={(e) => setOldPass(e.target.value)} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
-                        <div className="space-y-2"><Label>كلمة المرور الجديدة (10 خانات كحد أقصى)</Label><div className="relative"><Input type="password" value={newPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewPass(val); }} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
+                        <div className="space-y-2">
+                            <Label>كلمة المرور الحالية</Label>
+                            <div className="relative">
+                                <Input 
+                                    type={showOldPass ? "text" : "password"} 
+                                    value={oldPass} 
+                                    onChange={(e) => setOldPass(e.target.value)} 
+                                    className="bg-white shadow-3d-inset border-none pl-10" 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowOldPass(!showOldPass)}
+                                    className="absolute left-3 top-2.5 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>كلمة المرور الجديدة (10 خانات كحد أقصى)</Label>
+                            <div className="relative">
+                                <Input 
+                                    type={showNewPass ? "text" : "password"} 
+                                    value={newPass} 
+                                    onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewPass(val); }} 
+                                    className="bg-white shadow-3d-inset border-none pl-10" 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowNewPass(!showNewPass)}
+                                    className="absolute left-3 top-2.5 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
                         <div className="space-y-2"><Label>تأكيد كلمة المرور الجديدة</Label><div className="relative"><Input type="password" value={confirmPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setConfirmPass(val); }} className="bg-white shadow-3d-inset border-none pl-10" /><Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /></div></div>
                         <button onClick={handleChangePassword} disabled={passLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2 disabled:opacity-70">{passLoading ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> : <Key className="w-4 h-4" />} تحديث كلمة المرور</button>
                     </div>
@@ -1064,13 +1129,32 @@ export default function Dashboard() {
                     <div className="py-4 space-y-4">
                         {empError && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100 shadow-sm">{empError}</div>}
                         <div className="space-y-2"><Label>اسم الموظف (15 حرف كحد أقصى)</Label><Input value={newEmpName} onChange={(e) => { const val = e.target.value; if(val.length <= 15 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewEmpName(val); }} className="bg-white shadow-3d-inset border-none" placeholder="اسم الموظف" /></div>
-                        <div className="space-y-2"><Label>كلمة المرور (10 خانات إنجليزي/أرقام)</Label><Input type="password" value={newEmpPass} onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewEmpPass(val); }} className="bg-white shadow-3d-inset border-none" placeholder="••••" /></div>
+                        <div className="space-y-2">
+                            <Label>كلمة المرور (10 خانات إنجليزي/أرقام)</Label>
+                            <div className="relative">
+                                <Input 
+                                    type={showEmpPass ? "text" : "password"} 
+                                    value={newEmpPass} 
+                                    onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewEmpPass(val); }} 
+                                    className="bg-white shadow-3d-inset border-none pl-10" 
+                                    placeholder="••••" 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowEmpPass(!showEmpPass)}
+                                    className="absolute left-3 top-2.5 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showEmpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
                         <button onClick={handleCreateEmployee} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2"><UserPlus className="w-4 h-4" /> إنشاء حساب</button>
                     </div>
                 )}
             </DialogContent>
         </Dialog>
 
+        {/* ... (Onboarding Modal remains unchanged) ... */}
         <Dialog open={onboardingOpen} onOpenChange={(val) => { if(!val) { if (currentUser) { localStorage.setItem(`moaqeb_onboarding_seen_${currentUser.id}`, 'true'); } setOnboardingOpen(false); } }}>
             <DialogContent className="bg-gradient-to-br from-yellow-50 via-slate-50 to-yellow-50 border-4 border-double border-yellow-400 shadow-3d rounded-3xl max-w-md p-8" dir="rtl">
                 <div className="text-center space-y-6">

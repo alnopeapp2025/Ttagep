@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle, Loader2, Share2 } from 'lucide-react';
+import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle, Loader2, Share2, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -25,6 +25,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Toggle Eye
   const [formData, setFormData] = useState({
     officeName: '',
     phone: '',
@@ -107,13 +108,13 @@ export default function RegisterPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">اسم المكتب (25 حرف كحد أقصى) <span className="text-red-500">*</span></Label>
+            <Label className="font-bold text-gray-600">اسم المكتب (30 حرف كحد أقصى) <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 value={formData.officeName}
                 onChange={(e) => {
                     const val = e.target.value;
-                    if (val.length <= 25 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setFormData({...formData, officeName: val});
+                    if (val.length <= 30 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setFormData({...formData, officeName: val});
                 }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="أدخل اسم المكتب"
@@ -142,7 +143,7 @@ export default function RegisterPage() {
             <Label className="font-bold text-gray-600">كلمة المرور (10 خانات إنجليزي/أرقام) <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={(e) => {
                     const val = e.target.value;
@@ -151,7 +152,13 @@ export default function RegisterPage() {
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
                 placeholder="••••••••"
               />
-              <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+              <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-3 top-3.5 text-gray-400 hover:text-gray-600"
+              >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
