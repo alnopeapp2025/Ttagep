@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-// --- Constants ---
+// ... (Existing Constants and Types remain unchanged) ...
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -387,8 +387,7 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// --- Local Storage Functions (Restored) ---
-
+// --- Local Storage Functions ---
 export const getStoredTransactions = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(TX_KEY);
@@ -511,8 +510,7 @@ export const saveStoredClientRefunds = (records: ClientRefundRecord[]) => {
     localStorage.setItem(CLIENT_REFUNDS_KEY, JSON.stringify(records));
 };
 
-// --- Utility Functions (Restored) ---
-
+// --- Utility Functions ---
 export const calculateAchievers = (transactions: Transaction[]) => {
   const achieversMap: Record<string, { count: number; total: number }> = {};
   
@@ -584,7 +582,80 @@ export const clearAllData = () => {
     window.location.reload();
 };
 
-// --- Subscription Requests ---
+// ... (Existing Subscription, Auth, etc. functions remain unchanged) ...
+// (Keeping all existing functions like createSubscriptionRequest, loginUser, etc.)
+
+// --- New Cloud Functions for Account Statement ---
+
+export const addAgentTransferToCloud = async (record: AgentTransferRecord, userId: number) => {
+    try {
+        const { error } = await supabase
+            .from('agent_transfers')
+            .insert([{
+                user_id: userId,
+                agent_name: record.agentName,
+                amount: record.amount,
+                bank: record.bank,
+                date: record.date,
+                transaction_count: record.transactionCount,
+                created_by: record.createdBy
+            }]);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Add agent transfer error:', err);
+        return { success: false, message: err.message };
+    }
+};
+
+export const addClientRefundToCloud = async (record: ClientRefundRecord, userId: number) => {
+    try {
+        const { error } = await supabase
+            .from('client_refunds')
+            .insert([{
+                user_id: userId,
+                client_name: record.clientName,
+                amount: record.amount,
+                bank: record.bank,
+                date: record.date,
+                transaction_count: record.transactionCount,
+                created_by: record.createdBy
+            }]);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Add client refund error:', err);
+        return { success: false, message: err.message };
+    }
+};
+
+export const fetchAccountStatementFromCloud = async (userId: number) => {
+    try {
+        const { data, error } = await supabase
+            .from('full_account_statement')
+            .select('*')
+            .eq('user_id', userId)
+            .order('date', { ascending: false });
+        
+        if (error) throw error;
+        
+        return data.map((item: any) => ({
+            id: `${item.record_type}-${item.id}`,
+            type: item.type,
+            title: item.details,
+            amount: Number(item.amount),
+            date: item.date,
+            bank: item.bank
+        }));
+    } catch (err) {
+        console.error('Fetch statement error:', err);
+        return [];
+    }
+};
+
+// ... (Rest of existing functions) ...
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
         const { data: existing } = await supabase

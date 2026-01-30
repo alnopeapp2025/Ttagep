@@ -20,7 +20,8 @@ import {
   addExpenseToCloud,
   Expense,
   getBankNames,
-  deleteEmployee
+  deleteEmployee,
+  fetchAccountStatementFromCloud // NEW
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -42,7 +43,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AlertModal, ConfirmModal } from '@/components/CustomAlerts';
 
-// --- Helper Functions for Salary Logic ---
+// ... (Helper Functions remain same) ...
 const getNextCycleDate = (startDateStr: string) => {
     if (!startDateStr) return null;
     const parts = startDateStr.split('-');
@@ -137,6 +138,7 @@ export default function AccountsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
 
+  // ... (Other states remain same) ...
   const [transferOpen, setTransferOpen] = useState(false);
   const [zeroOpen, setZeroOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
@@ -163,12 +165,10 @@ export default function AccountsPage() {
 
   const [banksList, setBanksList] = useState<string[]>([]);
 
-  // Refs for focusing
   const dateRef = useRef<HTMLInputElement>(null);
   const salaryAmountRef = useRef<HTMLInputElement>(null);
   const commissionRateRef = useRef<HTMLInputElement>(null);
 
-  // Custom Alerts State
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'warning'}>({
       isOpen: false, title: '', message: '', type: 'error'
   });
@@ -195,47 +195,18 @@ export default function AccountsPage() {
             setPendingBalances(accData.pending);
             calculateTotals(accData.balances, accData.pending);
 
+            // Fetch Statement from Cloud View
+            const statement = await fetchAccountStatementFromCloud(targetId);
+            setStatementData(statement);
+
+            // Fetch other data for salaries
             const [txs, exps] = await Promise.all([
                 fetchTransactionsFromCloud(targetId),
                 fetchExpensesFromCloud(targetId)
             ]);
             
-            const transfers = getStoredAgentTransfers();
-
             setTransactions(txs);
             setAllExpenses(exps);
-
-            const statement = [
-                ...txs.map(t => ({ 
-                    id: `tx-${t.id}`,
-                    type: 'deposit', 
-                    title: `إيداع: ${t.type}`,
-                    subTitle: t.clientName,
-                    amount: parseFloat(t.clientPrice) || 0, 
-                    date: t.createdAt,
-                    bank: t.paymentMethod
-                })),
-                ...exps.map(e => ({ 
-                    id: `exp-${e.id}`,
-                    type: 'withdrawal', 
-                    title: `صرف: ${e.title.replace(/\|SD:.*?\|/, '').replace(/\|ED:.*?\|/, '').trim()}`, 
-                    subTitle: 'مصروفات',
-                    amount: e.amount, 
-                    date: e.date,
-                    bank: e.bank
-                })),
-                ...transfers.map(tr => ({
-                    id: `tr-${tr.id}`,
-                    type: 'transfer',
-                    title: `تحويل للمعقب: ${tr.agentName}`,
-                    subTitle: `${tr.transactionCount} معاملة`,
-                    amount: tr.amount,
-                    date: tr.date,
-                    bank: tr.bank
-                }))
-            ].sort((a, b) => b.date - a.date);
-            
-            setStatementData(statement);
 
             const allEmps = getStoredEmployees();
             const myEmps = allEmps.filter(e => e.parentId === targetId);
@@ -246,16 +217,20 @@ export default function AccountsPage() {
             }
 
         } else {
+            // Local Fallback (unchanged)
             const localBal = getStoredBalances();
             const localPending = getStoredPendingBalances();
             setBalances(localBal);
             setPendingBalances(localPending);
             calculateTotals(localBal, localPending);
+            
+            // ... (Local statement construction logic if needed, but cloud preferred) ...
         }
     };
     loadData();
   }, []);
 
+  // ... (Rest of the component remains largely the same, just ensure imports) ...
   useEffect(() => {
       if (selectedEmpId) {
           const config = localStorage.getItem(`salary_config_${selectedEmpId}`);
@@ -462,7 +437,6 @@ export default function AccountsPage() {
 
       if (!selectedEmpId) return;
 
-      // Validation Logic
       if (!salaryStartDate) {
           showAlert("تنبيه", "يرجى اختيار تاريخ بداية العمل", "warning");
           setTimeout(() => dateRef.current?.focus(), 300);
@@ -643,6 +617,7 @@ export default function AccountsPage() {
         message={confirmConfig.message} 
     />
     <div className="max-w-6xl mx-auto pb-20">
+      {/* ... (Header and Treasury Card remain unchanged) ... */}
       <header className="mb-8 flex items-center gap-4">
         <button 
           onClick={() => navigate('/')}
@@ -656,9 +631,7 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      {/* Top Section: Treasury Card & Action Buttons */}
       <div className="mb-6 relative">
-        {/* Treasury Card */}
         <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px] z-10 bg-white">
            <div className="h-[35%] bg-blue-50 flex items-center justify-center relative border-b border-blue-100">
                 <div className="text-center opacity-80">
@@ -682,7 +655,6 @@ export default function AccountsPage() {
            </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex gap-4 justify-center px-4 -mt-6 relative z-20">
             <button 
             onClick={() => {
@@ -795,8 +767,9 @@ export default function AccountsPage() {
             </div>
         </TabsContent>
 
-        {/* Salaries Tab */}
+        {/* Salaries Tab (Unchanged) */}
         <TabsContent value="salaries">
+            {/* ... (Existing Salaries Content) ... */}
             <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
                 <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <Users className="w-5 h-5 text-green-600" />
@@ -825,6 +798,7 @@ export default function AccountsPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
+                        {/* ... (Existing Employee Selection and Forms) ... */}
                         <div className="space-y-2">
                             <Label className="text-gray-700 font-bold">اختر الموظف</Label>
                             <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-1">
@@ -1143,6 +1117,7 @@ export default function AccountsPage() {
         </TabsContent>
       </Tabs>
 
+      {/* ... (Modals remain unchanged) ... */}
       <Dialog open={payModalOpen} onOpenChange={setPayModalOpen}>
           <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
               <DialogHeader>
@@ -1210,6 +1185,7 @@ export default function AccountsPage() {
           setTransferOpen(open);
       }}>
         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+          {/* ... (Transfer Modal Content) ... */}
           <DialogHeader>
             <DialogTitle className="text-center text-xl font-bold">تحويل رصيد</DialogTitle>
           </DialogHeader>
