@@ -308,7 +308,10 @@ export default function ExpensesPage() {
                         <Label>بيان المصروف</Label>
                         <Input 
                             value={title} 
-                            onChange={(e) => setTitle(e.target.value)} 
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (/^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setTitle(val);
+                            }}
                             className="bg-white shadow-3d-inset border-none"
                             placeholder="مثلاً: فواتير كهرباء، ضيافة..."
                         />

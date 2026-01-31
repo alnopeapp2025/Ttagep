@@ -9,7 +9,7 @@ import {
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud,
   getBankNames,
-  addClientRefundToCloud // NEW
+  addClientRefundToCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -18,13 +18,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
 
-// ... (Component logic remains mostly the same, updated handleRefundProcess) ...
-
 function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  // ... (Other states) ...
+  
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
@@ -89,7 +87,6 @@ function ClientsPage() {
     }
   }, [clientTxs]);
 
-  // ... (Helpers) ...
   const validateSaudiNumber = (num: string) => { const regex = /^05\d{8}$/; return regex.test(num); };
 
   const handleImportContact = async () => {
@@ -216,7 +213,6 @@ function ClientsPage() {
         return;
     }
     
-    // Optimistic Update
     const newPending = { ...pendingBalances };
     newPending[selectedBank] = currentPending - totalRefundDue;
     setPendingBalances(newPending);
@@ -289,7 +285,17 @@ function ClientsPage() {
                 <DialogHeader><DialogTitle>{editingClient ? 'تعديل بيانات العميل' : 'إضافة عميل جديد'}</DialogTitle></DialogHeader>
                 {!editingClient && (<button onClick={handleImportContact} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button>)}
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2"><Label>اسم العميل (20 حرف كحد أقصى)</Label><Input value={newClientName} onChange={(e) => { const val = e.target.value; if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setNewClientName(val); }} className="bg-white shadow-3d-inset border-none" /></div>
+                    <div className="space-y-2">
+                        <Label>اسم العميل</Label>
+                        <Input 
+                            value={newClientName} 
+                            onChange={(e) => { 
+                                const val = e.target.value; 
+                                if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setNewClientName(val); 
+                            }} 
+                            className="bg-white shadow-3d-inset border-none" 
+                        />
+                    </div>
                     <div className="space-y-2"><Label>رقم الجوال</Label><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newClientPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientPhone(val); if(errors.phone) setErrors({...errors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{errors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone}</p>}</div>
                     <div className="space-y-2"><Label>رقم الواتساب</Label><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newClientWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientWhatsapp(val); if(errors.whatsapp) setErrors({...errors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}</div>
                     <button onClick={handleAddClient} disabled={loading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingClient ? 'تحديث' : 'حفظ')}</button>
