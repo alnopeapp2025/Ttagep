@@ -51,10 +51,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!/^05\d{8}$/.test(formData.phone)) {
-        alert('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام');
-        return;
-    }
+    // Removed strict phone validation as requested
+    // if (!/^05\d{8}$/.test(formData.phone)) { ... }
 
     setLoading(true);
     
@@ -129,11 +127,12 @@ export default function RegisterPage() {
               <Input 
                 value={formData.phone}
                 onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    // Allow only digits, but no length restriction (variable length)
+                    const val = e.target.value.replace(/\D/g, '');
                     setFormData({...formData, phone: val});
                 }}
                 className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
-                placeholder="05xxxxxxxx"
+                placeholder="أدخل رقم الجوال"
               />
               <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
             </div>
