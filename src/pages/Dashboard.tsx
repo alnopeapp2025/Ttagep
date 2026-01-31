@@ -246,8 +246,6 @@ export default function Dashboard() {
 
   const handleLogout = () => { logoutUser(); navigate('/login'); };
   
-  // ... (Other handlers remain unchanged)
-
   // --- System Reset Handlers ---
   const handleInitiateReset = (action: string) => {
       setResetAction(action);
@@ -286,11 +284,18 @@ export default function Dashboard() {
               success = tSuccess && rSuccess;
               break;
           case 'reports':
-              // Clears EVERYTHING to reset stats
+              // Clears EVERYTHING related to reports/stats
+              // 1. Transactions (General Stats, Quick Stats)
               await deleteAllTransactions(targetId);
+              // 2. Expenses (Expenses Log, Salary Log)
               await deleteAllExpenses(targetId);
+              // 3. Transfers (Agent Transfers Log)
               await deleteAllTransfers(targetId);
+              // 4. Refunds (Client Refunds Log)
               await deleteAllRefunds(targetId);
+              
+              // Note: Employee Reports are derived from these logs, so they are cleared too.
+              // Clients and Agents directories are preserved.
               success = true;
               break;
       }
@@ -735,6 +740,31 @@ export default function Dashboard() {
                             <div className="space-y-2"><Label>إنشاء نسخة احتياطية</Label><button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><Download className="w-4 h-4" /> إنشاء نسخة احتياطية (Create Backup)</button></div>
                             <Separator />
                             <div className="space-y-2"><Label>استعادة نسخة (لصق الكود)</Label><textarea className="w-full h-24 rounded-xl bg-white shadow-3d-inset border-none p-3 text-xs" placeholder="الصق كود النسخة الاحتياطية هنا..." value={restoreText} onChange={(e) => setRestoreText(e.target.value)} /><button onClick={handleRestoreBackup} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><Upload className="w-4 h-4" /> استرجاع نسخة احتياطية (Restore Backup)</button></div>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={mySettingsOpen} onOpenChange={setMySettingsOpen}>
+                    <DialogTrigger asChild>
+                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <Sliders className="w-5 h-5 text-gray-600" /> إعداداتي
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                        <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">إعداداتي</DialogTitle></DialogHeader>
+                        <div className="py-6 space-y-4">
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-center gap-4">
+                                <div className="flex items-center gap-3">{soundEnabled ? <Volume2 className="w-5 h-5 text-blue-600" /> : <VolumeX className="w-5 h-5 text-gray-400" />}<Label className="font-bold text-gray-700">كتم صوت الأزرار</Label></div>
+                                <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex flex-col items-center justify-center gap-2">
+                                <div className="flex items-center gap-4 w-full justify-center">
+                                    <div className="flex items-center gap-3">{hideEarnings ? <EyeOff className="w-5 h-5 text-red-500" /> : <Eye className="w-5 h-5 text-green-500" />}<Label className="font-bold text-gray-700">إخفاء الأرباح</Label></div>
+                                    <Switch checked={hideEarnings} onCheckedChange={toggleHideEarnings} />
+                                </div>
+                                <p className="text-[10px] text-red-500 font-bold mt-1">نقرتين سريعين علي ارباحك لفتح الشاشه</p>
+                            </div>
+                            <button onClick={() => setMySettingsOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
                         </div>
                     </DialogContent>
                   </Dialog>
