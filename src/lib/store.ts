@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-// ... (Existing Constants and Types remain unchanged) ...
+// ... (Existing Constants and Types) ...
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -582,9 +582,6 @@ export const clearAllData = () => {
     window.location.reload();
 };
 
-// ... (Existing Subscription, Auth, etc. functions remain unchanged) ...
-// (Keeping all existing functions like createSubscriptionRequest, loginUser, etc.)
-
 // --- New Cloud Functions for Account Statement ---
 
 export const addAgentTransferToCloud = async (record: AgentTransferRecord, userId: number) => {
@@ -652,6 +649,74 @@ export const fetchAccountStatementFromCloud = async (userId: number) => {
     } catch (err) {
         console.error('Fetch statement error:', err);
         return [];
+    }
+};
+
+// --- Bulk Delete Functions for System Initialization ---
+
+export const deleteAllAgents = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('agents').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all agents error:', e);
+        return false;
+    }
+};
+
+export const deleteAllClients = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('clients').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all clients error:', e);
+        return false;
+    }
+};
+
+export const deleteAllTransactions = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all transactions error:', e);
+        return false;
+    }
+};
+
+export const deleteAllExpenses = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('expenses').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all expenses error:', e);
+        return false;
+    }
+};
+
+export const deleteAllTransfers = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('agent_transfers').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all transfers error:', e);
+        return false;
+    }
+};
+
+export const deleteAllRefunds = async (userId: number) => {
+    try {
+        const { error } = await supabase.from('client_refunds').delete().eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Delete all refunds error:', e);
+        return false;
     }
 };
 

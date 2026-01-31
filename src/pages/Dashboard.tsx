@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle
+  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -32,7 +32,13 @@ import {
   GlobalSettings,
   createEmployee,
   createSubscriptionRequest,
-  createWithdrawalRequest
+  createWithdrawalRequest,
+  deleteAllAgents,
+  deleteAllClients,
+  deleteAllTransactions,
+  deleteAllExpenses,
+  deleteAllTransfers,
+  deleteAllRefunds
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -83,6 +89,13 @@ export default function Dashboard() {
   const [backupOpen, setBackupOpen] = useState(false);
   const [restoreText, setRestoreText] = useState('');
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  
+  // System Reset State
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<'menu' | 'confirm1' | 'confirm2'>('menu');
+  const [resetAction, setResetAction] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [proOpen, setProOpen] = useState(false);
@@ -233,6 +246,68 @@ export default function Dashboard() {
 
   const handleLogout = () => { logoutUser(); navigate('/login'); };
   
+  // ... (Other handlers remain unchanged)
+
+  // --- System Reset Handlers ---
+  const handleInitiateReset = (action: string) => {
+      setResetAction(action);
+      setResetStep('confirm1');
+  };
+
+  const handleConfirmReset = async () => {
+      if (resetStep === 'confirm1') {
+          setResetStep('confirm2');
+          return;
+      }
+
+      if (!currentUser || !resetAction) return;
+      setResetLoading(true);
+
+      const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+      let success = false;
+
+      switch (resetAction) {
+          case 'agents':
+              success = await deleteAllAgents(targetId);
+              break;
+          case 'clients':
+              success = await deleteAllClients(targetId);
+              break;
+          case 'expenses':
+              success = await deleteAllExpenses(targetId);
+              break;
+          case 'transactions':
+              success = await deleteAllTransactions(targetId);
+              break;
+          case 'statement':
+              // Clears Transfers & Refunds (part of statement not covered by others)
+              const tSuccess = await deleteAllTransfers(targetId);
+              const rSuccess = await deleteAllRefunds(targetId);
+              success = tSuccess && rSuccess;
+              break;
+          case 'reports':
+              // Clears EVERYTHING to reset stats
+              await deleteAllTransactions(targetId);
+              await deleteAllExpenses(targetId);
+              await deleteAllTransfers(targetId);
+              await deleteAllRefunds(targetId);
+              success = true;
+              break;
+      }
+
+      setResetLoading(false);
+      if (success) {
+          alert('تم تنفيذ العملية بنجاح');
+          window.location.reload();
+      } else {
+          alert('حدث خطأ أثناء التنفيذ');
+      }
+      setResetOpen(false);
+      setResetStep('menu');
+      setResetAction(null);
+  };
+
+  // ... (Rest of handlers) ...
   const handleCreateEmployee = async () => {
     setEmpError('');
     if (!currentUser || !newEmpName || !newEmpPass) return;
@@ -314,7 +389,6 @@ export default function Dashboard() {
     }
   };
 
-  // ... (Other handlers like handleInquiry, handleCreateBackup etc. remain unchanged)
   const handleInquiry = () => {
     setInquiryError('');
     setFoundTx(null);
@@ -462,7 +536,6 @@ export default function Dashboard() {
       }
   };
 
-  // --- Affiliate Handlers ---
   const handleCopyReferral = () => {
       if (!currentUser) return;
       const link = `${window.location.origin}/register?ref=${currentUser.id}`;
@@ -507,7 +580,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen pb-10">
-      {/* Marquee */}
+      {/* ... (Marquee & Header) ... */}
       <div 
         className="w-full py-2 mb-6 overflow-hidden shadow-sm border-b"
         style={{ 
@@ -618,7 +691,7 @@ export default function Dashboard() {
                   </div>
                   <Separator className="my-2 bg-gray-300/50" />
                   
-                  {/* ... (Inquiry, Backup, Pro Modals remain unchanged) ... */}
+                  {/* ... (Existing Dialogs) ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -666,126 +739,54 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  <Dialog open={proOpen} onOpenChange={resetSubModal}>
-                    {currentUser?.role !== 'golden' && (
-                        <DialogTrigger asChild>
-                            <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
-                                <Crown className="w-5 h-5" /> اشتراك ذهبي Pro
-                                <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
-                            </button>
-                        </DialogTrigger>
-                    )}
-                    <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-lg p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
-                       {/* ... Pro Content ... */}
-                       <button onClick={() => setProOpen(false)} className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"><X className="w-4 h-4" /></button>
-                        <DialogHeader><DialogTitle className="text-2xl font-black text-center mb-1 flex items-center justify-center gap-2"><Crown className="w-6 h-6" /> العضوية الذهبية</DialogTitle></DialogHeader>
-                        {alreadySubscribed ? (
-                             <div className="py-10 text-center animate-in zoom-in">
-                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg"><CheckCircle2 className="w-8 h-8" /></div>
-                                <h3 className="text-xl font-bold">أنت مشترك مسبقاً</h3>
-                                <p className="text-sm mt-2 opacity-90">استمتع بمميزات العضوية الذهبية</p>
-                            </div>
-                        ) : subSuccess ? (
-                            <div className="py-10 text-center animate-in zoom-in">
-                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg"><CheckCircle2 className="w-8 h-8" /></div>
-                                <h3 className="text-xl font-bold">{subSuccess}</h3>
-                            </div>
-                        ) : (
-                            <div className="py-2 space-y-4">
-                                {subStep === 'duration' && (
-                                    <div className="space-y-4 animate-in slide-in-from-right-4">
-                                        <h3 className="text-center font-bold text-lg">اختر الباقة المناسبة</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <button onClick={() => setSelectedDuration('شهر')} className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full ${selectedDuration === 'شهر' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}>
-                                                <div className="text-center mb-2 border-b border-current pb-2 w-full"><div className="text-sm font-bold">باقة شهرية</div><div className="text-3xl font-black">{settings?.packages.monthly.price || 59} <span className="text-xs font-medium">ريال</span></div></div>
-                                                <ul className="space-y-1 text-[10px] w-full">{settings?.packages.monthly.benefits.map((b, i) => (<li key={i} className="flex items-start gap-1"><Check className="w-3 h-3 mt-0.5 shrink-0" /><span>{b}</span></li>))}</ul>
-                                            </button>
-                                            <button onClick={() => setSelectedDuration('سنة')} className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full relative overflow-hidden ${selectedDuration === 'سنة' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}>
-                                                <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">الأكثر توفيراً</div>
-                                                <div className="text-center mb-2 border-b border-current pb-2 w-full"><div className="text-sm font-bold">باقة سنوية</div><div className="text-3xl font-black">{settings?.packages.annual.price || 299} <span className="text-xs font-medium">ريال</span></div></div>
-                                                <ul className="space-y-1 text-[10px] w-full">{settings?.packages.annual.benefits.map((b, i) => (<li key={i} className="flex items-start gap-1"><Check className="w-3 h-3 mt-0.5 shrink-0" /><span>{b}</span></li>))}</ul>
-                                            </button>
-                                        </div>
-                                        <div className="flex gap-2 mt-2"><button onClick={() => { if(selectedDuration) setSubStep('bank'); }} disabled={!selectedDuration} className="w-full py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50">التالي</button></div>
-                                    </div>
-                                )}
-                                {subStep === 'bank' && (
-                                    <div className="space-y-4 animate-in slide-in-from-right-4">
-                                        <h3 className="text-center font-bold text-lg">اختر البنك للتحويل</h3>
-                                        <div className="space-y-2">
-                                            <Label className="text-white/90">البنك المحول إليه</Label>
-                                            <Select onValueChange={(val) => setSelectedBank(val)} value={selectedBank}>
-                                                <SelectTrigger className="bg-white/20 border-white/30 text-white placeholder:text-white/70 h-12 text-right flex-row-reverse"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
-                                                <SelectContent dir="rtl">{settings?.banks.map(bank => (<SelectItem key={bank.id} value={bank.name}>{bank.name}</SelectItem>))}</SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="flex gap-2 mt-2"><button onClick={() => setSubStep('duration')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button><button onClick={() => { if(selectedBank) setSubStep('confirm'); }} disabled={!selectedBank} className="flex-[2] py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">التالي</button></div>
-                                    </div>
-                                )}
-                                {subStep === 'confirm' && (
-                                    <div className="space-y-4 animate-in slide-in-from-right-4 text-center">
-                                        <div className="bg-white/20 p-4 rounded-xl border border-white/30"><AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-200" /><h3 className="font-bold text-lg mb-1">يرجى التحويل الآن</h3><p className="text-sm opacity-90 mb-3">على حساب {selectedBank}</p><div className="bg-white/20 p-2 rounded-lg font-mono text-lg select-all">{settings?.banks.find(b => b.name === selectedBank)?.accountNumber || '---'}</div></div>
-                                        <div className="flex gap-2 mt-2"><button onClick={() => setSubStep('bank')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button><button onClick={handleSubscribe} className="flex-[2] py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600">تأكيد الاشتراك</button></div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={mySettingsOpen} onOpenChange={setMySettingsOpen}>
+                  {/* System Reset Button */}
+                  <Dialog open={resetOpen} onOpenChange={(val) => { if(!val) { setResetStep('menu'); setResetAction(null); } setResetOpen(val); }}>
                     <DialogTrigger asChild>
-                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                            <Sliders className="w-5 h-5 text-gray-600" /> إعداداتي
-                        </button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-                        <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">إعداداتي</DialogTitle></DialogHeader>
-                        <div className="py-6 space-y-4">
-                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">{soundEnabled ? <Volume2 className="w-5 h-5 text-blue-600" /> : <VolumeX className="w-5 h-5 text-gray-400" />}<Label className="font-bold text-gray-700">كتم صوت الأزرار</Label></div>
-                                <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
-                            </div>
-                            
-                            {/* Hide Earnings Toggle */}
-                            <div className="bg-white p-4 rounded-xl shadow-3d-inset flex flex-col gap-2">
-                                <div className="flex items-center justify-between w-full">
-                                    <div className="flex items-center gap-3">
-                                        {hideEarnings ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-blue-600" />}
-                                        <Label className="font-bold text-gray-700">إخفاء الأرباح</Label>
-                                    </div>
-                                    <Switch checked={hideEarnings} onCheckedChange={toggleHideEarnings} />
-                                </div>
-                                <p className="text-[10px] text-red-500 font-bold text-center mt-1">نقرتين سريعين علي ارباحك لفتح الشاشه</p>
-                            </div>
-
-                            <button onClick={() => setMySettingsOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
-                        </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Admin Button Removed as requested */}
-
-                  <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                    <DialogTrigger asChild>
-                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                        <Trash2 className="w-5 h-5 text-red-600" /> بيانات النظام
+                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
+                        <RefreshCw className="w-5 h-5" /> تهيئة النظام
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
-                      <DialogHeader><DialogTitle>إدارة وحذف البيانات</DialogTitle></DialogHeader>
-                      <div className="space-y-3 py-4">
-                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعقبين؟')) { clearAgents(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعقبين</button>
-                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع العملاء؟')) { clearClients(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف العملاء</button>
-                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعاملات؟')) { clearTransactions(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعاملات</button>
-                        <div className="pt-4"><button onClick={() => setDeleteAllConfirm(true)} className="w-full py-4 bg-red-600 text-white rounded-xl font-black shadow-lg flex items-center justify-center gap-2 animate-pulse"><AlertTriangle className="w-5 h-5" /> حذف الكل (تهيئة النظام)</button></div>
-                        {deleteAllConfirm && (
-                          <div className="bg-red-100 border-2 border-red-500 p-4 rounded-xl mt-4 text-center animate-in zoom-in">
-                            <p className="text-red-800 font-bold mb-3">تحذير شديد اللهجة: سيتم حذف جميع البيانات نهائياً ولا يمكن استعادتها!</p>
-                            <div className="flex gap-2"><button onClick={() => { clearAllData(); window.location.reload(); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold">نعم، احذف كل شيء</button><button onClick={() => setDeleteAllConfirm(false)} className="flex-1 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold">إلغاء</button></div>
-                          </div>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                        <DialogHeader><DialogTitle className="text-center text-xl font-black text-red-600 flex items-center justify-center gap-2"><AlertTriangle className="w-6 h-6" /> تهيئة النظام وحذف البيانات</DialogTitle></DialogHeader>
+                        
+                        {resetStep === 'menu' && (
+                            <div className="py-4 space-y-3">
+                                <button onClick={() => handleInitiateReset('agents')} className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:text-red-600 text-right px-4 flex items-center justify-between"><span>حذف المعقبين</span><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleInitiateReset('clients')} className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:text-red-600 text-right px-4 flex items-center justify-between"><span>حذف العملاء</span><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleInitiateReset('expenses')} className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:text-red-600 text-right px-4 flex items-center justify-between"><span>حذف المنصرفات</span><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleInitiateReset('transactions')} className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:text-red-600 text-right px-4 flex items-center justify-between"><span>حذف المعاملات</span><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleInitiateReset('statement')} className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold shadow-sm hover:bg-red-50 hover:text-red-600 text-right px-4 flex items-center justify-between"><span>حذف كشف الحساب (تحويلات/مرتجعات)</span><Trash2 className="w-4 h-4" /></button>
+                                <div className="pt-2 border-t border-gray-200 mt-2">
+                                    <button onClick={() => handleInitiateReset('reports')} className="w-full py-4 bg-red-600 text-white rounded-xl font-black shadow-lg hover:bg-red-700 flex items-center justify-center gap-2 animate-pulse"><Trash2 className="w-5 h-5" /> حذف بيانات التقارير والإحصائيات (تصفير شامل)</button>
+                                </div>
+                            </div>
                         )}
-                      </div>
+
+                        {resetStep === 'confirm1' && (
+                            <div className="py-6 text-center space-y-4 animate-in zoom-in">
+                                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto text-yellow-600"><AlertTriangle className="w-8 h-8" /></div>
+                                <h3 className="text-lg font-bold text-gray-800">هل أنت متأكد من تنفيذ هذا الإجراء؟</h3>
+                                <p className="text-sm text-gray-500">سيتم حذف البيانات المحددة بشكل نهائي.</p>
+                                <div className="flex gap-3 pt-2">
+                                    <button onClick={handleConfirmReset} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">نعم، متأكد</button>
+                                    <button onClick={() => setResetStep('menu')} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold">إلغاء</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {resetStep === 'confirm2' && (
+                            <div className="py-6 text-center space-y-4 animate-in zoom-in">
+                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-600 border-4 border-red-50"><AlertTriangle className="w-8 h-8" /></div>
+                                <h3 className="text-lg font-black text-red-600">تأكيد نهائي وأخير!</h3>
+                                <p className="text-sm text-gray-600 font-bold">لا يمكن التراجع عن هذه العملية أبداً. هل أنت موافق تماماً؟</p>
+                                <div className="flex gap-3 pt-2">
+                                    <button onClick={handleConfirmReset} disabled={resetLoading} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold flex items-center justify-center gap-2">
+                                        {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'نعم، احذف الآن'}
+                                    </button>
+                                    <button onClick={() => setResetStep('menu')} disabled={resetLoading} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold">تراجع</button>
+                                </div>
+                            </div>
+                        )}
                     </DialogContent>
                   </Dialog>
 
@@ -802,23 +803,21 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* ... (Rest of Dashboard Content: Affiliate, Modals, Grid, etc.) ... */}
         {/* Affiliate Modal */}
         <Dialog open={affiliateOpen} onOpenChange={setAffiliateOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-                {/* ... (Affiliate modal content remains same) ... */}
                 <DialogHeader>
                     <DialogTitle className="text-center text-xl font-black text-gray-800 flex items-center justify-center gap-2">
                         <Coins className="w-6 h-6 text-yellow-500" />
                         نظام الأرباح والتسويق
                     </DialogTitle>
                 </DialogHeader>
-                
                 <div className="py-4 space-y-6">
                     <div className="bg-white p-4 rounded-2xl shadow-3d-inset text-center border border-yellow-100">
                         <p className="text-gray-500 font-bold mb-1">رصيد أرباحك الحالي</p>
                         <h2 className="text-4xl font-black text-green-600">{currentUser?.affiliateBalance || 0} <span className="text-lg">ريال</span></h2>
                     </div>
-
                     <div className="bg-red-50 p-3 rounded-xl border border-red-100 mb-2">
                         <p className="text-red-600 font-bold text-xs mb-2">لتربح 50 ريال لكل عميل اشترك عبر رابطك:</p>
                         <ul className="text-[10px] text-red-500 space-y-1 list-decimal list-inside font-medium leading-relaxed">
@@ -827,41 +826,18 @@ export default function Dashboard() {
                             <li>لسحبه أضغط على سحب الرصيد وينزل بحسابك الراجحي أو الأهلي فوراً.</li>
                         </ul>
                     </div>
-
                     <div className="space-y-2">
                         <Label className="text-blue-600 font-bold">رابط الإحالة الخاص بك</Label>
                         <div className="flex gap-2">
                             <div className="flex-1 bg-white p-3 rounded-xl shadow-sm text-xs text-gray-500 truncate font-mono border border-gray-100">
                                 {currentUser ? `${window.location.origin}/register?ref=${currentUser.id}` : '...'}
                             </div>
-                            <button 
-                                onClick={handleCopyReferral}
-                                className="bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-700 transition-all"
-                            >
-                                <Copy className="w-4 h-4" />
-                            </button>
+                            <button onClick={handleCopyReferral} className="bg-blue-600 text-white p-3 rounded-xl shadow-lg hover:bg-blue-700 transition-all"><Copy className="w-4 h-4" /></button>
                         </div>
-                        <p className="text-xs text-gray-500 leading-relaxed mt-2">
-                            سجل في تطبيق مان هوبات لإدارة مكاتب الخدمات العامه واستفد من المزايا المتعدده..
-                            <br/>
-                            <span className="font-mono text-blue-600">Www.manhobat.com</span>
-                        </p>
+                        <p className="text-xs text-gray-500 leading-relaxed mt-2">سجل في تطبيق مان هوبات لإدارة مكاتب الخدمات العامه واستفد من المزايا المتعدده..<br/><span className="font-mono text-blue-600">Www.manhobat.com</span></p>
                     </div>
-
-                    <button 
-                        onClick={() => setWithdrawOpen(true)}
-                        disabled={(currentUser?.affiliateBalance || 0) < 110}
-                        className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Wallet className="w-5 h-5" />
-                        سحب الرصيد
-                    </button>
-                    
-                    {(currentUser?.affiliateBalance || 0) >= 50 && (currentUser?.affiliateBalance || 0) < 110 && (
-                        <p className="text-center text-xs text-red-500 font-bold">
-                            الحد الأدنى للسحب هو 110 ريال
-                        </p>
-                    )}
+                    <button onClick={() => setWithdrawOpen(true)} disabled={(currentUser?.affiliateBalance || 0) < 110} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"><Wallet className="w-5 h-5" /> سحب الرصيد</button>
+                    {(currentUser?.affiliateBalance || 0) >= 50 && (currentUser?.affiliateBalance || 0) < 110 && (<p className="text-center text-xs text-red-500 font-bold">الحد الأدنى للسحب هو 110 ريال</p>)}
                 </div>
             </DialogContent>
         </Dialog>
@@ -869,51 +845,21 @@ export default function Dashboard() {
         {/* Withdraw Request Modal */}
         <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-                {/* ... (Withdraw modal content remains same) ... */}
-                <DialogHeader>
-                    <DialogTitle className="text-center text-xl font-bold text-gray-800">طلب سحب الرصيد</DialogTitle>
-                </DialogHeader>
-                
+                <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">طلب سحب الرصيد</DialogTitle></DialogHeader>
                 {withdrawSuccess ? (
-                    <div className="py-10 text-center animate-in zoom-in">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg">
-                            <CheckCircle2 className="w-8 h-8" />
-                        </div>
-                        <h3 className="text-lg font-bold text-green-700">تم إرسال طلب السحب بنجاح</h3>
-                    </div>
+                    <div className="py-10 text-center animate-in zoom-in"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg"><CheckCircle2 className="w-8 h-8" /></div><h3 className="text-lg font-bold text-green-700">تم إرسال طلب السحب بنجاح</h3></div>
                 ) : (
                     <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                            <Label>المبلغ المراد سحبه</Label>
-                            <Input 
-                                value={`${currentUser?.affiliateBalance || 0} ريال`}
-                                disabled
-                                className="bg-gray-100 border-none text-center font-bold text-green-600"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>رقم حساب الراجحي</Label>
-                            <Input 
-                                value={rajhiAccount}
-                                onChange={(e) => setRajhiAccount(e.target.value)}
-                                placeholder="SA..."
-                                className="bg-white shadow-3d-inset border-none"
-                                dir="ltr"
-                            />
-                        </div>
+                        <div className="space-y-2"><Label>المبلغ المراد سحبه</Label><Input value={`${currentUser?.affiliateBalance || 0} ريال`} disabled className="bg-gray-100 border-none text-center font-bold text-green-600" /></div>
+                        <div className="space-y-2"><Label>رقم حساب الراجحي</Label><Input value={rajhiAccount} onChange={(e) => setRajhiAccount(e.target.value)} placeholder="SA..." className="bg-white shadow-3d-inset border-none" dir="ltr" /></div>
                         {withdrawError && <p className="text-red-500 text-xs font-bold text-center">{withdrawError}</p>}
-                        <button 
-                            onClick={handleWithdraw}
-                            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
-                        >
-                            إرسال الطلب
-                        </button>
+                        <button onClick={handleWithdraw} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all">إرسال الطلب</button>
                     </div>
                 )}
             </DialogContent>
         </Dialog>
 
-        {/* ... (Existing Grid, Ticker, Modals) ... */}
+        {/* Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-5 sm:gap-8">
           <DashboardButton icon={FileText} label="المعاملات" locked={!canAccessPage('transactions')} onClick={() => handlePageClick('transactions', '/transactions')} />
           <DashboardButton icon={Wallet} label="الحسابات" locked={!canAccessPage('accounts')} onClick={() => handlePageClick('accounts', '/accounts')} />
@@ -928,7 +874,6 @@ export default function Dashboard() {
 
         <div className="my-10"><Separator className="bg-gray-300" /></div>
 
-        {/* ... (Achievers, Ticker, Footer) ... */}
         <div id="achievers-section" className="mb-12 scroll-mt-10">
           <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2"><Trophy className="w-6 h-6 text-yellow-500" /> قائمة أفضل المنجزين</h3>
           {achievers.length === 0 ? (
@@ -972,45 +917,21 @@ export default function Dashboard() {
         {/* Footer Buttons Section */}
         <div className="max-w-6xl mx-auto px-4 mt-8 mb-4">
             <div className="flex justify-between items-end gap-4">
-                
-                {/* Right Side: Download App (Visible to All) */}
-                <a 
-                    href="https://play.google.com/store/apps/details?id=apli3885642.ofh"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 bg-gray-800 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-gray-900 transition-all transform hover:-translate-y-1"
-                >
+                <a href="https://play.google.com/store/apps/details?id=apli3885642.ofh" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-gray-800 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-gray-900 transition-all transform hover:-translate-y-1">
                     <Smartphone className="w-6 h-6" />
-                    <div className="text-right">
-                        <p className="text-[9px] opacity-80 font-normal">حمل التطبيق من</p>
-                        <p className="text-xs font-bold">Google Play</p>
-                    </div>
+                    <div className="text-right"><p className="text-[9px] opacity-80 font-normal">حمل التطبيق من</p><p className="text-xs font-bold">Google Play</p></div>
                 </a>
-
-                {/* Left Side: Support (Golden Only) */}
                 {currentUser?.role === 'golden' && (
-                    <a 
-                        href="https://wa.me/966501148480"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-green-600 transition-all transform hover:-translate-y-1"
-                    >
+                    <a href="https://wa.me/966501148480" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-2xl shadow-lg hover:bg-green-600 transition-all transform hover:-translate-y-1">
                         <MessageCircle className="w-6 h-6" />
-                        <div className="text-right">
-                            <p className="text-[9px] opacity-80 font-normal">الدعم الفني</p>
-                            <p className="text-xs font-bold">24 ساعة</p>
-                        </div>
+                        <div className="text-right"><p className="text-[9px] opacity-80 font-normal">الدعم الفني</p><p className="text-xs font-bold">24 ساعة</p></div>
                     </a>
                 )}
             </div>
-            
-            {/* Existing Copyright */}
-            <div className="mt-6 flex flex-col items-center gap-3 text-gray-500">
-                <p className="text-[10px] opacity-60">جميع الحقوق محفوظة © 2025</p>
-            </div>
+            <div className="mt-6 flex flex-col items-center gap-3 text-gray-500"><p className="text-[10px] opacity-60">جميع الحقوق محفوظة © 2025</p></div>
         </div>
 
-        {/* Profile Modal */}
+        {/* ... (Existing Profile, Change Pass, Create Emp, Onboarding Modals) ... */}
         <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
             <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                 <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">الملف الشخصي</DialogTitle></DialogHeader>
@@ -1154,7 +1075,6 @@ export default function Dashboard() {
             </DialogContent>
         </Dialog>
 
-        {/* ... (Onboarding Modal remains unchanged) ... */}
         <Dialog open={onboardingOpen} onOpenChange={(val) => { if(!val) { if (currentUser) { localStorage.setItem(`moaqeb_onboarding_seen_${currentUser.id}`, 'true'); } setOnboardingOpen(false); } }}>
             <DialogContent className="bg-gradient-to-br from-yellow-50 via-slate-50 to-yellow-50 border-4 border-double border-yellow-400 shadow-3d rounded-3xl max-w-md p-8" dir="rtl">
                 <div className="text-center space-y-6">
