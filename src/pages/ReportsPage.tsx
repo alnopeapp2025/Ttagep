@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, UserCheck, ArrowRightLeft, UserPlus, Receipt, History, BarChart3, RotateCcw, TrendingDown, Wallet } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, UserCheck, ArrowRightLeft, UserPlus, Receipt, History, BarChart3, RotateCcw, TrendingDown, Wallet, Trash2 } from 'lucide-react';
 import { 
     getStoredTransactions, Transaction, 
     getStoredAgentTransfers, AgentTransferRecord, 
@@ -9,11 +9,13 @@ import {
     getStoredEmployees, User,
     fetchClientsFromCloud, Client,
     fetchAgentsFromCloud, Agent,
-    fetchExpensesFromCloud, Expense
+    fetchExpensesFromCloud, Expense,
+    deleteAllTransfers // Import delete function
 } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from '@/lib/supabase';
+import { AlertModal, ConfirmModal } from '@/components/CustomAlerts'; // Import Custom Alerts
 
 export default function ReportsPage() {
   const navigate = useNavigate();
@@ -50,6 +52,14 @@ export default function ReportsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTitle, setDetailTitle] = useState('');
   const [detailList, setDetailList] = useState<Transaction[]>([]);
+
+  // Alert & Confirm State
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'warning'}>({
+      isOpen: false, title: '', message: '', type: 'error'
+  });
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({
+      isOpen: false, title: '', message: '', onConfirm: () => {}
+  });
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -229,6 +239,25 @@ export default function ReportsPage() {
     setDetailOpen(true);
   };
 
+  const handleDeleteAllTransfers = () => {
+      setConfirmConfig({
+          isOpen: true,
+          title: "حذف سجل التحويلات",
+          message: "هل أنت متأكد من حذف سجل تحويلات المعقبين بالكامل؟ لا يمكن التراجع عن هذا الإجراء.",
+          onConfirm: async () => {
+              if (!currentUser) return;
+              const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+              const success = await deleteAllTransfers(targetId);
+              if (success) {
+                  setAgentTransfers([]);
+                  setAlertConfig({ isOpen: true, title: "تم الحذف", message: "تم حذف السجل بنجاح", type: "success" });
+              } else {
+                  setAlertConfig({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء الحذف", type: "error" });
+              }
+          }
+      });
+  };
+
   const handleEmployeeClick = (emp: User) => {
       // 1. Transactions
       const empTxs = transactions.filter(t => 
@@ -312,6 +341,21 @@ export default function ReportsPage() {
   );
 
   return (
+    <>
+    <AlertModal 
+        isOpen={alertConfig.isOpen} 
+        onClose={() => setAlertConfig({...alertConfig, isOpen: false})} 
+        title={alertConfig.title} 
+        message={alertConfig.message} 
+        type={alertConfig.type} 
+    />
+    <ConfirmModal 
+        isOpen={confirmConfig.isOpen} 
+        onClose={() => setConfirmConfig({...confirmConfig, isOpen: false})} 
+        onConfirm={confirmConfig.onConfirm} 
+        title={confirmConfig.title} 
+        message={confirmConfig.message} 
+    />
     <div className="max-w-6xl mx-auto pb-20">
       <header className="mb-4 flex items-center gap-4">
         <button 
@@ -479,6 +523,17 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="agent-transfers">
+            {agentTransfers.length > 0 && (
+                <div className="flex justify-end mb-4 px-2">
+                    <button 
+                        onClick={handleDeleteAllTransfers}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-all shadow-sm border border-red-100"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        حذف السجل بالكامل
+                    </button>
+                </div>
+            )}
             <div className="space-y-3">
                 {agentTransfers.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
@@ -792,5 +847,6 @@ export default function ReportsPage() {
       </Dialog>
 
     </div>
+    </>
   );
 }
