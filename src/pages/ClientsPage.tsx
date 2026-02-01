@@ -67,14 +67,38 @@ function ClientsPage() {
   useEffect(() => {
     if (!currentUser) return;
     const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-    const channel = supabase
+    
+    // Subscribe to Clients
+    const clientChannel = supabase
       .channel('clients-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: `user_id=eq.${targetId}` }, (payload) => {
           fetchClientsFromCloud(targetId).then(data => { setClients(data); });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Subscribe to Transactions (To update list immediately)
+    const txChannel = supabase
+      .channel('clients-tx-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, (payload) => {
+          fetchTransactionsFromCloud(targetId).then(data => { 
+              setAllTransactions(data); 
+          });
+      })
+      .subscribe();
+
+    return () => { 
+        supabase.removeChannel(clientChannel); 
+        supabase.removeChannel(txChannel);
+    };
   }, [currentUser]);
+
+  // NEW: Sync selected client transactions immediately when allTransactions changes
+  useEffect(() => {
+      if (selectedClient && allTransactions.length > 0) {
+          const filtered = allTransactions.filter(t => t.clientName === selectedClient.name);
+          setClientTxs(filtered);
+      }
+  }, [allTransactions, selectedClient]);
 
   useEffect(() => {
     if (clientTxs.length > 0) {

@@ -75,14 +75,38 @@ function AgentsPage() {
   useEffect(() => {
     if (!currentUser) return;
     const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-    const channel = supabase
+    
+    // Subscribe to Agents
+    const agentChannel = supabase
       .channel('agents-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agents', filter: `user_id=eq.${targetId}` }, (payload) => {
           fetchAgentsFromCloud(targetId).then(data => { setAgents(data); });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Subscribe to Transactions (To update list immediately)
+    const txChannel = supabase
+      .channel('agents-tx-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, (payload) => {
+          fetchTransactionsFromCloud(targetId).then(data => { 
+              setAllTransactions(data); 
+          });
+      })
+      .subscribe();
+
+    return () => { 
+        supabase.removeChannel(agentChannel); 
+        supabase.removeChannel(txChannel);
+    };
   }, [currentUser]);
+
+  // NEW: Sync selected agent transactions immediately when allTransactions changes
+  useEffect(() => {
+      if (selectedAgent && allTransactions.length > 0) {
+          const filtered = allTransactions.filter(t => t.agent === selectedAgent.name);
+          setAgentTxs(filtered);
+      }
+  }, [allTransactions, selectedAgent]);
 
   useEffect(() => {
     if (agentTxs.length > 0) {
