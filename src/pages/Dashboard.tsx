@@ -744,6 +744,70 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
+                  <Dialog open={proOpen} onOpenChange={resetSubModal}>
+                    <DialogTrigger asChild>
+                        <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
+                            <Crown className="w-5 h-5" /> اشتراك ذهبي Pro
+                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-lg p-6 max-h-[90vh] overflow-y-auto" dir="rtl">
+                        <button onClick={() => setProOpen(false)} className="absolute top-4 left-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors text-white"><X className="w-4 h-4" /></button>
+                        <DialogHeader><DialogTitle className="text-2xl font-black text-center mb-1 flex items-center justify-center gap-2"><Crown className="w-6 h-6" /> العضوية الذهبية</DialogTitle></DialogHeader>
+                        {alreadySubscribed ? (
+                             <div className="py-10 text-center animate-in zoom-in">
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg"><CheckCircle2 className="w-8 h-8" /></div>
+                                <h3 className="text-xl font-bold">أنت مشترك مسبقاً</h3>
+                                <p className="text-sm mt-2 opacity-90">استمتع بمميزات العضوية الذهبية</p>
+                            </div>
+                        ) : subSuccess ? (
+                            <div className="py-10 text-center animate-in zoom-in">
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-green-600 mx-auto mb-4 shadow-lg"><CheckCircle2 className="w-8 h-8" /></div>
+                                <h3 className="text-xl font-bold">{subSuccess}</h3>
+                            </div>
+                        ) : (
+                            <div className="py-2 space-y-4">
+                                {subStep === 'duration' && (
+                                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                                        <h3 className="text-center font-bold text-lg">اختر الباقة المناسبة</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <button onClick={() => setSelectedDuration('شهر')} className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full ${selectedDuration === 'شهر' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}>
+                                                <div className="text-center mb-2 border-b border-current pb-2 w-full"><div className="text-sm font-bold">باقة شهرية</div><div className="text-3xl font-black">{settings?.packages.monthly.price || 59} <span className="text-xs font-medium">ريال</span></div></div>
+                                                <ul className="space-y-1 text-[10px] w-full">{settings?.packages.monthly.benefits.map((b, i) => (<li key={i} className="flex items-start gap-1"><Check className="w-3 h-3 mt-0.5 shrink-0" /><span>{b}</span></li>))}</ul>
+                                            </button>
+                                            <button onClick={() => setSelectedDuration('سنة')} className={`p-4 rounded-xl border-2 transition-all text-right flex flex-col h-full relative overflow-hidden ${selectedDuration === 'سنة' ? 'bg-white text-yellow-900 border-white' : 'bg-white/10 border-white/30 hover:bg-white/20 text-white'}`}>
+                                                <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">الأكثر توفيراً</div>
+                                                <div className="text-center mb-2 border-b border-current pb-2 w-full"><div className="text-sm font-bold">باقة سنوية</div><div className="text-3xl font-black">{settings?.packages.annual.price || 299} <span className="text-xs font-medium">ريال</span></div></div>
+                                                <ul className="space-y-1 text-[10px] w-full">{settings?.packages.annual.benefits.map((b, i) => (<li key={i} className="flex items-start gap-1"><Check className="w-3 h-3 mt-0.5 shrink-0" /><span>{b}</span></li>))}</ul>
+                                            </button>
+                                        </div>
+                                        <div className="flex gap-2 mt-2"><button onClick={() => { if(selectedDuration) setSubStep('bank'); }} disabled={!selectedDuration} className="w-full py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50">التالي</button></div>
+                                    </div>
+                                )}
+                                {subStep === 'bank' && (
+                                    <div className="space-y-4 animate-in slide-in-from-right-4">
+                                        <h3 className="text-center font-bold text-lg">اختر البنك للتحويل</h3>
+                                        <div className="space-y-2">
+                                            <Label className="text-white/90">البنك المحول إليه</Label>
+                                            <Select onValueChange={(val) => setSelectedBank(val)} value={selectedBank}>
+                                                <SelectTrigger className="bg-white/20 border-white/30 text-white placeholder:text-white/70 h-12 text-right flex-row-reverse"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
+                                                <SelectContent dir="rtl">{settings?.banks.map(bank => (<SelectItem key={bank.id} value={bank.name}>{bank.name}</SelectItem>))}</SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex gap-2 mt-2"><button onClick={() => setSubStep('duration')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button><button onClick={() => { if(selectedBank) setSubStep('confirm'); }} disabled={!selectedBank} className="flex-[2] py-3 bg-white text-yellow-700 rounded-xl font-bold shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">التالي</button></div>
+                                    </div>
+                                )}
+                                {subStep === 'confirm' && (
+                                    <div className="space-y-4 animate-in slide-in-from-right-4 text-center">
+                                        <div className="bg-white/20 p-4 rounded-xl border border-white/30"><AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-200" /><h3 className="font-bold text-lg mb-1">يرجى التحويل الآن</h3><p className="text-sm opacity-90 mb-3">على حساب {selectedBank}</p><div className="bg-white/20 p-2 rounded-lg font-mono text-lg select-all">{settings?.banks.find(b => b.name === selectedBank)?.accountNumber || '---'}</div></div>
+                                        <div className="flex gap-2 mt-2"><button onClick={() => setSubStep('bank')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button><button onClick={handleSubscribe} className="flex-[2] py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600">تأكيد الاشتراك</button></div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </DialogContent>
+                  </Dialog>
+
                   <Dialog open={mySettingsOpen} onOpenChange={setMySettingsOpen}>
                     <DialogTrigger asChild>
                         <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
