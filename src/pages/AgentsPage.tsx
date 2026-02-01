@@ -10,7 +10,9 @@ import {
   getCurrentUser, User,
   addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit, updateAgentInCloud, deleteAgentFromCloud,
   getBankNames,
-  addAgentTransferToCloud
+  addAgentTransferToCloud,
+  updateAccountInCloud,
+  fetchAccountsFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -35,6 +37,7 @@ function AgentsPage() {
   const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
   const [balances, setBalances] = useState<Record<string, number>>({});
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -47,6 +50,7 @@ function AgentsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setBalances(getStoredBalances());
+    setPendingBalances(getStoredPendingBalances());
     setBanksList(getBankNames());
     const loadData = async () => {
         if (user) {
@@ -56,6 +60,10 @@ function AgentsPage() {
             const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs); 
+            fetchAccountsFromCloud(targetId).then(data => {
+                setBalances(data.balances);
+                setPendingBalances(data.pending);
+            });
         } else {
             setAgents(getStoredAgents());
             setAllTransactions(getStoredTransactions());
@@ -186,6 +194,7 @@ function AgentsPage() {
     setTransferError('');
     setSelectedBank('');
     setBalances(getStoredBalances());
+    setPendingBalances(getStoredPendingBalances());
   };
 
   const handleEditAgent = (e: React.MouseEvent, agent: Agent) => {
@@ -223,14 +232,17 @@ function AgentsPage() {
         return;
     }
     
+    // Deduct from Actual Balance (since money was moved to Actual on completion)
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     setBalances(newBalances);
     
-    const pendingBalances = getStoredPendingBalances();
+    // Pending Balances (Agent share is theoretically pending, but money is in Actual)
+    // We update Pending just to reflect that the "liability" is gone
     const currentPending = pendingBalances[selectedBank] || 0;
     const newPending = { ...pendingBalances };
     newPending[selectedBank] = Math.max(0, currentPending - totalDue);
+    setPendingBalances(newPending);
     
     const paidTxIds: number[] = [];
     const updatedTxs = allTransactions.map(t => {
@@ -255,6 +267,8 @@ function AgentsPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addAgentTransferToCloud(transferRecord, targetId);
+        // Update Account in Cloud (Deduct from Actual)
+        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], newPending[selectedBank]);
     } else {
         saveStoredBalances(newBalances);
         saveStoredPendingBalances(newPending);

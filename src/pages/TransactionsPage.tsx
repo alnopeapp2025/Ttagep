@@ -551,16 +551,27 @@ export default function TransactionsPage() {
     const bank = tx.paymentMethod;
     const newPending = { ...pendingBalances };
     const newBalances = { ...balances };
+
     if (newStatus === 'completed' && tx.status === 'active') {
+        // Move from Pending to Actual
         newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
-        newPending[bank] = (newPending[bank] || 0) + agentP;
         newBalances[bank] = (newBalances[bank] || 0) + clientP;
         setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
     }
-    if (newStatus === 'cancelled' && tx.status === 'active') {
-         newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
+    
+    if (newStatus === 'cancelled') {
+         // Logic for Cancellation: Freeze in Pending
+         if (tx.status === 'completed') {
+             // If it was completed (in Actual), move back to Pending (Frozen)
+             newBalances[bank] = Math.max(0, (newBalances[bank] || 0) - clientP);
+             newPending[bank] = (newPending[bank] || 0) + clientP;
+         }
+         // If it was 'active', it is ALREADY in Pending (from creation), so we do nothing to balances.
+         // We just mark it as cancelled so it can be refunded later.
+         
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
     }
+
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const success = await updateTransactionStatusInCloud(id, { status: newStatus });
@@ -570,14 +581,17 @@ export default function TransactionsPage() {
         }
         await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, newPending[bank] || 0);
     }
+
     setPendingBalances(newPending);
     setBalances(newBalances);
     updateBalancesDisplay(newBalances);
     setTimeout(() => setFeedbackMsg(null), 2000);
+    
     const updatedTxs = transactions.map(t => 
       t.id === id ? { ...t, status: newStatus } : t
     );
     setTransactions(updatedTxs);
+    
     if (!currentUser) {
         saveStoredTransactions(updatedTxs);
         saveStoredPendingBalances(newPending);
@@ -664,7 +678,7 @@ export default function TransactionsPage() {
                  {formData.agent !== 'إنجاز بنفسي' && (
                     <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label><div className="relative"><Input ref={agentPriceRef} type="number" placeholder="0" value={formData.agentPrice} onChange={(e) => { setFormData({...formData, agentPrice: e.target.value}); if(errors.agentPrice) setErrors({...errors, agentPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, clientPriceRef)} className={cn("pl-10 text-left font-bold text-gray-600 h-10 text-sm", errors.agentPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span></div></div>
                  )}
-                <div className={cn("space-y-1", formData.agent === 'إنجاز بنفسي' ? "col-span-2" : "")}><Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label><div className="relative"><Input ref={clientPriceRef} type="number" placeholder="0" value={formData.clientPrice} onChange={(e) => { setFormData({...formData, clientPrice: e.target.value}); if(errors.clientPrice) setErrors({...errors, clientPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, durationRef)} className={cn("pl-10 text-left font-bold text-blue-600 h-10 text-sm", errors.clientPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span></div></div>
+                <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label><div className="relative"><Input ref={clientPriceRef} type="number" placeholder="0" value={formData.clientPrice} onChange={(e) => { setFormData({...formData, clientPrice: e.target.value}); if(errors.clientPrice) setErrors({...errors, clientPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, durationRef)} className={cn("pl-10 text-left font-bold text-blue-600 h-10 text-sm", errors.clientPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span></div></div>
               </div>
                <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">العميل</Label>
@@ -705,11 +719,13 @@ export default function TransactionsPage() {
                         <div className="flex justify-between items-center mb-2">
                             <DialogTitle className="text-center font-bold text-gray-800 flex-1">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
                             <div className="flex gap-2">
-                                {/* Hide Edit Button if Completed */}
-                                {tx.status !== 'completed' && (
-                                    <button onClick={() => handleEditTransaction(tx)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"><Pencil className="w-4 h-4" /></button>
+                                {/* Hide Edit/Delete if Completed OR Cancelled */}
+                                {tx.status !== 'completed' && tx.status !== 'cancelled' && (
+                                    <>
+                                        <button onClick={() => handleEditTransaction(tx)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"><Pencil className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDeleteTransaction(tx.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </>
                                 )}
-                                <button onClick={() => handleDeleteTransaction(tx.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
                             </div>
                         </div>
                     </DialogHeader>
