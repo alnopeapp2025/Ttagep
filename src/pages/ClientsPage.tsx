@@ -5,12 +5,15 @@ import {
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, saveStoredTransactions, Transaction,
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
+  getStoredBalances, saveStoredBalances, // Added for Actual Balance
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud,
   getBankNames,
   addClientRefundToCloud,
-  markTransactionsAsClientRefunded // NEW
+  markTransactionsAsClientRefunded,
+  fetchAccountsFromCloud, // Added
+  updateAccountInCloud // Added
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -34,7 +37,11 @@ function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [refundStep, setRefundStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
-  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
+  
+  // State for Balances
+  const [balances, setBalances] = useState<Record<string, number>>({}); // Actual Balance
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({}); // Pending Balance (kept for reference)
+  
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -46,6 +53,9 @@ function ClientsPage() {
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
+    
+    // Load Local Balances initially
+    setBalances(getStoredBalances());
     setPendingBalances(getStoredPendingBalances());
     setBanksList(getBankNames());
     
@@ -57,6 +67,12 @@ function ClientsPage() {
             const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs);
+            
+            // Fetch Latest Account Balances (Actual & Pending)
+            fetchAccountsFromCloud(targetId).then(data => {
+                setBalances(data.balances);
+                setPendingBalances(data.pending);
+            });
         } else {
             setClients(getStoredClients());
             setAllTransactions(getStoredTransactions());
@@ -77,7 +93,7 @@ function ClientsPage() {
       })
       .subscribe();
 
-    // Subscribe to Transactions (To update list immediately)
+    // Subscribe to Transactions
     const txChannel = supabase
       .channel('clients-tx-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, (payload) => {
@@ -93,7 +109,6 @@ function ClientsPage() {
     };
   }, [currentUser]);
 
-  // NEW: Sync selected client transactions immediately when allTransactions changes
   useEffect(() => {
       if (selectedClient && allTransactions.length > 0) {
           const filtered = allTransactions.filter(t => t.clientName === selectedClient.name);
@@ -200,6 +215,8 @@ function ClientsPage() {
     setRefundStep('summary');
     setRefundError('');
     setSelectedBank('');
+    // Refresh balances when opening modal
+    setBalances(getStoredBalances());
     setPendingBalances(getStoredPendingBalances());
   };
 
@@ -232,15 +249,18 @@ function ClientsPage() {
 
   const handleRefundProcess = async () => {
     if (!selectedBank || !selectedClient) return;
-    const currentPending = pendingBalances[selectedBank] || 0;
-    if (currentPending < totalRefundDue) {
-        setRefundError('رصيد الخزنة غير المستحقة (المعلق) غير كافي في هذا البنك');
+    
+    // LOGIC CHANGE: Check Actual Balance (balances) instead of Pending
+    const currentBalance = balances[selectedBank] || 0;
+    if (currentBalance < totalRefundDue) {
+        setRefundError('رصيد البنك غير كافي لإتمام الاسترجاع');
         return;
     }
     
-    const newPending = { ...pendingBalances };
-    newPending[selectedBank] = currentPending - totalRefundDue;
-    setPendingBalances(newPending);
+    // Deduct from Actual Balance
+    const newBalances = { ...balances };
+    newBalances[selectedBank] = currentBalance - totalRefundDue;
+    setBalances(newBalances);
     
     const refundedTxIds: number[] = [];
     const updatedTxs = allTransactions.map(t => {
@@ -265,10 +285,12 @@ function ClientsPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addClientRefundToCloud(refundRecord, targetId);
-        // NEW: Bulk update transaction status in DB
+        // Update Actual Balance in Cloud
+        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], pendingBalances[selectedBank] || 0);
+        // Bulk update transaction status in DB
         await markTransactionsAsClientRefunded(refundedTxIds);
     } else {
-        saveStoredPendingBalances(newPending);
+        saveStoredBalances(newBalances);
         saveStoredTransactions(updatedTxs);
         const refunds = getStoredClientRefunds();
         saveStoredClientRefunds([refundRecord, ...refunds]);
@@ -354,8 +376,9 @@ function ClientsPage() {
                     )}
                     {refundStep === 'bank-select' && (
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex justify-between items-center mb-2"><Label className="font-bold text-gray-700">اختر البنك للخصم (من المعلق)</Label><button onClick={() => setRefundStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button></div>
-                            <Select onValueChange={(val) => { setSelectedBank(val); setRefundError(''); }} value={selectedBank}><SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse"><SelectValue placeholder="اختر البنك" /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1"><div className="flex justify-between w-full gap-4"><span>{bank}</span><span className={`font-bold ${(pendingBalances[bank] || 0) >= totalRefundDue ? 'text-green-600' : 'text-red-500'}`}>{(pendingBalances[bank] || 0).toLocaleString()} ر.س</span></div></SelectItem>))}</SelectContent></Select>
+                            {/* CHANGED LABEL: Removed (من المعلق) */}
+                            <div className="flex justify-between items-center mb-2"><Label className="font-bold text-gray-700">اختر البنك للخصم</Label><button onClick={() => setRefundStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button></div>
+                            <Select onValueChange={(val) => { setSelectedBank(val); setRefundError(''); }} value={selectedBank}><SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse"><SelectValue placeholder="اختر البنك" /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1"><div className="flex justify-between w-full gap-4"><span>{bank}</span><span className={`font-bold ${(balances[bank] || 0) >= totalRefundDue ? 'text-green-600' : 'text-red-500'}`}>{(balances[bank] || 0).toLocaleString()} ر.س</span></div></SelectItem>))}</SelectContent></Select>
                             {refundError && <p className="text-red-500 text-xs font-bold">{refundError}</p>}
                             <button onClick={handleRefundProcess} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all mt-2">تأكيد الاسترجاع ({totalRefundDue} ر.س)</button>
                         </div>
