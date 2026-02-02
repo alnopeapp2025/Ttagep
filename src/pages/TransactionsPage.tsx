@@ -560,14 +560,14 @@ export default function TransactionsPage() {
     }
     
     if (newStatus === 'cancelled') {
-         // Logic for Cancellation: Freeze in Pending
-         if (tx.status === 'completed') {
-             // If it was completed (in Actual), move back to Pending (Frozen)
-             newBalances[bank] = Math.max(0, (newBalances[bank] || 0) - clientP);
-             newPending[bank] = (newPending[bank] || 0) + clientP;
+         // NEW LOGIC: Move to Actual Vault (instead of freezing in Pending)
+         // If it was 'active', it's in Pending. Move to Actual.
+         if (tx.status === 'active') {
+             newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
+             newBalances[bank] = (newBalances[bank] || 0) + clientP;
          }
-         // If it was 'active', it is ALREADY in Pending (from creation), so we do nothing to balances.
-         // We just mark it as cancelled so it can be refunded later.
+         // If it was 'completed', it's already in Actual. Keep it there.
+         // (Previously we moved it back to Pending, now we don't).
          
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
     }
