@@ -10,12 +10,12 @@ import {
     fetchClientsFromCloud, Client,
     fetchAgentsFromCloud, Agent,
     fetchExpensesFromCloud, Expense,
-    deleteAllTransfers // Import delete function
+    deleteAllTransfers 
 } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from '@/lib/supabase';
-import { AlertModal, ConfirmModal } from '@/components/CustomAlerts'; // Import Custom Alerts
+import { AlertModal, ConfirmModal } from '@/components/CustomAlerts';
 
 export default function ReportsPage() {
   const navigate = useNavigate();
@@ -239,25 +239,6 @@ export default function ReportsPage() {
     setDetailOpen(true);
   };
 
-  const handleDeleteAllTransfers = () => {
-      setConfirmConfig({
-          isOpen: true,
-          title: "حذف سجل التحويلات",
-          message: "هل أنت متأكد من حذف سجل تحويلات المعقبين بالكامل؟ لا يمكن التراجع عن هذا الإجراء.",
-          onConfirm: async () => {
-              if (!currentUser) return;
-              const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-              const success = await deleteAllTransfers(targetId);
-              if (success) {
-                  setAgentTransfers([]);
-                  setAlertConfig({ isOpen: true, title: "تم الحذف", message: "تم حذف السجل بنجاح", type: "success" });
-              } else {
-                  setAlertConfig({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء الحذف", type: "error" });
-              }
-          }
-      });
-  };
-
   const handleEmployeeClick = (emp: User) => {
       // 1. Transactions
       const empTxs = transactions.filter(t => 
@@ -371,22 +352,14 @@ export default function ReportsPage() {
       </header>
 
       <Tabs defaultValue="general" className="w-full" dir="rtl">
-        {/* New Grid Layout for Tabs */}
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-3 bg-transparent h-auto p-0 mb-8">
+        {/* Adjusted Grid Layout for Tabs - Removed Agent Transfers */}
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 gap-3 bg-transparent h-auto p-0 mb-8">
             <TabsTrigger 
                 value="general" 
                 className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
             >
                 <BarChart3 className="w-6 h-6" />
                 <span className="font-bold text-sm">عام</span>
-            </TabsTrigger>
-
-            <TabsTrigger 
-                value="agent-transfers" 
-                className="flex flex-col items-center justify-center h-24 rounded-2xl bg-white border-2 border-transparent shadow-sm data-[state=active]:border-blue-200 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 text-gray-500 hover:bg-gray-50 transition-all gap-2"
-            >
-                <ArrowRightLeft className="w-6 h-6" />
-                <span className="font-bold text-sm">تحويلات المعقبين</span>
             </TabsTrigger>
 
             <TabsTrigger 
@@ -519,49 +492,6 @@ export default function ReportsPage() {
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة كل المعاملات</p>
                     <h2 className="text-xl font-black">{stats.totalValue.toLocaleString()} ر.س</h2>
                 </div>
-            </div>
-        </TabsContent>
-
-        <TabsContent value="agent-transfers">
-            {agentTransfers.length > 0 && (
-                <div className="flex justify-end mb-4 px-2">
-                    <button 
-                        onClick={handleDeleteAllTransfers}
-                        className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-all shadow-sm border border-red-100"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        حذف السجل بالكامل
-                    </button>
-                </div>
-            )}
-            <div className="space-y-3">
-                {agentTransfers.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
-                        لا توجد تحويلات مسجلة للمعقبين بعد.
-                    </div>
-                ) : (
-                    agentTransfers.map(record => (
-                        <div key={record.id} className="bg-[#eef2f6] p-3 rounded-2xl shadow-3d flex justify-between items-center border border-white/50">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
-                                    <ArrowUpRight className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-sm">{record.agentName}</h3>
-                                    <div className="flex gap-2 text-[10px] text-gray-400 mt-0.5">
-                                        <span>{new Date(record.date).toLocaleDateString('ar-SA')}</span>
-                                        <span>•</span>
-                                        <span>{record.transactionCount} معاملة</span>
-                                        <span>•</span>
-                                        <span>{record.bank}</span>
-                                    </div>
-                                    {record.createdBy && <p className="text-[9px] text-gray-400 mt-1">بواسطة: {record.createdBy}</p>}
-                                </div>
-                            </div>
-                            <span className="font-bold text-blue-600 text-base">{record.amount.toLocaleString()} ر.س</span>
-                        </div>
-                    ))
-                )}
             </div>
         </TabsContent>
 
