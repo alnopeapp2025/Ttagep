@@ -12,7 +12,8 @@ import {
   getBankNames,
   addAgentTransferToCloud,
   updateAccountInCloud,
-  fetchAccountsFromCloud
+  fetchAccountsFromCloud,
+  markTransactionsAsAgentPaid // NEW
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -293,6 +294,8 @@ function AgentsPage() {
         await addAgentTransferToCloud(transferRecord, targetId);
         // Update Account in Cloud (Deduct from Actual)
         await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], newPending[selectedBank]);
+        // NEW: Bulk update transaction status in DB
+        await markTransactionsAsAgentPaid(paidTxIds);
     } else {
         saveStoredBalances(newBalances);
         saveStoredPendingBalances(newPending);

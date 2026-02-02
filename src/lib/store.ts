@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-// ... (Existing Constants and Types) ...
+// ... (Existing Constants and Types remain unchanged) ...
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -387,7 +387,7 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// --- Local Storage Functions ---
+// ... (Existing Local Storage Functions) ...
 export const getStoredTransactions = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(TX_KEY);
@@ -582,7 +582,7 @@ export const clearAllData = () => {
     window.location.reload();
 };
 
-// --- New Cloud Functions for Account Statement ---
+// --- Cloud Functions for Account Statement ---
 
 export const addAgentTransferToCloud = async (record: AgentTransferRecord, userId: number) => {
     try {
@@ -652,8 +652,41 @@ export const fetchAccountStatementFromCloud = async (userId: number) => {
     }
 };
 
-// --- Bulk Delete Functions for System Initialization ---
+// --- NEW: Bulk Update Functions for Payment Status ---
 
+export const markTransactionsAsAgentPaid = async (ids: number[]) => {
+    if (!ids || ids.length === 0) return true;
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update({ agent_paid: true })
+            .in('id', ids);
+        
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error('Mark agent paid error:', err);
+        return false;
+    }
+};
+
+export const markTransactionsAsClientRefunded = async (ids: number[]) => {
+    if (!ids || ids.length === 0) return true;
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update({ client_refunded: true })
+            .in('id', ids);
+        
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error('Mark client refunded error:', err);
+        return false;
+    }
+};
+
+// ... (Rest of the file: Bulk Delete, Subscription, Auth, etc. remains unchanged) ...
 export const deleteAllAgents = async (userId: number) => {
     try {
         const { error } = await supabase.from('agents').delete().eq('user_id', userId);
@@ -720,7 +753,6 @@ export const deleteAllRefunds = async (userId: number) => {
     }
 };
 
-// ... (Rest of existing functions) ...
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
         const { data: existing } = await supabase

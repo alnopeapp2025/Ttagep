@@ -9,7 +9,8 @@ import {
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud,
   getBankNames,
-  addClientRefundToCloud
+  addClientRefundToCloud,
+  markTransactionsAsClientRefunded // NEW
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -264,6 +265,8 @@ function ClientsPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addClientRefundToCloud(refundRecord, targetId);
+        // NEW: Bulk update transaction status in DB
+        await markTransactionsAsClientRefunded(refundedTxIds);
     } else {
         saveStoredPendingBalances(newPending);
         saveStoredTransactions(updatedTxs);
