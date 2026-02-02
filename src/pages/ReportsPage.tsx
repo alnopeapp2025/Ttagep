@@ -145,7 +145,14 @@ export default function ReportsPage() {
     txs.forEach(t => {
       const tDate = t.createdAt;
       
-      // Always count cancellations for the counter
+      // --- LOGIC UPDATE: Count ALL transactions (including cancelled) for Activity Volume ---
+      if (tDate >= startOfDay) todayC++;
+      if (tDate >= startOfWeek) weekC++;
+      if (tDate >= startOfMonth) monthC++;
+      // ------------------------------------------------------------------------------------
+
+      // Status Counters
+      if (t.status === 'completed') compC++;
       if (t.status === 'cancelled') {
           cancC++;
           return; // Skip financial calculations for cancelled transactions
@@ -154,14 +161,7 @@ export default function ReportsPage() {
       const clientPrice = parseFloat(t.clientPrice) || 0;
       const agentPrice = parseFloat(t.agentPrice) || 0;
 
-      // Counts (Active or Completed)
-      if (tDate >= startOfDay) todayC++;
-      if (tDate >= startOfWeek) weekC++;
-      if (tDate >= startOfMonth) monthC++;
-
-      if (t.status === 'completed') compC++;
-
-      // Values (Revenue) - Only for Active or Completed
+      // Values (Revenue) - Only for Active or Completed (Cancelled skipped above)
       totalV += clientPrice;
       if (tDate >= startOfWeek) weekV += clientPrice;
       if (tDate >= startOfMonth) monthV += clientPrice;
@@ -211,15 +211,16 @@ export default function ReportsPage() {
 
     switch(type) {
         case 'today':
-            filtered = transactions.filter(t => t.createdAt >= startOfDay && t.status !== 'cancelled');
+            // Show all for today (including cancelled) based on new requirement
+            filtered = transactions.filter(t => t.createdAt >= startOfDay);
             title = 'معاملات اليوم';
             break;
         case 'week':
-            filtered = transactions.filter(t => t.createdAt >= startOfWeek && t.status !== 'cancelled');
+            filtered = transactions.filter(t => t.createdAt >= startOfWeek);
             title = 'معاملات الأسبوع';
             break;
         case 'month':
-            filtered = transactions.filter(t => t.createdAt >= startOfMonth && t.status !== 'cancelled');
+            filtered = transactions.filter(t => t.createdAt >= startOfMonth);
             title = 'معاملات الشهر';
             break;
         case 'completed':
