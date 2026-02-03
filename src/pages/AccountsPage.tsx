@@ -4,8 +4,6 @@ import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircl
 import { 
   getStoredBalances, 
   saveStoredBalances, 
-  getStoredPendingBalances, 
-  saveStoredPendingBalances,
   getCurrentUser,
   fetchAccountsFromCloud,
   updateAccountInCloud,
@@ -16,12 +14,11 @@ import {
   fetchTransactionsFromCloud,
   fetchExpensesFromCloud,
   Transaction,
-  getStoredAgentTransfers,
   addExpenseToCloud,
   Expense,
   getBankNames,
   deleteEmployee,
-  fetchAccountStatementFromCloud // NEW
+  fetchAccountStatementFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -126,9 +123,9 @@ const SalaryTimer = ({ startDate }: { startDate: string }) => {
 export default function AccountsPage() {
   const navigate = useNavigate();
   const [balances, setBalances] = useState<Record<string, number>>({});
-  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
+  // REMOVED: pendingBalances state
   const [totalTreasury, setTotalTreasury] = useState(0);
-  const [totalPending, setTotalPending] = useState(0);
+  // REMOVED: totalPending state
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
@@ -192,14 +189,12 @@ export default function AccountsPage() {
             
             const accData = await fetchAccountsFromCloud(targetId);
             setBalances(accData.balances);
-            setPendingBalances(accData.pending);
-            calculateTotals(accData.balances, accData.pending);
+            // REMOVED: setPendingBalances
+            calculateTotals(accData.balances);
 
-            // Fetch Statement from Cloud View
             const statement = await fetchAccountStatementFromCloud(targetId);
             setStatementData(statement);
 
-            // Fetch other data for salaries
             const [txs, exps] = await Promise.all([
                 fetchTransactionsFromCloud(targetId),
                 fetchExpensesFromCloud(targetId)
@@ -217,20 +212,14 @@ export default function AccountsPage() {
             }
 
         } else {
-            // Local Fallback (unchanged)
             const localBal = getStoredBalances();
-            const localPending = getStoredPendingBalances();
             setBalances(localBal);
-            setPendingBalances(localPending);
-            calculateTotals(localBal, localPending);
-            
-            // ... (Local statement construction logic if needed, but cloud preferred) ...
+            calculateTotals(localBal);
         }
     };
     loadData();
   }, []);
 
-  // ... (Rest of the component remains largely the same, just ensure imports) ...
   useEffect(() => {
       if (selectedEmpId) {
           const config = localStorage.getItem(`salary_config_${selectedEmpId}`);
@@ -270,8 +259,7 @@ export default function AccountsPage() {
           const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
           fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
-            setPendingBalances(data.pending);
-            calculateTotals(data.balances, data.pending);
+            calculateTotals(data.balances);
           });
         }
       )
@@ -282,11 +270,10 @@ export default function AccountsPage() {
     };
   }, [currentUser]);
 
-  const calculateTotals = (bal: Record<string, number>, pending: Record<string, number>) => {
+  const calculateTotals = (bal: Record<string, number>) => {
     const total = Object.values(bal).reduce((sum, val) => sum + val, 0);
     setTotalTreasury(total);
-    const pTotal = Object.values(pending).reduce((sum, val) => sum + val, 0);
-    setTotalPending(pTotal);
+    // REMOVED: setTotalPending
   };
 
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
@@ -324,12 +311,13 @@ export default function AccountsPage() {
     newBalances[transferTo] = currentToBalance + amount;
 
     setBalances(newBalances);
-    calculateTotals(newBalances, pendingBalances);
+    calculateTotals(newBalances);
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        await updateAccountInCloud(targetId, transferFrom, newBalances[transferFrom], pendingBalances[transferFrom] || 0);
-        await updateAccountInCloud(targetId, transferTo, newBalances[transferTo], pendingBalances[transferTo] || 0);
+        // REMOVED: pendingBalances argument, passing 0
+        await updateAccountInCloud(targetId, transferFrom, newBalances[transferFrom], 0);
+        await updateAccountInCloud(targetId, transferTo, newBalances[transferTo], 0);
     } else {
         saveStoredBalances(newBalances);
     }
@@ -348,8 +336,7 @@ export default function AccountsPage() {
     const zeroed = banksList.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
     
     setBalances(zeroed);
-    setPendingBalances(zeroed);
-    calculateTotals(zeroed, zeroed);
+    calculateTotals(zeroed);
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
@@ -358,7 +345,7 @@ export default function AccountsPage() {
         }
     } else {
         saveStoredBalances(zeroed);
-        saveStoredPendingBalances(zeroed);
+        // REMOVED: saveStoredPendingBalances
     }
     
     setZeroSuccess(true);
@@ -369,8 +356,8 @@ export default function AccountsPage() {
   };
 
   const sortedBanks = [...banksList].sort((a, b) => {
-    const totalA = (balances[a] || 0) + (pendingBalances[a] || 0);
-    const totalB = (balances[b] || 0) + (pendingBalances[b] || 0);
+    const totalA = (balances[a] || 0); // REMOVED pending from sort
+    const totalB = (balances[b] || 0);
     return totalB - totalA;
   });
 
@@ -544,7 +531,8 @@ export default function AccountsPage() {
       if (currentUser) {
           const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
           await addExpenseToCloud(newExp, targetId);
-          await updateAccountInCloud(targetId, payBank, newBalances[payBank], pendingBalances[payBank] || 0);
+          // REMOVED: pending balances arg, passed 0
+          await updateAccountInCloud(targetId, payBank, newBalances[payBank], 0);
           
           setAllExpenses(prev => [newExp, ...prev]);
       }
@@ -617,7 +605,6 @@ export default function AccountsPage() {
         message={confirmConfig.message} 
     />
     <div className="max-w-6xl mx-auto pb-20">
-      {/* ... (Header and Treasury Card remain unchanged) ... */}
       <header className="mb-8 flex items-center gap-4">
         <button 
           onClick={() => navigate('/')}
@@ -633,19 +620,8 @@ export default function AccountsPage() {
 
       <div className="mb-6 relative">
         <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px] z-10 bg-white">
-           <div className="h-[35%] bg-blue-50 flex items-center justify-center relative border-b border-blue-100">
-                <div className="text-center opacity-80">
-                    <h3 className="text-sm font-bold text-blue-600 mb-1 flex items-center justify-center gap-2">
-                        <Wallet className="w-4 h-4" />
-                        خزنة غير مستحقة بعد
-                    </h3>
-                    <p className="text-2xl font-black text-blue-800">
-                        {totalPending.toLocaleString()} <span className="text-sm">ر.س</span>
-                    </p>
-                </div>
-           </div>
-
-           <div className="h-[65%] bg-blue-600 text-white flex flex-col items-center justify-center text-center relative">
+           {/* REMOVED: Pending Balance Section */}
+           <div className="h-full bg-blue-600 text-white flex flex-col items-center justify-center text-center relative py-12">
                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                 <Wallet className="w-12 h-12 mb-2 opacity-90" />
                 <h2 className="text-xl font-medium opacity-90 mb-1">جملة الخزينة الفعلية</h2>
@@ -671,7 +647,8 @@ export default function AccountsPage() {
             </button>
             <button 
             onClick={() => setZeroOpen(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all border border-white/50"
+            disabled={currentUser?.role === 'employee' && currentUser.role !== 'golden'} // Add logic for disabled button
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
             <Trash2 className="w-5 h-5" />
             تصفير الخزينة
@@ -679,7 +656,6 @@ export default function AccountsPage() {
         </div>
       </div>
 
-      {/* Tabs System */}
       <Tabs defaultValue="banks" className="w-full" dir="rtl">
         <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1 h-14">
             <TabsTrigger value="banks" className="rounded-lg h-12 font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all">
@@ -696,7 +672,6 @@ export default function AccountsPage() {
             </TabsTrigger>
         </TabsList>
 
-        {/* Banks Tab */}
         <TabsContent value="banks">
             <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
                 <Landmark className="w-6 h-6 text-gray-500" />
@@ -712,11 +687,7 @@ export default function AccountsPage() {
                     <span className="text-lg font-black text-blue-800">
                     {(balances[bank] || 0).toLocaleString()} <span className="text-xs text-gray-400">ر.س</span>
                     </span>
-                    {(pendingBalances[bank] || 0) > 0 && (
-                        <span className="text-[10px] font-bold text-orange-500 mt-1 bg-orange-50 px-2 py-0.5 rounded-full">
-                            معلق: {(pendingBalances[bank] || 0).toLocaleString()}
-                        </span>
-                    )}
+                    {/* REMOVED: Pending Balance Span */}
                 </div>
                 ))}
             </div>
@@ -798,7 +769,6 @@ export default function AccountsPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* ... (Existing Employee Selection and Forms) ... */}
                         <div className="space-y-2">
                             <Label className="text-gray-700 font-bold">اختر الموظف</Label>
                             <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-1">

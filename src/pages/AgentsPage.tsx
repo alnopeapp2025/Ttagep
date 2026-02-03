@@ -6,14 +6,14 @@ import {
   getStoredTransactions, saveStoredTransactions, Transaction,
   getStoredBalances, saveStoredBalances,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
-  getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
   addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud, checkLimit, updateAgentInCloud, deleteAgentFromCloud,
   getBankNames,
   addAgentTransferToCloud,
   updateAccountInCloud,
   fetchAccountsFromCloud,
-  markTransactionsAsAgentPaid // NEW
+  markTransactionsAsAgentPaid,
+  isEmployeeRestricted 
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,6 @@ function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentPhone, setNewAgentPhone] = useState('');
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
@@ -38,7 +37,7 @@ function AgentsPage() {
   const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
   const [balances, setBalances] = useState<Record<string, number>>({});
-  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
+  // REMOVED: pendingBalances state
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -51,7 +50,6 @@ function AgentsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
     setBalances(getStoredBalances());
-    setPendingBalances(getStoredPendingBalances());
     setBanksList(getBankNames());
     const loadData = async () => {
         if (user) {
@@ -63,7 +61,7 @@ function AgentsPage() {
             saveStoredTransactions(cloudTxs); 
             fetchAccountsFromCloud(targetId).then(data => {
                 setBalances(data.balances);
-                setPendingBalances(data.pending);
+                // REMOVED: setPendingBalances
             });
         } else {
             setAgents(getStoredAgents());
@@ -219,7 +217,7 @@ function AgentsPage() {
     setTransferError('');
     setSelectedBank('');
     setBalances(getStoredBalances());
-    setPendingBalances(getStoredPendingBalances());
+    // REMOVED: setPendingBalances
   };
 
   const handleEditAgent = (e: React.MouseEvent, agent: Agent) => {
@@ -262,12 +260,7 @@ function AgentsPage() {
     newBalances[selectedBank] = currentBalance - totalDue;
     setBalances(newBalances);
     
-    // Pending Balances (Agent share is theoretically pending, but money is in Actual)
-    // We update Pending just to reflect that the "liability" is gone
-    const currentPending = pendingBalances[selectedBank] || 0;
-    const newPending = { ...pendingBalances };
-    newPending[selectedBank] = Math.max(0, currentPending - totalDue);
-    setPendingBalances(newPending);
+    // REMOVED: Pending Balances Logic
     
     const paidTxIds: number[] = [];
     const updatedTxs = allTransactions.map(t => {
@@ -292,13 +285,13 @@ function AgentsPage() {
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addAgentTransferToCloud(transferRecord, targetId);
-        // Update Account in Cloud (Deduct from Actual)
-        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], newPending[selectedBank]);
+        // Update Account in Cloud (Deduct from Actual, Pending is 0)
+        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], 0);
         // NEW: Bulk update transaction status in DB
         await markTransactionsAsAgentPaid(paidTxIds);
     } else {
         saveStoredBalances(newBalances);
-        saveStoredPendingBalances(newPending);
+        // REMOVED: saveStoredPendingBalances
         saveStoredTransactions(updatedTxs);
         const transfers = getStoredAgentTransfers();
         saveStoredAgentTransfers([transferRecord, ...transfers]);
@@ -354,7 +347,14 @@ function AgentsPage() {
                     </div>
                     <div className="space-y-2"><Label>رقم الجوال</Label><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentPhone(val); if(errors.phone) setErrors({...errors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{errors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone}</p>}</div>
                     <div className="space-y-2"><Label>رقم الواتساب</Label><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentWhatsapp(val); if(errors.whatsapp) setErrors({...errors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}</div>
-                    <button onClick={handleAddAgent} disabled={loading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingAgent ? 'تحديث' : 'حفظ')}</button>
+                    {/* DISABLED SAVE BUTTON FOR RESTRICTED EMPLOYEES */}
+                    <button 
+                        onClick={handleAddAgent} 
+                        disabled={loading || isEmployeeRestricted(currentUser)} 
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingAgent ? 'تحديث' : 'حفظ')}
+                    </button>
                     {editingAgent && (<button onClick={(e) => handleDeleteAgent(e, editingAgent.id)} className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-bold shadow-sm hover:bg-red-200 flex items-center justify-center gap-2 mt-2"><Trash2 className="w-4 h-4" /> حذف المعقب</button>)}
                 </div>
             </DialogContent>

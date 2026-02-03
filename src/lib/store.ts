@@ -387,17 +387,14 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// --- NEW: Helper to check if employee actions should be restricted ---
 export const isEmployeeRestricted = (user: User | null): boolean => {
     if (!user || user.role !== 'employee' || !user.parentId) return false;
     const goldenUsers = getGoldenUsers();
     const parent = goldenUsers.find(u => u.userId === user.parentId);
-    // If parent is not in golden list or expired, employee is restricted
     if (!parent || parent.expiry < Date.now()) return true;
     return false;
 };
 
-// ... (Rest of the file remains unchanged) ...
 export const getStoredTransactions = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(TX_KEY);
@@ -1713,7 +1710,8 @@ export const fetchAccountsFromCloud = async (userId: number) => {
     data.forEach((row: any) => {
         if (row.bank_name) {
             balances[row.bank_name] = Number(row.balance);
-            pending[row.bank_name] = Number(row.pending_balance);
+            // Ignore pending balance from DB
+            pending[row.bank_name] = 0; 
         }
     });
     return { balances, pending };
@@ -1737,7 +1735,7 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
                 .from('accounts')
                 .update({ 
                     balance: balance, 
-                    pending_balance: pendingBalance,
+                    pending_balance: 0, // Always set pending to 0
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', data.id);
@@ -1748,7 +1746,7 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
                     user_id: userId, 
                     bank_name: bankName, 
                     balance: balance, 
-                    pending_balance: pendingBalance 
+                    pending_balance: 0 // Always set pending to 0
                 }]);
         }
         return true;
