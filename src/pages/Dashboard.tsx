@@ -38,7 +38,8 @@ import {
   deleteAllTransactions,
   deleteAllExpenses,
   deleteAllTransfers,
-  deleteAllRefunds
+  deleteAllRefunds,
+  isEmployeeRestricted // NEW
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -745,6 +746,7 @@ export default function Dashboard() {
                   </Dialog>
 
                   <Dialog open={proOpen} onOpenChange={resetSubModal}>
+                    {/* Only show trigger if not golden */}
                     <DialogTrigger asChild>
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
                             <Crown className="w-5 h-5" /> اشتراك ذهبي Pro
@@ -833,10 +835,10 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* System Reset Button */}
-                  <Dialog open={resetOpen} onOpenChange={(val) => { if(!val) { setResetStep('menu'); setResetAction(null); } setResetOpen(val); }}>
+                  {/* System Reset Button - DISABLED FOR RESTRICTED EMPLOYEES */}
+                  <Dialog open={resetOpen} onOpenChange={(val) => { if(val && isEmployeeRestricted(currentUser)) return; if(!val) { setResetStep('menu'); setResetAction(null); } setResetOpen(val); }}>
                     <DialogTrigger asChild>
-                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
+                      <button disabled={isEmployeeRestricted(currentUser)} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                         <RefreshCw className="w-5 h-5" /> تهيئة النظام
                       </button>
                     </DialogTrigger>

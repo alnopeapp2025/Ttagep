@@ -31,7 +31,8 @@ import {
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
   fetchAccountsFromCloud, updateAccountInCloud,
   Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud,
-  getBankNames
+  getBankNames,
+  isEmployeeRestricted // NEW
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { LimitModals } from '@/components/LimitModals';
@@ -692,7 +693,16 @@ export default function TransactionsPage() {
                 <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">طريقة الدفع</Label><Select value={formData.paymentMethod} onValueChange={(val) => { setFormData({...formData, paymentMethod: val}); if(errors.paymentMethod) setErrors({...errors, paymentMethod: ''}); }}><SelectTrigger className={cn("h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm", errors.paymentMethod ? "border border-red-400" : "border-none")}><SelectValue placeholder="اختر البنك..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer focus:bg-white/50 my-1">{bank}</SelectItem>))}</SelectContent></Select></div>
               </div>
             </div>
-            <DialogFooter className="flex justify-center mt-4"><button onClick={handleSave} disabled={loading} className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-70">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTx ? 'تحديث' : 'حفظ المعاملة')}</button></DialogFooter>
+            {/* DISABLED SAVE BUTTON FOR RESTRICTED EMPLOYEES */}
+            <DialogFooter className="flex justify-center mt-4">
+                <button 
+                    onClick={handleSave} 
+                    disabled={loading || isEmployeeRestricted(currentUser)} 
+                    className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTx ? 'تحديث' : 'حفظ المعاملة')}
+                </button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

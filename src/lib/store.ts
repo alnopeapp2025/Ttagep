@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-// ... (Existing Constants and Types remain unchanged) ...
+// ... (Existing Constants) ...
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -387,7 +387,17 @@ export const checkLimit = (
     return { allowed: true };
 };
 
-// ... (Existing Local Storage Functions) ...
+// --- NEW: Helper to check if employee actions should be restricted ---
+export const isEmployeeRestricted = (user: User | null): boolean => {
+    if (!user || user.role !== 'employee' || !user.parentId) return false;
+    const goldenUsers = getGoldenUsers();
+    const parent = goldenUsers.find(u => u.userId === user.parentId);
+    // If parent is not in golden list or expired, employee is restricted
+    if (!parent || parent.expiry < Date.now()) return true;
+    return false;
+};
+
+// ... (Rest of the file remains unchanged) ...
 export const getStoredTransactions = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(TX_KEY);
@@ -510,7 +520,6 @@ export const saveStoredClientRefunds = (records: ClientRefundRecord[]) => {
     localStorage.setItem(CLIENT_REFUNDS_KEY, JSON.stringify(records));
 };
 
-// --- Utility Functions ---
 export const calculateAchievers = (transactions: Transaction[]) => {
   const achieversMap: Record<string, { count: number; total: number }> = {};
   
@@ -582,8 +591,6 @@ export const clearAllData = () => {
     window.location.reload();
 };
 
-// --- Cloud Functions for Account Statement ---
-
 export const addAgentTransferToCloud = async (record: AgentTransferRecord, userId: number) => {
     try {
         const { error } = await supabase
@@ -652,8 +659,6 @@ export const fetchAccountStatementFromCloud = async (userId: number) => {
     }
 };
 
-// --- NEW: Bulk Update Functions for Payment Status ---
-
 export const markTransactionsAsAgentPaid = async (ids: number[]) => {
     if (!ids || ids.length === 0) return true;
     try {
@@ -686,7 +691,6 @@ export const markTransactionsAsClientRefunded = async (ids: number[]) => {
     }
 };
 
-// ... (Rest of the file: Bulk Delete, Subscription, Auth, etc. remains unchanged) ...
 export const deleteAllAgents = async (userId: number) => {
     try {
         const { error } = await supabase.from('agents').delete().eq('user_id', userId);
