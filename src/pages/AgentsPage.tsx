@@ -37,7 +37,6 @@ function AgentsPage() {
   const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
   const [balances, setBalances] = useState<Record<string, number>>({});
-  // REMOVED: pendingBalances state
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -61,7 +60,6 @@ function AgentsPage() {
             saveStoredTransactions(cloudTxs); 
             fetchAccountsFromCloud(targetId).then(data => {
                 setBalances(data.balances);
-                // REMOVED: setPendingBalances
             });
         } else {
             setAgents(getStoredAgents());
@@ -75,7 +73,6 @@ function AgentsPage() {
     if (!currentUser) return;
     const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
     
-    // Subscribe to Agents
     const agentChannel = supabase
       .channel('agents-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agents', filter: `user_id=eq.${targetId}` }, (payload) => {
@@ -83,7 +80,6 @@ function AgentsPage() {
       })
       .subscribe();
 
-    // Subscribe to Transactions (To update list immediately)
     const txChannel = supabase
       .channel('agents-tx-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${targetId}` }, (payload) => {
@@ -99,7 +95,6 @@ function AgentsPage() {
     };
   }, [currentUser]);
 
-  // NEW: Sync selected agent transactions immediately when allTransactions changes
   useEffect(() => {
       if (selectedAgent && allTransactions.length > 0) {
           const filtered = allTransactions.filter(t => t.agent === selectedAgent.name);
@@ -107,16 +102,28 @@ function AgentsPage() {
       }
   }, [allTransactions, selectedAgent]);
 
+  // --- MODIFIED LOGIC: Calculate Total Due based on OLDEST single transaction ---
   useEffect(() => {
     if (agentTxs.length > 0) {
-        const total = agentTxs
-            .filter(t => t.status === 'completed' && !t.agentPaid)
-            .reduce((sum, t) => sum + (parseFloat(t.agentPrice) || 0), 0);
-        setTotalDue(total);
+        // Filter for completed and unpaid transactions
+        const unpaidTxs = agentTxs.filter(t => t.status === 'completed' && !t.agentPaid);
+        
+        if (unpaidTxs.length > 0) {
+            // Sort by date (Oldest first)
+            unpaidTxs.sort((a, b) => a.createdAt - b.createdAt);
+            
+            // Take ONLY the first (oldest) transaction
+            const oldestTx = unpaidTxs[0];
+            const amount = parseFloat(oldestTx.agentPrice) || 0;
+            setTotalDue(amount);
+        } else {
+            setTotalDue(0);
+        }
     } else {
         setTotalDue(0);
     }
   }, [agentTxs]);
+  // -----------------------------------------------------------------------------
 
   const validateSaudiNumber = (num: string) => {
     const regex = /^05\d{8}$/; 
@@ -217,7 +224,6 @@ function AgentsPage() {
     setTransferError('');
     setSelectedBank('');
     setBalances(getStoredBalances());
-    // REMOVED: setPendingBalances
   };
 
   const handleEditAgent = (e: React.MouseEvent, agent: Agent) => {
@@ -247,6 +253,7 @@ function AgentsPage() {
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => { e.stopPropagation(); if (!number) return; window.open(`https://wa.me/${number}`, '_blank'); };
   const handlePhoneClick = (e: React.MouseEvent, number?: string) => { e.stopPropagation(); if (!number) return; window.location.href = `tel:+${number}`; };
 
+  // --- MODIFIED LOGIC: Process Payment for Single (Oldest) Transaction ---
   const handleTransferProcess = async () => {
     if (!selectedBank || !selectedAgent) return;
     const currentBalance = balances[selectedBank] || 0;
@@ -255,17 +262,23 @@ function AgentsPage() {
         return;
     }
     
-    // Deduct from Actual Balance (since money was moved to Actual on completion)
+    // Deduct from Actual Balance
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     setBalances(newBalances);
     
-    // REMOVED: Pending Balances Logic
+    // Find the specific transaction we are paying (The oldest unpaid)
+    const unpaidTxs = allTransactions.filter(t => t.agent === selectedAgent.name && t.status === 'completed' && !t.agentPaid);
+    unpaidTxs.sort((a, b) => a.createdAt - b.createdAt);
     
-    const paidTxIds: number[] = [];
+    if (unpaidTxs.length === 0) return; // Should not happen if totalDue > 0
+
+    const targetTx = unpaidTxs[0]; // The single transaction to pay
+    const paidTxIds = [targetTx.id];
+
+    // Update local state
     const updatedTxs = allTransactions.map(t => {
-        if (t.agent === selectedAgent.name && t.status === 'completed' && !t.agentPaid) {
-            paidTxIds.push(t.id);
+        if (t.id === targetTx.id) {
             return { ...t, agentPaid: true };
         }
         return t;
@@ -278,20 +291,19 @@ function AgentsPage() {
         amount: totalDue,
         bank: selectedBank,
         date: Date.now(),
-        transactionCount: paidTxIds.length,
+        transactionCount: 1, // Always 1 now
         createdBy: currentUser?.officeName
     };
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addAgentTransferToCloud(transferRecord, targetId);
-        // Update Account in Cloud (Deduct from Actual, Pending is 0)
+        // Update Account in Cloud
         await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], 0);
-        // NEW: Bulk update transaction status in DB
+        // Update ONLY the specific transaction status
         await markTransactionsAsAgentPaid(paidTxIds);
     } else {
         saveStoredBalances(newBalances);
-        // REMOVED: saveStoredPendingBalances
         saveStoredTransactions(updatedTxs);
         const transfers = getStoredAgentTransfers();
         saveStoredAgentTransfers([transferRecord, ...transfers]);
@@ -301,6 +313,7 @@ function AgentsPage() {
     setAgentTxs(refreshedTxs);
     setTransferStep('success');
   };
+  // -----------------------------------------------------------------------
 
   const sendTransferWhatsApp = () => {
     if (!selectedAgent?.whatsapp) return;
