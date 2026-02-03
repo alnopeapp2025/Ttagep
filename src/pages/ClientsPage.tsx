@@ -5,15 +5,15 @@ import {
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, saveStoredTransactions, Transaction,
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
-  getStoredBalances, saveStoredBalances, // Added for Actual Balance
+  getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud, checkLimit, updateClientInCloud, deleteClientFromCloud,
   getBankNames,
   addClientRefundToCloud,
   markTransactionsAsClientRefunded,
-  fetchAccountsFromCloud, // Added
-  updateAccountInCloud // Added
+  fetchAccountsFromCloud, 
+  updateAccountInCloud 
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,6 @@ function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
@@ -39,9 +38,8 @@ function ClientsPage() {
   const [selectedBank, setSelectedBank] = useState('');
   
   // State for Balances
-  const [balances, setBalances] = useState<Record<string, number>>({}); // Actual Balance
-  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({}); // Pending Balance (kept for reference)
-  
+  const [balances, setBalances] = useState<Record<string, number>>({}); 
+  // REMOVED: pendingBalances state
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -53,12 +51,9 @@ function ClientsPage() {
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
-    
     // Load Local Balances initially
     setBalances(getStoredBalances());
-    setPendingBalances(getStoredPendingBalances());
     setBanksList(getBankNames());
-    
     const loadData = async () => {
         if (user) {
             const targetId = user.role === 'employee' && user.parentId ? user.parentId : user.id;
@@ -67,11 +62,9 @@ function ClientsPage() {
             const cloudTxs = await fetchTransactionsFromCloud(targetId);
             setAllTransactions(cloudTxs);
             saveStoredTransactions(cloudTxs);
-            
-            // Fetch Latest Account Balances (Actual & Pending)
+            // Fetch Latest Account Balances
             fetchAccountsFromCloud(targetId).then(data => {
                 setBalances(data.balances);
-                setPendingBalances(data.pending);
             });
         } else {
             setClients(getStoredClients());
@@ -84,7 +77,6 @@ function ClientsPage() {
   useEffect(() => {
     if (!currentUser) return;
     const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-    
     // Subscribe to Clients
     const clientChannel = supabase
       .channel('clients-realtime')
@@ -92,7 +84,6 @@ function ClientsPage() {
           fetchClientsFromCloud(targetId).then(data => { setClients(data); });
       })
       .subscribe();
-
     // Subscribe to Transactions
     const txChannel = supabase
       .channel('clients-tx-realtime')
@@ -102,7 +93,6 @@ function ClientsPage() {
           });
       })
       .subscribe();
-
     return () => { 
         supabase.removeChannel(clientChannel); 
         supabase.removeChannel(txChannel);
@@ -116,19 +106,30 @@ function ClientsPage() {
       }
   }, [allTransactions, selectedClient]);
 
+  // --- MODIFIED LOGIC: Calculate Total Refund based on OLDEST single transaction ---
   useEffect(() => {
     if (clientTxs.length > 0) {
-        const total = clientTxs
-            .filter(t => t.status === 'cancelled' && !t.clientRefunded)
-            .reduce((sum, t) => sum + (parseFloat(t.clientPrice) || 0), 0);
-        setTotalRefundDue(total);
+        // Filter for cancelled and unrefunded transactions
+        const unpaidTxs = clientTxs.filter(t => t.status === 'cancelled' && !t.clientRefunded);
+        
+        if (unpaidTxs.length > 0) {
+            // Sort by date (Oldest first)
+            unpaidTxs.sort((a, b) => a.createdAt - b.createdAt);
+            
+            // Take ONLY the first (oldest) transaction
+            const oldestTx = unpaidTxs[0];
+            const amount = parseFloat(oldestTx.clientPrice) || 0;
+            setTotalRefundDue(amount);
+        } else {
+            setTotalRefundDue(0);
+        }
     } else {
         setTotalRefundDue(0);
     }
   }, [clientTxs]);
+  // -----------------------------------------------------------------------------
 
   const validateSaudiNumber = (num: string) => { const regex = /^05\d{8}$/; return regex.test(num); };
-
   const handleImportContact = async () => {
     try {
       // @ts-ignore
@@ -153,7 +154,6 @@ function ClientsPage() {
       } else { alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.'); }
     } catch (ex) { console.error(ex); alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.'); }
   };
-
   const checkAddPermission = () => {
       const role = currentUser?.role || 'visitor';
       const check = checkLimit(role, 'clients', clients.length);
@@ -165,7 +165,6 @@ function ClientsPage() {
       }
       return true;
   };
-
   const handleAddClient = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
@@ -174,9 +173,7 @@ function ClientsPage() {
     if (newClientWhatsapp && !validateSaudiNumber(newClientWhatsapp)) { newErrors.whatsapp = 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام'; hasError = true; }
     setErrors(newErrors);
     if (hasError) return;
-
     setLoading(true);
-
     if (editingClient) {
         const updatedClient: Client = { ...editingClient, name: newClientName, phone: newClientPhone ? `966${newClientPhone.substring(1)}` : '', whatsapp: newClientWhatsapp ? `966${newClientWhatsapp.substring(1)}` : '' };
         if (currentUser) {
@@ -207,7 +204,6 @@ function ClientsPage() {
     setOpen(false);
     setEditingClient(null);
   };
-
   const handleClientClick = (client: Client) => {
     const filtered = allTransactions.filter(t => t.clientName === client.name);
     setClientTxs(filtered); 
@@ -217,9 +213,7 @@ function ClientsPage() {
     setSelectedBank('');
     // Refresh balances when opening modal
     setBalances(getStoredBalances());
-    setPendingBalances(getStoredPendingBalances());
   };
-
   const handleEditClient = (e: React.MouseEvent, client: Client) => {
       e.stopPropagation();
       setEditingClient(client);
@@ -228,7 +222,6 @@ function ClientsPage() {
       let wa = client.whatsapp || ''; if(wa.startsWith('966')) wa = '0' + wa.substring(3); setNewClientWhatsapp(wa);
       setOpen(true);
   };
-
   const handleDeleteClient = async (e: React.MouseEvent, id: number) => {
       e.stopPropagation();
       if(confirm('هل أنت متأكد من حذف هذا العميل؟')) {
@@ -243,14 +236,13 @@ function ClientsPage() {
           setEditingClient(null);
       }
   };
-
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => { e.stopPropagation(); if (!number) return; window.open(`https://wa.me/${number}`, '_blank'); };
   const handlePhoneClick = (e: React.MouseEvent, number?: string) => { e.stopPropagation(); if (!number) return; window.location.href = `tel:+${number}`; };
 
+  // --- MODIFIED LOGIC: Process Refund for Single (Oldest) Transaction ---
   const handleRefundProcess = async () => {
     if (!selectedBank || !selectedClient) return;
     
-    // LOGIC CHANGE: Check Actual Balance (balances) instead of Pending
     const currentBalance = balances[selectedBank] || 0;
     if (currentBalance < totalRefundDue) {
         setRefundError('رصيد البنك غير كافي لإتمام الاسترجاع');
@@ -262,10 +254,17 @@ function ClientsPage() {
     newBalances[selectedBank] = currentBalance - totalRefundDue;
     setBalances(newBalances);
     
-    const refundedTxIds: number[] = [];
+    // Find the specific transaction we are refunding (The oldest cancelled & unrefunded)
+    const unpaidTxs = allTransactions.filter(t => t.clientName === selectedClient.name && t.status === 'cancelled' && !t.clientRefunded);
+    unpaidTxs.sort((a, b) => a.createdAt - b.createdAt);
+
+    if (unpaidTxs.length === 0) return; // Should not happen if totalRefundDue > 0
+
+    const targetTx = unpaidTxs[0]; // The single transaction to refund
+    const refundedTxIds = [targetTx.id];
+
     const updatedTxs = allTransactions.map(t => {
-        if (t.clientName === selectedClient.name && t.status === 'cancelled' && !t.clientRefunded) {
-            refundedTxIds.push(t.id);
+        if (t.id === targetTx.id) {
             return { ...t, clientRefunded: true };
         }
         return t;
@@ -278,7 +277,7 @@ function ClientsPage() {
         amount: totalRefundDue,
         bank: selectedBank,
         date: Date.now(),
-        transactionCount: refundedTxIds.length,
+        transactionCount: 1, // Always 1 now
         createdBy: currentUser?.officeName
     };
 
@@ -286,8 +285,8 @@ function ClientsPage() {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         await addClientRefundToCloud(refundRecord, targetId);
         // Update Actual Balance in Cloud
-        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], pendingBalances[selectedBank] || 0);
-        // Bulk update transaction status in DB
+        await updateAccountInCloud(targetId, selectedBank, newBalances[selectedBank], 0);
+        // Update ONLY the specific transaction status
         await markTransactionsAsClientRefunded(refundedTxIds);
     } else {
         saveStoredBalances(newBalances);
@@ -300,6 +299,7 @@ function ClientsPage() {
     setClientTxs(refreshedTxs);
     setRefundStep('success');
   };
+  // -----------------------------------------------------------------------
 
   const sendRefundWhatsApp = () => {
     if (!selectedClient?.whatsapp && !selectedClient?.phone) return;
@@ -307,9 +307,7 @@ function ClientsPage() {
     const message = `مرحباً ${selectedClient.name}،\nتم استرجاع مبلغ المعاملات الملغاة.\nالمبلغ: ${totalRefundDue} ر.س\nتم التحويل من: ${selectedBank}\nنعتذر عن عدم إتمام الخدمة.`;
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(message)}`, '_blank');
   };
-
   const filteredClients = clients.filter(c => c.name.includes(searchTerm));
-
   return (
     <>
     <LimitModals type={limitModalType} isOpen={limitModalType !== 'none'} onClose={() => setLimitModalType('none')} />
@@ -376,7 +374,6 @@ function ClientsPage() {
                     )}
                     {refundStep === 'bank-select' && (
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
-                            {/* CHANGED LABEL: Removed (من المعلق) */}
                             <div className="flex justify-between items-center mb-2"><Label className="font-bold text-gray-700">اختر البنك للخصم</Label><button onClick={() => setRefundStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button></div>
                             <Select onValueChange={(val) => { setSelectedBank(val); setRefundError(''); }} value={selectedBank}><SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse"><SelectValue placeholder="اختر البنك" /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1"><div className="flex justify-between w-full gap-4"><span>{bank}</span><span className={`font-bold ${(balances[bank] || 0) >= totalRefundDue ? 'text-green-600' : 'text-red-500'}`}>{(balances[bank] || 0).toLocaleString()} ر.س</span></div></SelectItem>))}</SelectContent></Select>
                             {refundError && <p className="text-red-500 text-xs font-bold">{refundError}</p>}
