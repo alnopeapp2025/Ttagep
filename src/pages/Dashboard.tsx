@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  ClipboardList, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw
+  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -16,10 +16,6 @@ import {
   calculateAchievers, 
   createBackup, 
   restoreBackup, 
-  clearAgents, 
-  clearClients, 
-  clearTransactions, 
-  clearAllData,
   Transaction,
   getCurrentUser,
   logoutUser,
@@ -39,7 +35,7 @@ import {
   deleteAllExpenses,
   deleteAllTransfers,
   deleteAllRefunds,
-  isEmployeeRestricted // NEW
+  isEmployeeRestricted
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -97,8 +93,6 @@ export default function Dashboard() {
   const [resetAction, setResetAction] = useState<string | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [proOpen, setProOpen] = useState(false);
   const [subStep, setSubStep] = useState<'duration' | 'bank' | 'confirm'>('duration');
   const [selectedBank, setSelectedBank] = useState('');
@@ -965,7 +959,7 @@ export default function Dashboard() {
           <DashboardButton icon={Award} label="المنجزين" variant="primary" locked={!canAccessPage('achievers')} onClick={() => handlePageClick('achievers', '/achievers')} />
           <DashboardButton icon={Receipt} label="المنصرفات" variant="danger" locked={!canAccessPage('expenses')} onClick={() => handlePageClick('expenses', '/expenses')} />
           <DashboardButton icon={Calculator} label="الحاسبة" locked={!canAccessPage('calculator')} onClick={() => handlePageClick('calculator', '/calculator')} />
-          <DashboardButton icon={ClipboardList} label="الملخص" locked={!canAccessPage('summary')} onClick={() => handlePageClick('summary', '/summary')} />
+          <DashboardButton icon={Building2} label="مكاتب الخدمات" locked={!canAccessPage('summary')} onClick={() => handlePageClick('summary', '/summary')} />
         </div>
 
         <div className="my-10"><Separator className="bg-gray-300" /></div>

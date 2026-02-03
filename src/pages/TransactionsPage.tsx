@@ -269,6 +269,26 @@ export default function TransactionsPage() {
     const agentP = formData.agent === 'إنجاز بنفسي' ? 0 : (parseFloat(formData.agentPrice) || 0);
     
     if (editingTx) {
+        // --- LOGIC UPDATE: Sync Balance on Edit ---
+        const oldAmount = parseFloat(editingTx.clientPrice) || 0;
+        const newAmount = clientP;
+        const oldBank = editingTx.paymentMethod;
+        const newBank = formData.paymentMethod;
+
+        // Calculate new balances
+        const newBalances = { ...balances };
+        
+        // 1. Remove old amount from old bank
+        newBalances[oldBank] = (newBalances[oldBank] || 0) - oldAmount;
+        
+        // 2. Add new amount to new bank
+        newBalances[newBank] = (newBalances[newBank] || 0) + newAmount;
+
+        // Update Local State Immediately
+        setBalances(newBalances);
+        updateBalancesDisplay(newBalances);
+        // ------------------------------------------
+
         const updatedTx: Transaction = {
             ...editingTx,
             type: finalType,
@@ -282,18 +302,31 @@ export default function TransactionsPage() {
         };
 
         if (currentUser) {
+            const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+            
             const success = await updateTransactionInCloud(updatedTx);
             if (!success) {
                 alert("فشل تحديث المعاملة في قاعدة البيانات. يرجى التحقق من الاتصال.");
                 setLoading(false);
                 return;
             }
+
+            // Sync Accounts in Cloud
+            if (oldBank === newBank) {
+                 await updateAccountInCloud(targetId, oldBank, newBalances[oldBank], 0);
+            } else {
+                 await updateAccountInCloud(targetId, oldBank, newBalances[oldBank], 0);
+                 await updateAccountInCloud(targetId, newBank, newBalances[newBank], 0);
+            }
+
             const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
             setTransactions(updatedTxs);
         } else {
             const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
             setTransactions(updatedTxs);
             saveStoredTransactions(updatedTxs);
+            // Save balances locally
+            saveStoredBalances(newBalances);
         }
 
     } else {
