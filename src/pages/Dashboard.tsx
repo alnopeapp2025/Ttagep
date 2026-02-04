@@ -642,10 +642,12 @@ export default function Dashboard() {
                   <DropdownMenuContent className="w-56 bg-[#eef2f6] shadow-3d border-none rounded-xl" align="end" dir="rtl">
                     <DropdownMenuLabel className="text-center font-bold text-gray-700">{currentUser.officeName}</DropdownMenuLabel>
                     <div className="text-center">
-                        <span className="text-xs text-blue-600 font-bold">{currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}</span>
+                        <span className={`text-xs font-bold ${currentUser.role === 'golden' ? 'text-yellow-700' : 'text-blue-600'}`}>
+                            {currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}
+                        </span>
                         {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (
                             <span className="block text-[10px] text-red-500 mt-1">
-                                ينتهي: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
+                                ينتهي اشتراكك في : {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
                             </span>
                         )}
                     </div>
