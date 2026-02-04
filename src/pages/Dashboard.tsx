@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw
+  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -87,6 +87,9 @@ export default function Dashboard() {
   const [restoreText, setRestoreText] = useState('');
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   
+  // About App State
+  const [aboutOpen, setAboutOpen] = useState(false);
+
   // System Reset State
   const [resetOpen, setResetOpen] = useState(false);
   const [resetStep, setResetStep] = useState<'menu' | 'confirm1' | 'confirm2'>('menu');
@@ -691,6 +694,43 @@ export default function Dashboard() {
                   </div>
                   <Separator className="my-2 bg-gray-300/50" />
                   
+                  {/* About App Dialog */}
+                  <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+                    <DialogTrigger asChild>
+                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                        <Info className="w-5 h-5 text-blue-500" /> عن التطبيق
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                        <DialogHeader>
+                            <DialogTitle className="text-center text-xl font-black text-gray-800 flex items-center justify-center gap-2">
+                                <Info className="w-6 h-6 text-blue-600" />
+                                عن تطبيق مان هوبات
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="py-6 space-y-4 text-gray-700 leading-relaxed">
+                            <p className="text-sm font-bold text-center">
+                                تطبيق مان هوبات هو نظام محاسبي وإداري متكامل مخصص لمكاتب الخدمات العامة والاستقدام في المملكة العربية السعودية.
+                            </p>
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset border border-blue-100">
+                                <h4 className="font-black text-blue-600 mb-2 text-sm">الهدف من التطبيق:</h4>
+                                <ul className="text-xs space-y-2 list-disc list-inside font-medium text-gray-600">
+                                    <li>تنظيم المعاملات المالية والإدارية للمكاتب.</li>
+                                    <li>حفظ حقوق المكتب والعملاء والمعقبين.</li>
+                                    <li>متابعة الأرباح والمصروفات بدقة عالية.</li>
+                                    <li>تسهيل الوصول لأفضل المعقبين المنجزين.</li>
+                                    <li>إصدار تقارير تفصيلية للأداء المالي والإداري.</li>
+                                </ul>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] text-gray-400">الإصدار 1.0.0</p>
+                                <p className="text-[10px] text-gray-400 mt-1">تطوير: ELTAIB HAMED ELTAIB</p>
+                            </div>
+                            <button onClick={() => setAboutOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all">إغلاق</button>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+
                   {/* ... (Existing Dialogs) ... */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
