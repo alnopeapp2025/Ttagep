@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2, Loader2, Calculator } from 'lucide-react';
+import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2, Loader2, Calculator, CheckCircle2 } from 'lucide-react';
 import { 
   getStoredExpenses, 
   saveStoredExpenses, 
@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
+import { cn } from '@/lib/utils';
 
 export default function ExpensesPage() {
   const navigate = useNavigate();
@@ -43,6 +44,15 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [banksList, setBanksList] = useState<string[]>([]);
+
+  // Validation State
+  const [fieldErrors, setFieldErrors] = useState({ title: false, amount: false, bank: false });
+  const titleRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  const bankTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Success Message State
+  const [showSuccessMsg, setShowSuccessMsg] = useState(false);
 
   // Limit Modal State
   const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
@@ -147,10 +157,29 @@ export default function ExpensesPage() {
 
   const handleAddExpense = async () => {
     setErrorMsg('');
-    if (!title || !amount || !selectedBank) return;
-    const cost = parseFloat(amount);
-    if (cost <= 0) return;
+    
+    // Validation Logic
+    const errors = {
+        title: !title.trim(),
+        amount: !amount || parseFloat(amount) <= 0,
+        bank: !selectedBank
+    };
+    setFieldErrors(errors);
 
+    if (errors.title) {
+        titleRef.current?.focus();
+        return;
+    }
+    if (errors.bank) {
+        bankTriggerRef.current?.focus(); // Focus the Select trigger
+        return;
+    }
+    if (errors.amount) {
+        amountRef.current?.focus();
+        return;
+    }
+
+    const cost = parseFloat(amount);
     const currentBalance = balances[selectedBank] || 0;
 
     if (currentBalance < cost) {
@@ -206,10 +235,17 @@ export default function ExpensesPage() {
     }
     
     setLoading(false);
-    setTitle('');
-    setAmount('');
-    setSelectedBank('');
-    setOpen(false);
+    setShowSuccessMsg(true);
+
+    // Auto close after success message
+    setTimeout(() => {
+        setShowSuccessMsg(false);
+        setTitle('');
+        setAmount('');
+        setSelectedBank('');
+        setFieldErrors({ title: false, amount: false, bank: false });
+        setOpen(false);
+    }, 1500);
   };
 
   const handleDeleteExpense = async (id: number) => {
@@ -280,7 +316,11 @@ export default function ExpensesPage() {
       <div className="mb-6">
         <Dialog open={open} onOpenChange={(val) => {
             if(val && !checkAddPermission()) return;
-            if(!val) setErrorMsg('');
+            if(!val) {
+                setErrorMsg('');
+                setFieldErrors({ title: false, amount: false, bank: false });
+                setShowSuccessMsg(false);
+            }
             setOpen(val);
         }}>
             <DialogTrigger asChild>
@@ -292,87 +332,124 @@ export default function ExpensesPage() {
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
                 <DialogHeader><DialogTitle>تسجيل مصروف</DialogTitle></DialogHeader>
                 
-                {/* Total Treasury Display */}
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-2 flex justify-between items-center shadow-sm">
-                     <div className="flex items-center gap-2 text-blue-700">
-                         <Wallet className="w-5 h-5" />
-                         <span className="font-bold text-sm">رصيد الخزينة المتاح</span>
-                     </div>
-                     <span className="font-black text-xl text-blue-800">
-                         {totalTreasury.toLocaleString()} <span className="text-xs font-medium">ر.س</span>
-                     </span>
-                </div>
-
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <Label>بيان المصروف</Label>
-                        <Input 
-                            value={title} 
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (/^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setTitle(val);
-                            }}
-                            className="bg-white shadow-3d-inset border-none"
-                            placeholder="مثلاً: فواتير كهرباء، ضيافة..."
-                        />
+                {showSuccessMsg ? (
+                    <div className="py-10 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+                        <div className="w-20 h-20 bg-green-100 rounded-full shadow-3d flex items-center justify-center mb-4 text-green-600 border-4 border-green-200">
+                            <CheckCircle2 className="w-10 h-10" strokeWidth={3} />
+                        </div>
+                        <h3 className="text-xl font-bold text-green-700">تم تسجيل مصروفك بنجاح</h3>
                     </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label>خصم من حساب</Label>
-                            {selectedBank && (
-                                <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
-                                    (balances[selectedBank] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
-                                }`}>
-                                    الرصيد: {(balances[selectedBank] || 0).toLocaleString()} ر.س
-                                </span>
+                ) : (
+                    <>
+                        {/* Total Treasury Display */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-2 flex justify-between items-center shadow-sm">
+                             <div className="flex items-center gap-2 text-blue-700">
+                                 <Wallet className="w-5 h-5" />
+                                 <span className="font-bold text-sm">رصيد الخزينة المتاح</span>
+                             </div>
+                             <span className="font-black text-xl text-blue-800">
+                                 {totalTreasury.toLocaleString()} <span className="text-xs font-medium">ر.س</span>
+                             </span>
+                        </div>
+
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-2">
+                                <Label>بيان المصروف</Label>
+                                <Input 
+                                    ref={titleRef}
+                                    value={title} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (/^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) {
+                                            setTitle(val);
+                                            if (fieldErrors.title) setFieldErrors(prev => ({ ...prev, title: false }));
+                                        }
+                                    }}
+                                    className={cn(
+                                        "bg-white shadow-3d-inset border-none",
+                                        fieldErrors.title && "border-2 border-red-500 ring-2 ring-red-200"
+                                    )}
+                                    placeholder="مثلاً: فواتير كهرباء، ضيافة..."
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <Label>خصم من حساب</Label>
+                                    {selectedBank && (
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
+                                            (balances[selectedBank] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
+                                        }`}>
+                                            الرصيد: {(balances[selectedBank] || 0).toLocaleString()} ر.س
+                                        </span>
+                                    )}
+                                </div>
+                                <Select 
+                                    onValueChange={(val) => {
+                                        setSelectedBank(val);
+                                        if (fieldErrors.bank) setFieldErrors(prev => ({ ...prev, bank: false }));
+                                    }} 
+                                    value={selectedBank}
+                                >
+                                    <SelectTrigger 
+                                        ref={bankTriggerRef}
+                                        className={cn(
+                                            "bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse",
+                                            fieldErrors.bank && "border-2 border-red-500 ring-2 ring-red-200"
+                                        )}
+                                    >
+                                        <SelectValue placeholder="اختر البنك للخصم" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right max-h-[300px]" dir="rtl">
+                                        {banksList.map((bank) => {
+                                            const bal = balances[bank] || 0;
+                                            return (
+                                                <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1 w-full">
+                                                    <div className="flex items-center justify-between w-full gap-8 min-w-[200px]">
+                                                        <span className="font-bold text-gray-700">{bank}</span>
+                                                        <span className={`font-bold text-sm ${bal > 0 ? 'text-green-600' : 'text-red-500'}`} dir="ltr">
+                                                            {bal.toLocaleString()} ر.س
+                                                        </span>
+                                                    </div>
+                                                </SelectItem>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>المبلغ</Label>
+                                <Input 
+                                    ref={amountRef}
+                                    type="number"
+                                    value={amount} 
+                                    onChange={(e) => {
+                                        setAmount(e.target.value);
+                                        if (fieldErrors.amount) setFieldErrors(prev => ({ ...prev, amount: false }));
+                                    }} 
+                                    className={cn(
+                                        "bg-white shadow-3d-inset border-none",
+                                        fieldErrors.amount && "border-2 border-red-500 ring-2 ring-red-200"
+                                    )}
+                                />
+                            </div>
+
+                            {errorMsg && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {errorMsg}
+                                </div>
                             )}
-                        </div>
-                        <Select onValueChange={setSelectedBank} value={selectedBank}>
-                            <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse">
-                                <SelectValue placeholder="اختر البنك للخصم" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right max-h-[300px]" dir="rtl">
-                                {banksList.map((bank) => {
-                                    const bal = balances[bank] || 0;
-                                    return (
-                                        <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1 w-full">
-                                            <div className="flex items-center justify-between w-full gap-8 min-w-[200px]">
-                                                <span className="font-bold text-gray-700">{bank}</span>
-                                                <span className={`font-bold text-sm ${bal > 0 ? 'text-green-600' : 'text-red-500'}`} dir="ltr">
-                                                    {bal.toLocaleString()} ر.س
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    );
-                                })}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>المبلغ</Label>
-                        <Input 
-                            type="number"
-                            value={amount} 
-                            onChange={(e) => setAmount(e.target.value)} 
-                            className="bg-white shadow-3d-inset border-none"
-                        />
-                    </div>
 
-                    {errorMsg && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in">
-                            <AlertCircle className="w-4 h-4" />
-                            {errorMsg}
+                            <button 
+                                onClick={handleAddExpense} 
+                                disabled={loading}
+                                className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                            >
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'خصم وتسجيل'}
+                            </button>
                         </div>
-                    )}
-
-                    <button 
-                        onClick={handleAddExpense} 
-                        disabled={loading}
-                        className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
-                    >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'خصم وتسجيل'}
-                    </button>
-                </div>
+                    </>
+                )}
             </DialogContent>
         </Dialog>
       </div>

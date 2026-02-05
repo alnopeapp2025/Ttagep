@@ -633,9 +633,9 @@ export default function Dashboard() {
                                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-blink-slow"></span>
                             )}
                         </div>
-                        <div className="text-center leading-3 mt-1">
+                        <div className="text-center leading-3 mt-1 max-w-[150px]">
                             <span className="block text-[10px] font-bold text-gray-600">مرحبا</span>
-                            <span className="block text-[10px] font-bold text-red-600 truncate max-w-[80px]">{currentUser.officeName}</span>
+                            <span className="block text-[10px] font-bold text-red-600 break-words whitespace-normal">{currentUser.officeName}</span>
                         </div>
                     </div>
                   </DropdownMenuTrigger>
@@ -1077,7 +1077,7 @@ export default function Dashboard() {
                             ) : (
                                 <div className="w-full space-y-2"><Label>اسم المكتب (25 حرف كحد أقصى)</Label><Input value={editOfficeName} onChange={(e) => { const val = e.target.value; if(val.length <= 25 && /^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) setEditOfficeName(val); }} className="bg-white shadow-3d-inset border-none text-center" /></div>
                             )}
-                            {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (<p className="text-xs text-red-500 font-bold mt-1">ينتهي الاشتراك: {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}</p>)}
+                            {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (<p className="text-xs text-red-500 font-bold mt-1">ينتهي اشتراكك في : {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}</p>)}
                         </div>
                         {!isEditingProfile ? (
                             <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3">
