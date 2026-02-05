@@ -44,24 +44,32 @@ const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: st
   const [timeLeft, setTimeLeft] = useState("جاري الحساب...");
 
   useEffect(() => {
+    // Calculate immediately
+    const calculate = () => {
+        const now = Date.now();
+        const diff = targetDate - now;
+
+        if (diff <= 0) {
+            setTimeLeft("انتهت المدة");
+            return false; // Stop timer
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        setTimeLeft(`تبقي علي الإنجاز: ${days}يوم ${hours}ساعات ${minutes}دقيقة ${seconds}ثانية`);
+        return true; // Continue timer
+    };
+
     if (status !== 'active') return;
 
+    const shouldContinue = calculate();
+    if (!shouldContinue) return;
+
     const timer = setInterval(() => {
-      const now = Date.now();
-      const diff = targetDate - now;
-
-      if (diff <= 0) {
-        setTimeLeft("انتهت المدة");
-        clearInterval(timer);
-        return;
-      }
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(`تبقي علي الإنجاز: ${days}يوم ${hours}ساعات ${minutes}دقيقة ${seconds}ثانية`);
+        if (!calculate()) clearInterval(timer);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -70,7 +78,7 @@ const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: st
   if (status === 'completed') return <span className="text-green-600 font-bold text-sm">تم الإنجاز بنجاح</span>;
   if (status === 'cancelled') return <span className="text-red-600 font-bold text-sm">تم إلغاء المعاملة</span>;
 
-  return <span className="font-mono font-bold text-blue-600 text-xs sm:text-sm" dir="rtl">{timeLeft}</span>;
+  return <span className={cn("font-mono font-bold text-xs sm:text-sm", timeLeft === "انتهت المدة" ? "text-gray-500" : "text-blue-600")} dir="rtl">{timeLeft}</span>;
 };
 
 export default function TransactionsPage() {
@@ -88,7 +96,6 @@ export default function TransactionsPage() {
 
   // Financial State
   const [balances, setBalances] = useState<Record<string, number>>({});
-  // REMOVED: pendingBalances state
 
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
@@ -145,7 +152,6 @@ export default function TransactionsPage() {
         fetchAgentsFromCloud(targetId).then(data => setAgents(data));
         fetchAccountsFromCloud(targetId).then(data => {
             setBalances(data.balances);
-            // REMOVED: setPendingBalances
             updateBalancesDisplay(data.balances);
         });
     } else {
@@ -269,25 +275,17 @@ export default function TransactionsPage() {
     const agentP = formData.agent === 'إنجاز بنفسي' ? 0 : (parseFloat(formData.agentPrice) || 0);
     
     if (editingTx) {
-        // --- LOGIC UPDATE: Sync Balance on Edit ---
         const oldAmount = parseFloat(editingTx.clientPrice) || 0;
         const newAmount = clientP;
         const oldBank = editingTx.paymentMethod;
         const newBank = formData.paymentMethod;
 
-        // Calculate new balances
         const newBalances = { ...balances };
-        
-        // 1. Remove old amount from old bank
         newBalances[oldBank] = (newBalances[oldBank] || 0) - oldAmount;
-        
-        // 2. Add new amount to new bank
         newBalances[newBank] = (newBalances[newBank] || 0) + newAmount;
 
-        // Update Local State Immediately
         setBalances(newBalances);
         updateBalancesDisplay(newBalances);
-        // ------------------------------------------
 
         const updatedTx: Transaction = {
             ...editingTx,
@@ -311,7 +309,6 @@ export default function TransactionsPage() {
                 return;
             }
 
-            // Sync Accounts in Cloud
             if (oldBank === newBank) {
                  await updateAccountInCloud(targetId, oldBank, newBalances[oldBank], 0);
             } else {
@@ -325,7 +322,6 @@ export default function TransactionsPage() {
             const updatedTxs = transactions.map(t => t.id === editingTx.id ? updatedTx : t);
             setTransactions(updatedTxs);
             saveStoredTransactions(updatedTxs);
-            // Save balances locally
             saveStoredBalances(newBalances);
         }
 
@@ -349,8 +345,6 @@ export default function TransactionsPage() {
         };
 
         const bank = formData.paymentMethod;
-        
-        // NEW LOGIC: Add directly to Actual Balance
         const newBalances = { ...balances };
         newBalances[bank] = (newBalances[bank] || 0) + clientP;
         
@@ -368,7 +362,6 @@ export default function TransactionsPage() {
             const updatedTxs = [newTx, ...transactions];
             setTransactions(updatedTxs);
             
-            // Update Cloud Account (Actual Balance)
             await updateAccountInCloud(targetId, bank, newBalances[bank], 0);
         } else {
             const updatedTxs = [newTx, ...transactions];
@@ -433,7 +426,6 @@ export default function TransactionsPage() {
       }
   };
 
-  // ... (Other handlers unchanged)
   const validateSaudiNumber = (num: string) => {
     const regex = /^05\d{8}$/;
     return regex.test(num);
@@ -453,7 +445,6 @@ export default function TransactionsPage() {
           let rawPhone = contact.tel[0];
           if (rawPhone) {
             rawPhone = rawPhone.replace(/\D/g, '');
-            // Normalize to 05 format
             if (rawPhone.startsWith('966')) rawPhone = '0' + rawPhone.substring(3);
             else if (rawPhone.startsWith('5')) rawPhone = '0' + rawPhone;
             else if (rawPhone.startsWith('00966')) rawPhone = '0' + rawPhone.substring(5);
@@ -580,20 +571,14 @@ export default function TransactionsPage() {
   const updateStatus = async (id: number, newStatus: 'completed' | 'cancelled') => {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
-    const clientP = parseFloat(tx.clientPrice) || 0;
-    const agentP = parseFloat(tx.agentPrice) || 0;
     const bank = tx.paymentMethod;
-    // REMOVED: pendingBalances logic
     const newBalances = { ...balances };
 
     if (newStatus === 'completed' && tx.status === 'active') {
-        // Money is already in Actual Balance (added on creation).
-        // Just update status.
         setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
     }
     
     if (newStatus === 'cancelled') {
-         // Money is already in Actual Balance. Keep it there for refund.
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
     }
 
@@ -604,7 +589,6 @@ export default function TransactionsPage() {
             alert("فشل تحديث الحالة في قاعدة البيانات.");
             return;
         }
-        // Just ensure balances are synced, pending is 0
         await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, 0);
     }
 
@@ -619,7 +603,6 @@ export default function TransactionsPage() {
     
     if (!currentUser) {
         saveStoredTransactions(updatedTxs);
-        // REMOVED: saveStoredPendingBalances
         saveStoredBalances(newBalances);
     }
   };
@@ -735,42 +718,79 @@ export default function TransactionsPage() {
           <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-8 min-h-[300px] flex flex-col items-center justify-center text-center border border-white/20"><div className="w-20 h-20 bg-[#eef2f6] rounded-full shadow-3d flex items-center justify-center mb-6 text-gray-400"><Banknote className="w-10 h-10" /></div><h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد معاملات حالياً</h3><p className="text-gray-500 max-w-xs mx-auto">قم بإضافة معاملة جديدة للبدء.</p></div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {transactions.map((tx) => (
-              <Dialog key={tx.id}>
-                <DialogTrigger asChild>
-                    <Card className={cn("border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all cursor-pointer hover:scale-[1.01] group relative", tx.status === 'completed' ? "opacity-75" : "", tx.status === 'cancelled' ? "opacity-60 grayscale" : "")}>
-                        <CardContent className="p-0">
-                        <div className="flex flex-col">
-                            <div className="flex items-center justify-between p-4 bg-yellow-200 border-b border-yellow-300"><div className="flex items-center gap-2 sm:gap-4 overflow-hidden"><span className="font-mono font-bold text-yellow-800 text-sm">#{tx.serialNo}</span><span className="h-4 w-[1px] bg-yellow-400"></span><span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span><span className="h-4 w-[1px] bg-yellow-400"></span><span className="font-bold text-blue-700 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span></div><div className={cn("w-2 h-2 rounded-full", tx.status === 'active' ? "bg-blue-500 animate-pulse" : tx.status === 'completed' ? "bg-green-500" : "bg-red-500")} /></div>
-                            <div className="p-4 flex items-center justify-between gap-4"><div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1"><CountdownTimer targetDate={tx.targetDate} status={tx.status} /></div></div>
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"><div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center text-blue-600 border-2 border-blue-100 animate-in zoom-in"><Eye className="w-8 h-8" /></div></div>
-                        </div>
-                        </CardContent>
-                    </Card>
-                </DialogTrigger>
-                <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-                    <DialogHeader>
-                        <div className="flex justify-between items-center mb-2">
-                            <DialogTitle className="text-center font-bold text-gray-800 flex-1">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
-                            <div className="flex gap-2">
-                                {/* Hide Edit/Delete if Completed OR Cancelled */}
-                                {tx.status !== 'completed' && tx.status !== 'cancelled' && (
-                                    <>
-                                        <button onClick={() => handleEditTransaction(tx)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"><Pencil className="w-4 h-4" /></button>
-                                        <button onClick={() => handleDeleteTransaction(tx.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                    </>
-                                )}
+            {transactions.map((tx) => {
+                const isExpired = tx.status === 'active' && Date.now() > tx.targetDate;
+                
+                let cardHeaderClass = "bg-yellow-200 border-yellow-300";
+                let dotClass = "bg-blue-500 animate-pulse";
+                let cardContainerClass = "border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all cursor-pointer hover:scale-[1.01] group relative";
+
+                if (tx.status === 'completed') {
+                    cardHeaderClass = "bg-green-100 border-green-200";
+                    dotClass = "bg-green-500";
+                    cardContainerClass += " opacity-90";
+                } else if (tx.status === 'cancelled') {
+                    cardHeaderClass = "bg-red-100 border-red-200";
+                    dotClass = "bg-red-500";
+                    cardContainerClass += " opacity-90";
+                } else if (isExpired) {
+                    cardHeaderClass = "bg-gray-200 border-gray-300";
+                    dotClass = "bg-gray-500";
+                    cardContainerClass += " opacity-60 grayscale";
+                } else {
+                    // Active
+                    cardHeaderClass = "bg-yellow-200 border-yellow-300";
+                    dotClass = "bg-blue-500 animate-pulse";
+                }
+
+                return (
+                  <Dialog key={tx.id}>
+                    <DialogTrigger asChild>
+                        <Card className={cardContainerClass}>
+                            <CardContent className="p-0">
+                            <div className="flex flex-col">
+                                <div className={cn("flex items-center justify-between p-4 border-b", cardHeaderClass)}>
+                                    <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+                                        <span className={cn("font-mono font-bold text-sm", tx.status === 'completed' ? "text-green-800" : tx.status === 'cancelled' ? "text-red-800" : isExpired ? "text-gray-700" : "text-yellow-800")}>
+                                            #{tx.serialNo}
+                                        </span>
+                                        <span className={cn("h-4 w-[1px]", tx.status === 'completed' ? "bg-green-300" : tx.status === 'cancelled' ? "bg-red-300" : isExpired ? "bg-gray-400" : "bg-yellow-400")}></span>
+                                        <span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span>
+                                        <span className={cn("h-4 w-[1px]", tx.status === 'completed' ? "bg-green-300" : tx.status === 'cancelled' ? "bg-red-300" : isExpired ? "bg-gray-400" : "bg-yellow-400")}></span>
+                                        <span className="font-bold text-blue-700 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
+                                    </div>
+                                    <div className={cn("w-2 h-2 rounded-full", dotClass)} />
+                                </div>
+                                <div className="p-4 flex items-center justify-between gap-4"><div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1"><CountdownTimer targetDate={tx.targetDate} status={tx.status} /></div></div>
+                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"><div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center text-blue-600 border-2 border-blue-100 animate-in zoom-in"><Eye className="w-8 h-8" /></div></div>
                             </div>
+                            </CardContent>
+                        </Card>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                        <DialogHeader>
+                            <div className="flex justify-between items-center mb-2">
+                                <DialogTitle className="text-center font-bold text-gray-800 flex-1">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
+                                <div className="flex gap-2">
+                                    {/* Hide Edit/Delete if Completed OR Cancelled */}
+                                    {tx.status !== 'completed' && tx.status !== 'cancelled' && (
+                                        <>
+                                            <button onClick={() => handleEditTransaction(tx)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"><Pencil className="w-4 h-4" /></button>
+                                            <button onClick={() => handleDeleteTransaction(tx.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm"><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">النوع</span><span className="font-bold">{tx.type}</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">العميل</span><span className="font-bold">{tx.clientName || '-'}</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">السعر</span><span className="font-bold text-blue-600">{tx.clientPrice} ر.س</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">المعقب</span><span className="font-bold">{tx.agent}</span></div>{tx.createdBy && (<div className="bg-white/50 p-3 rounded-xl col-span-2"><span className="text-gray-500 block text-xs">تم الإنشاء بواسطة</span><span className="font-bold text-purple-600">{tx.createdBy}</span></div>)}</div>
+                            <div className="grid grid-cols-2 gap-3"><button onClick={() => handlePrint(tx)} className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-gray-200 text-gray-700 hover:bg-gray-300`}><Printer className="w-4 h-4" /> طباعة</button><button onClick={() => handleWhatsApp(tx)} className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-green-100 text-green-700 hover:bg-green-200`}><Send className="w-4 h-4" /> واتساب للعميل</button></div>
+                            {tx.status === 'active' && (<div className="flex gap-3 pt-2 border-t border-gray-200"><button onClick={() => { updateStatus(tx.id, 'completed'); }} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700">إنجاز</button><button onClick={() => { updateStatus(tx.id, 'cancelled'); }} className="flex-1 py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200">إلغاء</button></div>)}
                         </div>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm"><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">النوع</span><span className="font-bold">{tx.type}</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">العميل</span><span className="font-bold">{tx.clientName || '-'}</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">السعر</span><span className="font-bold text-blue-600">{tx.clientPrice} ر.س</span></div><div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">المعقب</span><span className="font-bold">{tx.agent}</span></div>{tx.createdBy && (<div className="bg-white/50 p-3 rounded-xl col-span-2"><span className="text-gray-500 block text-xs">تم الإنشاء بواسطة</span><span className="font-bold text-purple-600">{tx.createdBy}</span></div>)}</div>
-                        <div className="grid grid-cols-2 gap-3"><button onClick={() => handlePrint(tx)} className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-gray-200 text-gray-700 hover:bg-gray-300`}><Printer className="w-4 h-4" /> طباعة</button><button onClick={() => handleWhatsApp(tx)} className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden bg-green-100 text-green-700 hover:bg-green-200`}><Send className="w-4 h-4" /> واتساب للعميل</button></div>
-                        {tx.status === 'active' && (<div className="flex gap-3 pt-2 border-t border-gray-200"><button onClick={() => { updateStatus(tx.id, 'completed'); }} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700">إنجاز</button><button onClick={() => { updateStatus(tx.id, 'cancelled'); }} className="flex-1 py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200">إلغاء</button></div>)}
-                    </div>
-                </DialogContent>
-              </Dialog>
-            ))}
+                    </DialogContent>
+                  </Dialog>
+                );
+            })}
           </div>
         )}
       </div>
