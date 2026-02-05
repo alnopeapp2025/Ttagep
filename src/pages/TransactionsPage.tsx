@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil, Loader2, Filter, Search } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil, Loader2, Filter, Search, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,8 @@ import {
   fetchAccountsFromCloud, updateAccountInCloud,
   Transaction, getGlobalSettings, GlobalSettings, checkLimit, deleteTransactionFromCloud, updateTransactionInCloud,
   getBankNames,
-  isEmployeeRestricted 
+  isEmployeeRestricted,
+  getGoldenUsers 
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { LimitModals } from '@/components/LimitModals';
@@ -637,6 +638,18 @@ export default function TransactionsPage() {
     }
   };
 
+  // Helper to get the correct office name for printing
+  const getPrintOfficeName = () => {
+      // If employee, try to find parent's name from Golden Users cache
+      if (currentUser?.role === 'employee' && currentUser.parentId) {
+          const goldenUsers = getGoldenUsers();
+          const parent = goldenUsers.find(u => u.userId === currentUser.parentId);
+          if (parent && parent.userName) return parent.userName;
+      }
+      // Default to current user's office name (which is the office name for members/golden)
+      return currentUser?.officeName || 'مكتب الخدمات العامة';
+  };
+
   // Filter Logic
   const filteredTransactions = transactions.filter(tx => {
       const now = Date.now();
@@ -872,14 +885,91 @@ export default function TransactionsPage() {
     </div>
     {printTx && (
         <div className="hidden print:flex fixed inset-0 bg-white z-[9999] flex-col font-sans" dir="rtl">
-            <div className="h-4 bg-blue-600 w-full print:h-4"></div>
-            <div className="px-12 py-8 flex justify-between items-start"><div><h1 className="text-3xl font-black text-slate-800 mb-2">{currentUser?.officeName || 'مكتب الخدمات العامة'}</h1><p className="text-slate-500 text-sm font-medium">خدمات عامة - تعقيب - استشارات</p></div><div className="text-left"><h2 className="text-5xl font-black text-slate-100 tracking-tighter uppercase">INVOICE</h2><p className="text-blue-600 font-bold text-lg -mt-2">فاتورة ضريبية</p></div></div>
-            <div className="px-12 my-4"><div className="h-px bg-slate-200 w-full"></div></div>
-            <div className="px-12 py-4 grid grid-cols-2 gap-12"><div><p className="text-xs font-bold text-slate-400 uppercase mb-1">بيانات العميل (Bill To)</p><h3 className="text-xl font-bold text-slate-800 mb-1">{printTx.clientName}</h3></div><div className="grid grid-cols-2 gap-6"><div><p className="text-xs font-bold text-slate-400 uppercase mb-1">رقم الفاتورة</p><p className="text-lg font-bold text-slate-700">#{printTx.serialNo}</p></div><div><p className="text-xs font-bold text-slate-400 uppercase mb-1">التاريخ</p><p className="text-lg font-bold text-slate-700">{new Date(printTx.createdAt).toLocaleDateString('ar-SA')}</p></div></div></div>
-            <div className="px-12 py-8"><div className="border border-slate-200 rounded-lg overflow-hidden"><table className="w-full text-right"><thead className="bg-slate-50 text-slate-600"><tr><th className="py-4 px-6 font-bold text-sm">الوصف / نوع المعاملة</th><th className="py-4 px-6 font-bold text-sm text-center">الحالة</th><th className="py-4 px-6 font-bold text-sm text-left">المبلغ</th></tr></thead><tbody className="divide-y divide-slate-100"><tr><td className="py-6 px-6 font-bold text-slate-800">{printTx.type}</td><td className="py-6 px-6 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${printTx.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : printTx.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>{printTx.status === 'completed' ? 'تم الإنجاز' : printTx.status === 'cancelled' ? 'ملغاة' : 'قيد التنفيذ'}</span></td><td className="py-6 px-6 text-left font-black text-xl text-slate-800">{printTx.clientPrice} <span className="text-xs text-slate-400 font-medium">ر.س</span></td></tr></tbody></table></div></div>
-            <div className="px-12 flex justify-end"><div className="w-64"><div className="flex justify-between items-center py-2 border-b border-slate-100"><span className="text-slate-500 font-medium">المجموع الفرعي</span><span className="font-bold text-slate-700">{printTx.clientPrice} ر.س</span></div><div className="flex justify-between items-center py-4"><span className="text-blue-600 font-bold text-lg">الإجمالي المستحق</span><span className="font-black text-2xl text-blue-600">{printTx.clientPrice} <span className="text-sm">ر.س</span></span></div></div></div>
-            <div className="mt-auto bg-slate-50 p-10 border-t border-slate-200 print:bg-slate-50"><div className="flex flex-col md:flex-row justify-between items-center gap-4"><div className="text-center md:text-right"><p className="font-bold text-slate-700 mb-1">شكراً لتعاملكم معنا</p><p className="text-xs text-slate-500">نسعد بخدمتكم دائماً</p></div><div className="flex items-center gap-6"><div className="flex items-center gap-2 text-slate-600"><div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-600"><Phone className="w-4 h-4" /></div><span className="font-mono font-bold" dir="ltr">{currentUser?.phone}</span></div></div></div></div>
-            <div className="h-2 bg-slate-800 w-full"></div>
+            <div className="px-8 py-6 flex justify-between items-start">
+                <div className="flex flex-col">
+                    <h1 className="text-2xl font-black text-slate-800 mb-1">{getPrintOfficeName()}</h1>
+                    <p className="text-slate-500 text-xs font-medium">خدمات عامة - تعقيب - استشارات</p>
+                </div>
+                <div>
+                    <Building2 className="w-14 h-14 text-slate-800" strokeWidth={1.5} />
+                </div>
+            </div>
+            
+            {/* Separator Line */}
+            <div className="h-0.5 bg-slate-800 w-full my-2"></div>
+            
+            {/* Invoice Title */}
+            <div className="text-center mb-6">
+                <h2 className="text-2xl font-black text-slate-800">فاتورة</h2>
+            </div>
+
+            <div className="px-8 py-2 grid grid-cols-2 gap-6">
+                <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">بيانات العميل (Bill To)</p>
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">{printTx.clientName}</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">رقم الفاتورة</p>
+                        <p className="text-base font-bold text-slate-700">#{printTx.serialNo}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">التاريخ</p>
+                        <p className="text-base font-bold text-slate-700">{new Date(printTx.createdAt).toLocaleDateString('ar-SA')}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-8 py-4">
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-right">
+                        <thead className="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th className="py-3 px-4 font-bold text-xs">الوصف / نوع المعاملة</th>
+                                <th className="py-3 px-4 font-bold text-xs text-center">الحالة</th>
+                                <th className="py-3 px-4 font-bold text-xs text-left">المبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            <tr>
+                                <td className="py-4 px-4 font-bold text-slate-800 text-sm">{printTx.type}</td>
+                                <td className="py-4 px-4 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${printTx.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : printTx.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                        {printTx.status === 'completed' ? 'تم الإنجاز' : printTx.status === 'cancelled' ? 'ملغاة' : 'قيد التنفيذ'}
+                                    </span>
+                                </td>
+                                <td className="py-4 px-4 text-left font-black text-lg text-slate-800">{printTx.clientPrice} <span className="text-[10px] text-slate-400 font-medium">ر.س</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="px-8 flex justify-end mt-2">
+                <div className="w-1/2">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium text-sm">المجموع الفرعي</span>
+                        <span className="font-bold text-slate-700 text-right">{printTx.clientPrice} ر.س</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3">
+                        <span className="text-blue-600 font-bold text-base">الإجمالي المستحق</span>
+                        <span className="font-black text-xl text-blue-600 text-right">{printTx.clientPrice} <span className="text-xs">ر.س</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-auto bg-slate-50 p-6 border-t border-slate-200 print:bg-slate-50">
+                <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="font-bold text-slate-700 text-sm">شكراً لتعاملكم معنا</p>
+                    <p className="text-[10px] text-slate-500">نسعد بخدمتكم دائماً</p>
+                    <div className="flex items-center gap-2 text-slate-600 mt-1">
+                        <div className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-600">
+                            <Phone className="w-3 h-3" />
+                        </div>
+                        <span className="font-mono font-bold text-xs" dir="ltr">{currentUser?.phone}</span>
+                    </div>
+                </div>
+            </div>
         </div>
     )}
     </>
