@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil, Loader2 } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock, Trash2, Pencil, Loader2, Filter, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -120,6 +120,11 @@ export default function TransactionsPage() {
 
   // Dynamic Bank List
   const [banksList, setBanksList] = useState<string[]>([]);
+
+  // Filter & Search State
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     manualType: '',
@@ -632,6 +637,23 @@ export default function TransactionsPage() {
     }
   };
 
+  // Filter Logic
+  const filteredTransactions = transactions.filter(tx => {
+      const now = Date.now();
+      const isExpired = tx.status === 'active' && now > tx.targetDate;
+      
+      // Status Filter
+      if (filterStatus === 'active' && (tx.status !== 'active' || isExpired)) return false;
+      if (filterStatus === 'completed' && tx.status !== 'completed') return false;
+      if (filterStatus === 'cancelled' && tx.status !== 'cancelled') return false;
+      if (filterStatus === 'expired' && !isExpired) return false;
+
+      // Search Filter
+      if (searchQuery && !tx.serialNo.includes(searchQuery)) return false;
+
+      return true;
+  });
+
   return (
     <>
     <LimitModals 
@@ -659,66 +681,119 @@ export default function TransactionsPage() {
             <div className="hidden sm:flex gap-4"><div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2"><Wallet className="w-4 h-4 text-blue-600" /><div className="text-xs text-gray-500">جملة الخزينة</div><div className="font-bold text-blue-700">{officeBalance.toLocaleString()} ر.س</div></div></div>
         </div>
       </header>
-      <div className="mb-6">
-        <Dialog open={open} onOpenChange={(val) => { if(val && !checkAddPermission() && !editingTx) return; setOpen(val); if(!val) { setEditingTx(null); setFormData({ manualType: '', selectedType: '', agentPrice: '', clientPrice: '', agent: '', clientName: '', duration: '', paymentMethod: '' }); } }}>
-          <DialogTrigger asChild><button className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all w-full sm:w-auto justify-center"><div className="p-1 bg-blue-100 rounded-full"><Plus className="w-5 h-5" /></div><span>أضف معاملة جديدة</span></button></DialogTrigger>
-          <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg" dir="rtl">
-            <DialogHeader><DialogTitle className="text-xl font-bold text-gray-800 text-center mb-1">{editingTx ? 'تعديل المعاملة' : 'بيانات المعاملة'}</DialogTitle><DialogDescription className="hidden">Form</DialogDescription></DialogHeader>
-            <div className="grid gap-3 py-2">
-              <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
-                 <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
-                 <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3"><button onClick={() => setInputTypeMode('manual')} className={cn("flex-1 py-1 text-xs font-bold rounded-md transition-all", inputTypeMode === 'manual' ? "bg-white shadow-sm text-blue-600" : "text-gray-400")}>كتابة يدوية</button><button onClick={() => setInputTypeMode('select')} className={cn("flex-1 py-1 text-xs font-bold rounded-md transition-all", inputTypeMode === 'select' ? "bg-white shadow-sm text-blue-600" : "text-gray-400")}>اختر من قائمة</button></div>
-                 {inputTypeMode === 'manual' ? (
-                    <div className="relative"><Input ref={manualTypeRef} placeholder="اكتب المعاملة هنا.." value={formData.manualType} onChange={handleManualTypeChange} onKeyDown={(e) => handleKeyDown(e, agentPriceRef)} className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse" /></div>
-                 ) : (
-                    <Select value={formData.selectedType} onValueChange={(val) => { setFormData({...formData, selectedType: val}); if(errors.type) setErrors({...errors, type: ''}); }}><SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm [&>svg]:text-red-500 [&>svg]:animate-pulse"><SelectValue placeholder="اختر معاملة..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{transactionTypesList.map((type) => (<SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>))}</SelectContent></Select>
-                 )}
-                 {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
-                <div className="flex gap-2">
-                    <div className="flex-1"><Select value={formData.agent} onValueChange={(val) => { setFormData({...formData, agent: val}); if(errors.agent) setErrors({...errors, agent: ''}); }}><SelectTrigger ref={agentSelectRef} className={cn("h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm", errors.agent ? "border border-red-400" : "border-none")}><SelectValue placeholder="اختر المعقب..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl"><SelectItem value="إنجاز بنفسي" className="text-right font-bold text-blue-600">إنجاز بنفسي</SelectItem>{agents.map((agent) => (<SelectItem key={agent.id} value={agent.name} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent.name}</SelectItem>))}</SelectContent></Select></div>
-                     <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}><DialogTrigger asChild><button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600"><Plus className="w-5 h-5" /></button></DialogTrigger><DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl"><DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader><button onClick={() => handleImportContact('agent')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button><div className="py-4 space-y-3"><Input placeholder="اسم المعقب" value={newAgentName} onChange={(e) => { const val = e.target.value; if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setNewAgentName(val); }} className="bg-white shadow-3d-inset border-none" /><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentPhone(val); if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}</div><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentWhatsapp(val); if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}</div><button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button></div></DialogContent></Dialog>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                 {formData.agent !== 'إنجاز بنفسي' && (
-                    <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label><div className="relative"><Input ref={agentPriceRef} type="number" placeholder="0" value={formData.agentPrice} onChange={(e) => { setFormData({...formData, agentPrice: e.target.value}); if(errors.agentPrice) setErrors({...errors, agentPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, clientPriceRef)} className={cn("pl-10 text-left font-bold text-gray-600 h-10 text-sm", errors.agentPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span></div></div>
-                 )}
-                <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label><div className="relative"><Input ref={clientPriceRef} type="number" placeholder="0" value={formData.clientPrice} onChange={(e) => { setFormData({...formData, clientPrice: e.target.value}); if(errors.clientPrice) setErrors({...errors, clientPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, durationRef)} className={cn("pl-10 text-left font-bold text-blue-600 h-10 text-sm", errors.clientPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span></div></div>
-              </div>
-               <div className="space-y-1">
-                <Label className="text-gray-700 font-bold text-xs">العميل</Label>
-                <div className="flex gap-2">
-                    <div className="flex-1"><Select value={formData.clientName} onValueChange={(val) => setFormData({...formData, clientName: val})}><SelectTrigger ref={clientSelectRef} className="h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm border-none"><SelectValue placeholder="اختر عميل..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{clients.map((client) => (<SelectItem key={client.id} value={client.name} className="text-right">{client.name}</SelectItem>))}</SelectContent></Select></div>
-                    <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}><DialogTrigger asChild><button className="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-3d flex items-center justify-center hover:bg-blue-700"><Plus className="w-5 h-5" /></button></DialogTrigger><DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl"><DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader><button onClick={() => handleImportContact('client')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button><div className="py-4 space-y-3"><Input placeholder="اسم العميل" value={newClientName} onChange={(e) => { const val = e.target.value; if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setNewClientName(val); }} className="bg-white shadow-3d-inset border-none" /><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newClientPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientPhone(val); if(clientErrors.phone) setClientErrors({...clientErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{clientErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.phone}</p>}</div><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newClientWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientWhatsapp(val); if(clientErrors.whatsapp) setClientErrors({...clientErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{clientErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.whatsapp}</p>}</div><button onClick={handleAddClientQuick} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">حفظ وإكمال</button></div></DialogContent></Dialog>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">مدة الإنجاز (أيام)</Label><div className="relative"><Input ref={durationRef} type="number" placeholder="3" value={formData.duration} onChange={(e) => { setFormData({...formData, duration: e.target.value}); if(errors.duration) setErrors({...errors, duration: ''}); }} className={cn("pl-8 text-left h-10 text-sm", errors.duration ? "border border-red-400" : "border-none")} /><Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" /></div></div>
-                <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">طريقة الدفع</Label><Select value={formData.paymentMethod} onValueChange={(val) => { setFormData({...formData, paymentMethod: val}); if(errors.paymentMethod) setErrors({...errors, paymentMethod: ''}); }}><SelectTrigger className={cn("h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm", errors.paymentMethod ? "border border-red-400" : "border-none")}><SelectValue placeholder="اختر البنك..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer focus:bg-white/50 my-1">{bank}</SelectItem>))}</SelectContent></Select></div>
-              </div>
-            </div>
-            {/* DISABLED SAVE BUTTON FOR RESTRICTED EMPLOYEES */}
-            <DialogFooter className="flex justify-center mt-4">
-                <button 
-                    onClick={handleSave} 
-                    disabled={loading || isEmployeeRestricted(currentUser)} 
-                    className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTx ? 'تحديث' : 'حفظ المعاملة')}
+      
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Add Button */}
+        <div className="flex justify-start">
+            <Dialog open={open} onOpenChange={(val) => { if(val && !checkAddPermission() && !editingTx) return; setOpen(val); if(!val) { setEditingTx(null); setFormData({ manualType: '', selectedType: '', agentPrice: '', clientPrice: '', agent: '', clientName: '', duration: '', paymentMethod: '' }); } }}>
+            <DialogTrigger asChild>
+                <button className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all w-fit">
+                    <div className="p-1 bg-blue-100 rounded-full"><Plus className="w-5 h-5" /></div>
+                    <span>أضف معاملة جديدة</span>
                 </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg" dir="rtl">
+                <DialogHeader><DialogTitle className="text-xl font-bold text-gray-800 text-center mb-1">{editingTx ? 'تعديل المعاملة' : 'بيانات المعاملة'}</DialogTitle><DialogDescription className="hidden">Form</DialogDescription></DialogHeader>
+                <div className="grid gap-3 py-2">
+                <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
+                    <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
+                    <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3"><button onClick={() => setInputTypeMode('manual')} className={cn("flex-1 py-1 text-xs font-bold rounded-md transition-all", inputTypeMode === 'manual' ? "bg-white shadow-sm text-blue-600" : "text-gray-400")}>كتابة يدوية</button><button onClick={() => setInputTypeMode('select')} className={cn("flex-1 py-1 text-xs font-bold rounded-md transition-all", inputTypeMode === 'select' ? "bg-white shadow-sm text-blue-600" : "text-gray-400")}>اختر من قائمة</button></div>
+                    {inputTypeMode === 'manual' ? (
+                        <div className="relative"><Input ref={manualTypeRef} placeholder="اكتب المعاملة هنا.." value={formData.manualType} onChange={handleManualTypeChange} onKeyDown={(e) => handleKeyDown(e, agentPriceRef)} className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse" /></div>
+                    ) : (
+                        <Select value={formData.selectedType} onValueChange={(val) => { setFormData({...formData, selectedType: val}); if(errors.type) setErrors({...errors, type: ''}); }}><SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm [&>svg]:text-red-500 [&>svg]:animate-pulse"><SelectValue placeholder="اختر معاملة..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{transactionTypesList.map((type) => (<SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>))}</SelectContent></Select>
+                    )}
+                    {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
+                </div>
+                <div className="space-y-1">
+                    <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
+                    <div className="flex gap-2">
+                        <div className="flex-1"><Select value={formData.agent} onValueChange={(val) => { setFormData({...formData, agent: val}); if(errors.agent) setErrors({...errors, agent: ''}); }}><SelectTrigger ref={agentSelectRef} className={cn("h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm", errors.agent ? "border border-red-400" : "border-none")}><SelectValue placeholder="اختر المعقب..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl"><SelectItem value="إنجاز بنفسي" className="text-right font-bold text-blue-600">إنجاز بنفسي</SelectItem>{agents.map((agent) => (<SelectItem key={agent.id} value={agent.name} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent.name}</SelectItem>))}</SelectContent></Select></div>
+                        <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}><DialogTrigger asChild><button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600"><Plus className="w-5 h-5" /></button></DialogTrigger><DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl"><DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader><button onClick={() => handleImportContact('agent')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button><div className="py-4 space-y-3"><Input placeholder="اسم المعقب" value={newAgentName} onChange={(e) => { const val = e.target.value; if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setNewAgentName(val); }} className="bg-white shadow-3d-inset border-none" /><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentPhone(val); if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}</div><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newAgentWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewAgentWhatsapp(val); if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}</div><button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button></div></DialogContent></Dialog>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {formData.agent !== 'إنجاز بنفسي' && (
+                        <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label><div className="relative"><Input ref={agentPriceRef} type="number" placeholder="0" value={formData.agentPrice} onChange={(e) => { setFormData({...formData, agentPrice: e.target.value}); if(errors.agentPrice) setErrors({...errors, agentPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, clientPriceRef)} className={cn("pl-10 text-left font-bold text-gray-600 h-10 text-sm", errors.agentPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span></div></div>
+                    )}
+                    <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label><div className="relative"><Input ref={clientPriceRef} type="number" placeholder="0" value={formData.clientPrice} onChange={(e) => { setFormData({...formData, clientPrice: e.target.value}); if(errors.clientPrice) setErrors({...errors, clientPrice: ''}); }} onKeyDown={(e) => handleKeyDown(e, durationRef)} className={cn("pl-10 text-left font-bold text-blue-600 h-10 text-sm", errors.clientPrice ? "border border-red-400" : "border-none")} /><span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span></div></div>
+                </div>
+                <div className="space-y-1">
+                    <Label className="text-gray-700 font-bold text-xs">العميل</Label>
+                    <div className="flex gap-2">
+                        <div className="flex-1"><Select value={formData.clientName} onValueChange={(val) => setFormData({...formData, clientName: val})}><SelectTrigger ref={clientSelectRef} className="h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm border-none"><SelectValue placeholder="اختر عميل..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{clients.map((client) => (<SelectItem key={client.id} value={client.name} className="text-right">{client.name}</SelectItem>))}</SelectContent></Select></div>
+                        <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}><DialogTrigger asChild><button className="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-3d flex items-center justify-center hover:bg-blue-700"><Plus className="w-5 h-5" /></button></DialogTrigger><DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl"><DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader><button onClick={() => handleImportContact('client')} className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"><Contact className="w-4 h-4" /> أو من الهاتف</button><div className="py-4 space-y-3"><Input placeholder="اسم العميل" value={newClientName} onChange={(e) => { const val = e.target.value; if (val.length <= 20 && /^[\u0600-\u06FFa-zA-Z0-9\s]*$/.test(val)) setNewClientName(val); }} className="bg-white shadow-3d-inset border-none" /><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div><Input value={newClientPhone} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientPhone(val); if(clientErrors.phone) setClientErrors({...clientErrors, phone: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.phone ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><Phone className="absolute right-3 w-4 h-4 text-gray-400" /></div>{clientErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.phone}</p>}</div><div className="space-y-1"><div className="relative flex items-center" dir="ltr"><div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div><Input value={newClientWhatsapp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 10); setNewClientWhatsapp(val); if(clientErrors.whatsapp) setClientErrors({...clientErrors, whatsapp: ''}); }} className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`} placeholder="05xxxxxxxx" /><MessageCircle className="absolute right-3 w-4 h-4 text-green-500" /></div>{clientErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.whatsapp}</p>}</div><button onClick={handleAddClientQuick} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">حفظ وإكمال</button></div></DialogContent></Dialog>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">مدة الإنجاز (أيام)</Label><div className="relative"><Input ref={durationRef} type="number" placeholder="3" value={formData.duration} onChange={(e) => { setFormData({...formData, duration: e.target.value}); if(errors.duration) setErrors({...errors, duration: ''}); }} className={cn("pl-8 text-left h-10 text-sm", errors.duration ? "border border-red-400" : "border-none")} /><Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" /></div></div>
+                    <div className="space-y-1"><Label className="text-gray-700 font-bold text-xs">طريقة الدفع</Label><Select value={formData.paymentMethod} onValueChange={(val) => { setFormData({...formData, paymentMethod: val}); if(errors.paymentMethod) setErrors({...errors, paymentMethod: ''}); }}><SelectTrigger className={cn("h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm", errors.paymentMethod ? "border border-red-400" : "border-none")}><SelectValue placeholder="اختر البنك..." /></SelectTrigger><SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">{banksList.map((bank) => (<SelectItem key={bank} value={bank} className="text-right cursor-pointer focus:bg-white/50 my-1">{bank}</SelectItem>))}</SelectContent></Select></div>
+                </div>
+                </div>
+                {/* DISABLED SAVE BUTTON FOR RESTRICTED EMPLOYEES */}
+                <DialogFooter className="flex justify-center mt-4">
+                    <button 
+                        onClick={handleSave} 
+                        disabled={loading || isEmployeeRestricted(currentUser)} 
+                        className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTx ? 'تحديث' : 'حفظ المعاملة')}
+                    </button>
+                </DialogFooter>
+            </DialogContent>
+            </Dialog>
+        </div>
+
+        {/* Controls Bar */}
+        <div className="flex items-center justify-between">
+            {/* Filter (Right in RTL) */}
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[180px] bg-[#eef2f6] shadow-3d-inset border-none h-12 rounded-xl text-gray-700 font-bold">
+                    <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4" />
+                        <SelectValue placeholder="تصفية الحالات" />
+                    </div>
+                </SelectTrigger>
+                <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                    <SelectItem value="all">كل المعاملات</SelectItem>
+                    <SelectItem value="active">نشطة الآن</SelectItem>
+                    <SelectItem value="completed">المنجزة</SelectItem>
+                    <SelectItem value="cancelled">الملغاة</SelectItem>
+                    <SelectItem value="expired">انتهت مدتها</SelectItem>
+                </SelectContent>
+            </Select>
+
+            {/* Search (Left in RTL) */}
+            <div className="flex items-center gap-2">
+                {isSearchOpen ? (
+                    <div className="relative animate-in fade-in slide-in-from-left-4">
+                        <Input 
+                            placeholder="بحث عن معاملة..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-48 bg-[#eef2f6] shadow-3d-inset border-none h-12 rounded-xl pr-10"
+                            autoFocus
+                        />
+                        <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="absolute left-2 top-3 text-gray-400 hover:text-red-500">
+                            <XCircle className="w-5 h-5" />
+                        </button>
+                        <Search className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" />
+                    </div>
+                ) : (
+                    <button onClick={() => setIsSearchOpen(true)} className="w-12 h-12 bg-[#eef2f6] shadow-3d rounded-xl flex items-center justify-center text-gray-600 hover:text-blue-600 transition-colors">
+                        <Search className="w-6 h-6" />
+                    </button>
+                )}
+            </div>
+        </div>
       </div>
+
       <div className="space-y-4">
-        {transactions.length === 0 ? (
-          <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-8 min-h-[300px] flex flex-col items-center justify-center text-center border border-white/20"><div className="w-20 h-20 bg-[#eef2f6] rounded-full shadow-3d flex items-center justify-center mb-6 text-gray-400"><Banknote className="w-10 h-10" /></div><h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد معاملات حالياً</h3><p className="text-gray-500 max-w-xs mx-auto">قم بإضافة معاملة جديدة للبدء.</p></div>
+        {filteredTransactions.length === 0 ? (
+          <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-8 min-h-[300px] flex flex-col items-center justify-center text-center border border-white/20"><div className="w-20 h-20 bg-[#eef2f6] rounded-full shadow-3d flex items-center justify-center mb-6 text-gray-400"><Banknote className="w-10 h-10" /></div><h3 className="text-xl font-bold text-gray-700 mb-2">لا توجد معاملات</h3><p className="text-gray-500 max-w-xs mx-auto">قم بإضافة معاملة جديدة أو تغيير خيارات البحث.</p></div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {transactions.map((tx) => {
+            {filteredTransactions.map((tx) => {
                 const isExpired = tx.status === 'active' && Date.now() > tx.targetDate;
                 
                 let cardHeaderClass = "bg-yellow-200 border-yellow-300";
