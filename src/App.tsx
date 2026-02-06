@@ -11,7 +11,6 @@ import CalculatorPage from './pages/CalculatorPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AchieversHub from './pages/AchieversHub';
-import InjazkomPage from './pages/InjazkomPage';
 import AdminPanel from './pages/AdminPanel';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import DeleteDataPage from './pages/DeleteDataPage';
@@ -62,7 +61,6 @@ function App() {
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/calculator" element={<CalculatorPage />} />
           <Route path="/achievers" element={<AchieversHub />} />
-          <Route path="/injazkom" element={<InjazkomPage />} />
           <Route path="/summary" element={<SummaryPage />} />
           
           {/* New Pages */}

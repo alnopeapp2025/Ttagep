@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-// ... (Existing Constants) ...
+// ... (Existing Constants and Types remain unchanged) ...
 export const DEFAULT_BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
   "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
@@ -242,7 +242,7 @@ const parseDate = (val: any): number => {
     return new Date(val).getTime();
 };
 
-// --- User Management (Supabase Auth) ---
+// ... (Rest of User Management and Settings functions remain unchanged) ...
 const hashPassword = (pwd: string) => {
   return btoa(pwd).split('').reverse().join(''); 
 };
@@ -395,6 +395,7 @@ export const isEmployeeRestricted = (user: User | null): boolean => {
     return false;
 };
 
+// ... (Previous LocalStorage functions) ...
 export const getStoredTransactions = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(TX_KEY);
@@ -588,6 +589,7 @@ export const clearAllData = () => {
     window.location.reload();
 };
 
+// ... (Existing Cloud Functions for Transactions, Clients, Agents, Expenses, Accounts) ...
 export const addAgentTransferToCloud = async (record: AgentTransferRecord, userId: number) => {
     try {
         const { error } = await supabase
@@ -638,17 +640,17 @@ export const fetchAccountStatementFromCloud = async (userId: number) => {
             .from('full_account_statement')
             .select('*')
             .eq('user_id', userId)
-            .order('date', { ascending: false });
+            .order('created_at', { ascending: false }); // Updated to order by created_at which is aliased in view
         
         if (error) throw error;
         
         return data.map((item: any) => ({
-            id: `${item.record_type}-${item.id}`,
+            id: `${item.type}-${item.id}`,
             type: item.type,
-            title: item.details,
+            title: item.description, // Updated to use description from view
             amount: Number(item.amount),
-            date: item.date,
-            bank: item.bank
+            date: new Date(item.created_at).getTime(),
+            status: item.status
         }));
     } catch (err) {
         console.error('Fetch statement error:', err);
@@ -688,6 +690,7 @@ export const markTransactionsAsClientRefunded = async (ids: number[]) => {
     }
 };
 
+// ... (Delete All Functions) ...
 export const deleteAllAgents = async (userId: number) => {
     try {
         const { error } = await supabase.from('agents').delete().eq('user_id', userId);
@@ -754,6 +757,7 @@ export const deleteAllRefunds = async (userId: number) => {
     }
 };
 
+// ... (Subscription & User Functions) ...
 export const createSubscriptionRequest = async (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة', bank: string) => {
     try {
         const { data: existing } = await supabase
@@ -966,6 +970,7 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
   }
 };
 
+// ... (Employee, Login, Password, Profile functions remain same) ...
 export const createEmployee = async (employeeData: { name: string, password: string, permissions: string[] }, parentUser: User) => {
     const employees = getStoredEmployees();
     const myEmployees = employees.filter(e => e.parentId === parentUser.id);
@@ -1264,6 +1269,8 @@ export const completeWithdrawal = async (requestId: number, userId: number) => {
 
 export const addOfficeListingToCloud = async (listing: OfficeListing) => {
     try {
+        if (!listing.userId) throw new Error("User ID is missing");
+
         const { data, error } = await supabase
             .from('public_offices')
             .insert([{
@@ -1273,7 +1280,7 @@ export const addOfficeListingToCloud = async (listing: OfficeListing) => {
                 whatsapp: listing.whatsapp,
                 work_type: listing.workType,
                 city: listing.city,
-                services: listing.services,
+                services: listing.services || [], // Ensure array
                 is_golden: listing.isGolden
             }])
             .select()
@@ -1283,7 +1290,7 @@ export const addOfficeListingToCloud = async (listing: OfficeListing) => {
         return { success: true, data };
     } catch (err: any) {
         console.error('Add office listing error:', err);
-        return { success: false, message: err.message };
+        return { success: false, message: err.message || "Failed to add office" };
     }
 };
 
@@ -1311,6 +1318,75 @@ export const fetchOfficeListingsFromCloud = async (): Promise<OfficeListing[]> =
         }));
     } catch (err) {
         console.error('Fetch office listings error:', err);
+        return [];
+    }
+};
+
+// --- Achievers Hub (External Agents) Cloud Functions ---
+export const addExternalAgentToCloud = async (agent: ExternalAgent) => {
+    try {
+        if (!agent.userId) throw new Error("User ID is missing");
+
+        const { data, error } = await supabase
+            .from('external_agents')
+            .insert([{
+                user_id: agent.userId,
+                name: agent.name,
+                phone: agent.phone,
+                whatsapp: agent.whatsapp,
+                services: agent.services || [] // Ensure array
+            }])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return { success: true, data };
+    } catch (err: any) {
+        console.error('Add external agent error:', err);
+        return { success: false, message: err.message || "Failed to add agent" };
+    }
+};
+
+export const updateExternalAgentInCloud = async (agent: ExternalAgent) => {
+    try {
+        const { error } = await supabase
+            .from('external_agents')
+            .update({
+                name: agent.name,
+                phone: agent.phone,
+                whatsapp: agent.whatsapp,
+                services: agent.services || [] // Ensure array
+            })
+            .eq('id', agent.id);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Update external agent error:', err);
+        return { success: false, message: err.message || "Failed to update agent" };
+    }
+};
+
+export const fetchExternalAgentsFromCloud = async (): Promise<ExternalAgent[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('external_agents')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+
+        return data.map((item: any) => ({
+            id: item.id,
+            userId: item.user_id,
+            name: item.name,
+            phone: item.phone,
+            whatsapp: item.whatsapp,
+            services: item.services || [],
+            createdAt: new Date(item.created_at).getTime()
+        }));
+    } catch (err) {
+        console.error('Fetch external agents error:', err);
         return [];
     }
 };

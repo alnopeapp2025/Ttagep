@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Phone, BookOpen, User as UserIcon, Plus, MessageCircle, Edit, UserPlus, Lock, Crown, X } from 'lucide-react';
+import { ArrowRight, Phone, BookOpen, User as UserIcon, Plus, MessageCircle, Edit, UserPlus, Lock, Crown, X, Loader2 } from 'lucide-react';
 import { 
-    getStoredExtAgents, 
-    saveStoredExtAgents,
+    fetchExternalAgentsFromCloud, 
+    addExternalAgentToCloud,
+    updateExternalAgentInCloud,
     getStoredLessons, 
     ExternalAgent, Lesson,
     getCurrentUser, 
-    User as UserType // Renamed to avoid conflict
+    User as UserType 
 } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
 
 export default function AchieversHub() {
   const navigate = useNavigate();
@@ -20,6 +22,8 @@ export default function AchieversHub() {
   // Data State
   const [extAgents, setExtAgents] = useState<ExternalAgent[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   
   // Form State
   const [openAgent, setOpenAgent] = useState(false);
@@ -39,25 +43,40 @@ export default function AchieversHub() {
   const [myAgentId, setMyAgentId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Load Data safely
-    try {
-        const loadedAgents = getStoredExtAgents() || [];
-        setExtAgents(loadedAgents);
-        setLessons(getStoredLessons() || []);
-        
-        const user = getCurrentUser();
-        setCurrentUser(user);
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const loadedAgents = await fetchExternalAgentsFromCloud();
+            setExtAgents(loadedAgents);
+            setLessons(getStoredLessons() || []);
+            
+            const user = getCurrentUser();
+            setCurrentUser(user);
 
-        // Check if current user already has an agent entry
-        if (user) {
-            const myAgent = loadedAgents.find(a => a.userId === user.id);
-            if (myAgent) {
-                setMyAgentId(myAgent.id);
+            // Check if current user already has an agent entry
+            if (user) {
+                const myAgent = loadedAgents.find(a => a.userId === user.id);
+                if (myAgent) {
+                    setMyAgentId(myAgent.id);
+                }
             }
+        } catch (e) {
+            console.error("Error loading AchieversHub data", e);
+        } finally {
+            setLoading(false);
         }
-    } catch (e) {
-        console.error("Error loading AchieversHub data", e);
-    }
+    };
+    loadData();
+
+    // Realtime subscription for updates
+    const channel = supabase
+      .channel('external-agents-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'external_agents' }, () => {
+          fetchExternalAgentsFromCloud().then(setExtAgents);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleAddService = () => {
@@ -72,29 +91,42 @@ export default function AchieversHub() {
       setServices(services.filter((_, i) => i !== index));
   };
 
-  const handleSaveAgent = () => {
-    if(!newAgentName || !newAgentPhone || !currentUser) return;
+  const handleSaveAgent = async () => {
+    if(!newAgentName || !newAgentPhone) {
+        alert('يرجى ملء الاسم ورقم الجوال');
+        return;
+    }
+    
+    if (!currentUser || !currentUser.id) {
+        alert('خطأ: لم يتم العثور على معرف المستخدم. يرجى تسجيل الدخول مرة أخرى.');
+        return;
+    }
+    
+    setSaveLoading(true);
     
     // Check if updating existing
     if (myAgentId) {
-        const updatedAgents = extAgents.map(a => {
-            if (a.id === myAgentId) {
-                return {
-                    ...a,
-                    name: newAgentName,
-                    phone: newAgentPhone,
-                    whatsapp: newAgentWhatsapp,
-                    services: services
-                };
-            }
-            return a;
-        });
-        setExtAgents(updatedAgents);
-        saveStoredExtAgents(updatedAgents);
+        const updatedAgent: ExternalAgent = {
+            id: myAgentId,
+            userId: currentUser.id,
+            name: newAgentName,
+            phone: newAgentPhone,
+            whatsapp: newAgentWhatsapp,
+            services: services,
+            createdAt: Date.now() // Won't change in DB
+        };
+        
+        const res = await updateExternalAgentInCloud(updatedAgent);
+        if (res.success) {
+            setExtAgents(prev => prev.map(a => a.id === myAgentId ? updatedAgent : a));
+            setOpenAgent(false);
+        } else {
+            alert('فشل تحديث البيانات: ' + res.message);
+        }
     } else {
         // Create New
         const newAgent: ExternalAgent = {
-            id: Date.now(),
+            id: Date.now(), // Temp ID, DB will assign real one
             userId: currentUser.id,
             name: newAgentName,
             phone: newAgentPhone,
@@ -102,13 +134,27 @@ export default function AchieversHub() {
             services: services,
             createdAt: Date.now()
         };
-        const updated = [newAgent, ...extAgents];
-        setExtAgents(updated);
-        saveStoredExtAgents(updated);
-        setMyAgentId(newAgent.id);
+        
+        const res = await addExternalAgentToCloud(newAgent);
+        if (res.success && res.data) {
+            // Update local state with real data from DB
+            const createdAgent: ExternalAgent = {
+                id: res.data.id,
+                userId: res.data.user_id,
+                name: res.data.name,
+                phone: res.data.phone,
+                whatsapp: res.data.whatsapp,
+                services: res.data.services || [],
+                createdAt: new Date(res.data.created_at).getTime()
+            };
+            setExtAgents(prev => [createdAgent, ...prev]);
+            setMyAgentId(createdAgent.id);
+            setOpenAgent(false);
+        } else {
+            alert('فشل إضافة البيانات: ' + (res.message || 'خطأ غير معروف'));
+        }
     }
-    
-    setOpenAgent(false);
+    setSaveLoading(false);
   };
 
   const openAddModal = () => {
@@ -253,89 +299,95 @@ export default function AchieversHub() {
                             </div>
                         </div>
 
-                        <button onClick={handleSaveAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-2">حفظ البيانات</button>
+                        <button onClick={handleSaveAgent} disabled={saveLoading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 disabled:opacity-70">
+                            {saveLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'حفظ البيانات'}
+                        </button>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {extAgents.map(agent => {
-                    const isMyCard = currentUser && agent.userId === currentUser.id;
-                    const canAccess = isGolden || isMyCard;
+            {loading ? (
+                <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" /><p className="text-gray-500 mt-2">جاري تحميل البيانات...</p></div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {extAgents.map(agent => {
+                        const isMyCard = currentUser && agent.userId === currentUser.id;
+                        const canAccess = isGolden || isMyCard;
 
-                    return (
-                        <div key={agent.id} className={`p-4 rounded-2xl shadow-3d border relative transition-all ${isMyCard ? 'bg-blue-50 border-blue-200' : 'bg-[#eef2f6] border-white/50'}`}>
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-3 w-full">
-                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                                        <UserIcon className="w-6 h-6" />
-                                    </div>
-                                    <div className="w-full">
-                                        <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                                            {agent.name}
-                                            {isMyCard && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">أنا</span>}
-                                        </h3>
-                                        
-                                        {/* Services Tags Display */}
-                                        {agent.services && agent.services.length > 0 && (
-                                            <div className="mt-3 flex flex-wrap gap-1.5">
-                                                {agent.services.map((s, idx) => (
-                                                    <span key={idx} className="text-[10px] font-bold bg-white text-gray-600 px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
-                                                        {s}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
+                        return (
+                            <div key={agent.id} className={`p-4 rounded-2xl shadow-3d border relative transition-all ${isMyCard ? 'bg-blue-50 border-blue-200' : 'bg-[#eef2f6] border-white/50'}`}>
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-3 w-full">
+                                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                                            <UserIcon className="w-6 h-6" />
+                                        </div>
+                                        <div className="w-full">
+                                            <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                                                {agent.name}
+                                                {isMyCard && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">أنا</span>}
+                                            </h3>
+                                            
+                                            {/* Services Tags Display */}
+                                            {agent.services && agent.services.length > 0 && (
+                                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                                    {agent.services.map((s, idx) => (
+                                                        <span key={idx} className="text-[10px] font-bold bg-white text-gray-600 px-2 py-1 rounded-lg border border-gray-100 shadow-sm">
+                                                            {s}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                                
+                                {/* Contact Buttons */}
+                                <div className="flex gap-2 mt-4 justify-end">
+                                     {agent.phone && (
+                                        <button 
+                                            onClick={() => handleContactClick('phone', agent.phone, agent.userId)}
+                                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                                canAccess 
+                                                ? 'bg-blue-100 text-blue-600 hover:scale-110' 
+                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                            }`}
+                                        >
+                                            <Phone className="w-5 h-5" />
+                                            {!canAccess && (
+                                                <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                                    <Lock className="w-3 h-3 text-yellow-500" />
+                                                </div>
+                                            )}
+                                        </button>
+                                     )}
+                                     {agent.whatsapp && (
+                                        <button 
+                                            onClick={() => handleContactClick('whatsapp', agent.whatsapp!, agent.userId)}
+                                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
+                                                canAccess 
+                                                ? 'bg-green-100 text-green-600 hover:scale-110' 
+                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                                            }`}
+                                        >
+                                            <MessageCircle className="w-5 h-5" />
+                                            {!canAccess && (
+                                                <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
+                                                    <Lock className="w-3 h-3 text-yellow-500" />
+                                                </div>
+                                            )}
+                                        </button>
+                                     )}
+                                </div>
                             </div>
-                            
-                            {/* Contact Buttons */}
-                            <div className="flex gap-2 mt-4 justify-end">
-                                 {agent.phone && (
-                                    <button 
-                                        onClick={() => handleContactClick('phone', agent.phone, agent.userId)}
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
-                                            canAccess 
-                                            ? 'bg-blue-100 text-blue-600 hover:scale-110' 
-                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
-                                        }`}
-                                    >
-                                        <Phone className="w-5 h-5" />
-                                        {!canAccess && (
-                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
-                                                <Lock className="w-3 h-3 text-yellow-500" />
-                                            </div>
-                                        )}
-                                    </button>
-                                 )}
-                                 {agent.whatsapp && (
-                                    <button 
-                                        onClick={() => handleContactClick('whatsapp', agent.whatsapp!, agent.userId)}
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center shadow-3d transition-all relative ${
-                                            canAccess 
-                                            ? 'bg-green-100 text-green-600 hover:scale-110' 
-                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
-                                        }`}
-                                    >
-                                        <MessageCircle className="w-5 h-5" />
-                                        {!canAccess && (
-                                            <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100">
-                                                <Lock className="w-3 h-3 text-yellow-500" />
-                                            </div>
-                                        )}
-                                    </button>
-                                 )}
-                            </div>
+                        );
+                    })}
+                    {extAgents.length === 0 && (
+                        <div className="col-span-full text-center py-10 text-gray-400">
+                            لا توجد أرقام معقبين حالياً.
                         </div>
-                    );
-                })}
-                {extAgents.length === 0 && (
-                    <div className="col-span-full text-center py-10 text-gray-400">
-                        لا توجد أرقام معقبين حالياً.
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
         </div>
       ) : (
         <div className="space-y-6">

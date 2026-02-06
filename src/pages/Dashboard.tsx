@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info, Zap
+  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -1002,7 +1002,6 @@ export default function Dashboard() {
           <DashboardButton icon={Receipt} label="المنصرفات" variant="danger" locked={!canAccessPage('expenses')} onClick={() => handlePageClick('expenses', '/expenses')} />
           <DashboardButton icon={Calculator} label="الحاسبة" locked={!canAccessPage('calculator')} onClick={() => handlePageClick('calculator', '/calculator')} />
           <DashboardButton icon={Building2} label="مكاتب الخدمات" locked={!canAccessPage('summary')} onClick={() => handlePageClick('summary', '/summary')} />
-          <DashboardButton icon={Zap} label="انجازكم" variant="primary" locked={!canAccessPage('achievers')} onClick={() => handlePageClick('achievers', '/injazkom')} />
         </div>
 
         <div className="my-10"><Separator className="bg-gray-300" /></div>

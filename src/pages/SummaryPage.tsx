@@ -156,7 +156,10 @@ export default function SummaryPage() {
   };
 
   const handleSubmit = async () => {
-      if (!currentUser) return;
+      if (!currentUser || !currentUser.id) {
+          alert('يرجى تسجيل الدخول أولاً');
+          return;
+      }
       if (!formData.officeName || !formData.phone || !formData.whatsapp) {
           alert('يرجى ملء البيانات الأساسية');
           return;
@@ -198,7 +201,7 @@ export default function SummaryPage() {
           });
           alert('تم إضافة مكتبك بنجاح!');
       } else {
-          alert('حدث خطأ أثناء الإضافة');
+          alert('فشل إضافة المكتب: ' + (result.message || 'خطأ غير معروف'));
       }
       setLoading(false);
   };
