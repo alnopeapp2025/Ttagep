@@ -123,9 +123,8 @@ const SalaryTimer = ({ startDate }: { startDate: string }) => {
 export default function AccountsPage() {
   const navigate = useNavigate();
   const [balances, setBalances] = useState<Record<string, number>>({});
-  // REMOVED: pendingBalances state
   const [totalTreasury, setTotalTreasury] = useState(0);
-  // REMOVED: totalPending state
+  const [totalAgentsDue, setTotalAgentsDue] = useState(0); // New State for Agents Due
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
@@ -189,7 +188,6 @@ export default function AccountsPage() {
             
             const accData = await fetchAccountsFromCloud(targetId);
             setBalances(accData.balances);
-            // REMOVED: setPendingBalances
             calculateTotals(accData.balances);
 
             const statement = await fetchAccountStatementFromCloud(targetId);
@@ -219,6 +217,22 @@ export default function AccountsPage() {
     };
     loadData();
   }, []);
+
+  // Calculate Agents Due whenever transactions change
+  useEffect(() => {
+      const due = transactions.reduce((sum, tx) => {
+          // Logic:
+          // 1. Not cancelled
+          // 2. Not paid to agent yet
+          // 3. Has agent price
+          if (tx.status === 'cancelled') return sum;
+          if (tx.agentPaid) return sum;
+          
+          const price = parseFloat(tx.agentPrice) || 0;
+          return sum + price;
+      }, 0);
+      setTotalAgentsDue(due);
+  }, [transactions]);
 
   useEffect(() => {
       if (selectedEmpId) {
@@ -273,7 +287,6 @@ export default function AccountsPage() {
   const calculateTotals = (bal: Record<string, number>) => {
     const total = Object.values(bal).reduce((sum, val) => sum + val, 0);
     setTotalTreasury(total);
-    // REMOVED: setTotalPending
   };
 
   const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
@@ -315,7 +328,6 @@ export default function AccountsPage() {
 
     if (currentUser) {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        // REMOVED: pendingBalances argument, passing 0
         await updateAccountInCloud(targetId, transferFrom, newBalances[transferFrom], 0);
         await updateAccountInCloud(targetId, transferTo, newBalances[transferTo], 0);
     } else {
@@ -345,7 +357,6 @@ export default function AccountsPage() {
         }
     } else {
         saveStoredBalances(zeroed);
-        // REMOVED: saveStoredPendingBalances
     }
     
     setZeroSuccess(true);
@@ -356,7 +367,7 @@ export default function AccountsPage() {
   };
 
   const sortedBanks = [...banksList].sort((a, b) => {
-    const totalA = (balances[a] || 0); // REMOVED pending from sort
+    const totalA = (balances[a] || 0);
     const totalB = (balances[b] || 0);
     return totalB - totalA;
   });
@@ -531,7 +542,6 @@ export default function AccountsPage() {
       if (currentUser) {
           const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
           await addExpenseToCloud(newExp, targetId);
-          // REMOVED: pending balances arg, passed 0
           await updateAccountInCloud(targetId, payBank, newBalances[payBank], 0);
           
           setAllExpenses(prev => [newExp, ...prev]);
@@ -620,7 +630,19 @@ export default function AccountsPage() {
 
       <div className="mb-6 relative">
         <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px] z-10 bg-white">
-           {/* REMOVED: Pending Balance Section */}
+           
+           {/* NEW SECTION: Agents Amounts (Replaces Pending Vault) */}
+           <div className="flex-1 flex flex-col items-center justify-center py-6 bg-white text-gray-700 relative z-20 border-b border-gray-100">
+                <div className="flex items-center gap-2 mb-2 text-orange-600">
+                    <Users className="w-5 h-5" />
+                    <h3 className="font-bold text-sm">مبالغ المعقبين (المستحقة)</h3>
+                </div>
+                <div className="text-3xl font-black tracking-tight text-gray-800">
+                    {totalAgentsDue.toLocaleString()} <span className="text-sm font-medium text-gray-400">ر.س</span>
+                </div>
+           </div>
+
+           {/* Actual Treasury Section */}
            <div className="h-full bg-blue-600 text-white flex flex-col items-center justify-center text-center relative py-12">
                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                 <Wallet className="w-12 h-12 mb-2 opacity-90" />
@@ -681,7 +703,6 @@ export default function AccountsPage() {
                     <span className="text-lg font-black text-blue-800">
                     {(balances[bank] || 0).toLocaleString()} <span className="text-xs text-gray-400">ر.س</span>
                     </span>
-                    {/* REMOVED: Pending Balance Span */}
                 </div>
                 ))}
             </div>
@@ -717,14 +738,19 @@ export default function AccountsPage() {
                                             <span>{new Date(item.date).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})}</span>
                                             <span className="text-blue-500 font-medium">• {item.bank}</span>
                                             {item.subTitle && <span className="text-gray-400">• {item.subTitle}</span>}
+                                            {item.status === 'cancelled' && <span className="text-red-500 font-bold">• ملغي</span>}
                                         </div>
                                     </div>
                                 </div>
-                                <span className={`font-black text-lg ${
-                                    item.type === 'deposit' ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                    {item.type === 'deposit' ? '+' : '-'}{item.amount.toLocaleString()}
-                                </span>
+                                <div className="flex flex-col items-end">
+                                    <span className={`font-black text-lg ${
+                                        item.status === 'cancelled' ? 'text-gray-400 line-through' :
+                                        item.type === 'deposit' ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                        {item.type === 'deposit' ? '+' : '-'}{item.amount.toLocaleString()}
+                                    </span>
+                                    {item.status === 'cancelled' && <span className="text-[10px] text-red-500 font-bold">ملغي</span>}
+                                </div>
                             </div>
                         ))}
                     </div>
