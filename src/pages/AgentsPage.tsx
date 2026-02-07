@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
+import { toast } from 'sonner';
 
 function AgentsPage() {
   const navigate = useNavigate();
@@ -154,11 +155,11 @@ function AgentsPage() {
           }
         }
       } else {
-        alert('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
+        toast.error('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
       console.error("Contact Import Error:", ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية "جهات الاتصال" من إعدادات هاتفك.');
+      toast.error('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية "جهات الاتصال" من إعدادات هاتفك.');
     }
   };
 
@@ -189,7 +190,7 @@ function AgentsPage() {
         const updatedAgent: Agent = { ...editingAgent, name: newAgentName, phone: newAgentPhone ? `966${newAgentPhone.substring(1)}` : '', whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp.substring(1)}` : '' };
         if (currentUser) {
             const success = await updateAgentInCloud(updatedAgent);
-            if (!success) { alert("فشل تحديث المعقب في قاعدة البيانات."); setLoading(false); return; }
+            if (!success) { toast.error("فشل تحديث المعقب في قاعدة البيانات."); setLoading(false); return; }
             setAgents(agents.map(a => a.id === editingAgent.id ? updatedAgent : a));
         } else {
             const updatedAgents = agents.map(a => a.id === editingAgent.id ? updatedAgent : a);
@@ -201,7 +202,7 @@ function AgentsPage() {
         if (currentUser) {
             const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
             const result = await addAgentToCloud(newAgent, targetId);
-            if (!result.success) { alert(`فشل إضافة المعقب: ${result.error}`); setLoading(false); return; }
+            if (!result.success) { toast.error(`فشل إضافة المعقب: ${result.error}`); setLoading(false); return; }
             setAgents([newAgent, ...agents]);
         } else {
             const updatedAgents = [newAgent, ...agents];
@@ -214,6 +215,7 @@ function AgentsPage() {
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
     setEditingAgent(null);
+    toast.success(editingAgent ? 'تم تحديث بيانات المعقب' : 'تم إضافة المعقب بنجاح');
   };
 
   const handleAgentClick = (agent: Agent) => {
@@ -240,13 +242,14 @@ function AgentsPage() {
       if(confirm('هل أنت متأكد من حذف هذا المعقب؟')) {
           if(currentUser) {
               const success = await deleteAgentFromCloud(id);
-              if (!success) { alert("فشل حذف المعقب من قاعدة البيانات."); return; }
+              if (!success) { toast.error("فشل حذف المعقب من قاعدة البيانات."); return; }
           }
           const updatedAgents = agents.filter(a => a.id !== id);
           setAgents(updatedAgents);
           if(!currentUser) saveStoredAgents(updatedAgents);
           setOpen(false);
           setEditingAgent(null);
+          toast.success('تم حذف المعقب بنجاح');
       }
   };
 

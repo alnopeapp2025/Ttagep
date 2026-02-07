@@ -36,6 +36,7 @@ import {
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { LimitModals } from '@/components/LimitModals';
+import { toast } from 'sonner';
 
 const transactionTypesList = [
   "تجديد إقامة", "نقل كفالة", "خروج وعودة", "خروج نهائي", "تأشيرة زيارة", "تأمين طبي", "إصدار رخصة"
@@ -310,7 +311,7 @@ export default function TransactionsPage() {
             
             const success = await updateTransactionInCloud(updatedTx);
             if (!success) {
-                alert("فشل تحديث المعاملة في قاعدة البيانات. يرجى التحقق من الاتصال.");
+                toast.error("فشل تحديث المعاملة في قاعدة البيانات. يرجى التحقق من الاتصال.");
                 setLoading(false);
                 return;
             }
@@ -359,7 +360,7 @@ export default function TransactionsPage() {
             const result = await addTransactionToCloud(newTx, targetId);
             
             if (!result.success) {
-                alert(`فشل حفظ المعاملة في قاعدة البيانات: ${result.error || 'خطأ غير معروف'}`);
+                toast.error(`فشل حفظ المعاملة في قاعدة البيانات: ${result.error || 'خطأ غير معروف'}`);
                 setLoading(false);
                 return;
             }
@@ -393,6 +394,7 @@ export default function TransactionsPage() {
       paymentMethod: ''
     });
     setErrors({});
+    toast.success(editingTx ? 'تم تحديث المعاملة' : 'تم حفظ المعاملة بنجاح');
   };
 
   const handleEditTransaction = (tx: Transaction) => {
@@ -418,7 +420,7 @@ export default function TransactionsPage() {
           if(currentUser) {
               const success = await deleteTransactionFromCloud(id);
               if (!success) {
-                  alert("فشل حذف المعاملة من قاعدة البيانات.");
+                  toast.error("فشل حذف المعاملة من قاعدة البيانات.");
                   return;
               }
           }
@@ -429,6 +431,7 @@ export default function TransactionsPage() {
           if(!currentUser) {
               saveStoredTransactions(updatedTxs);
           }
+          toast.success('تم حذف المعاملة بنجاح');
       }
   };
 
@@ -469,11 +472,11 @@ export default function TransactionsPage() {
           }
         }
       } else {
-        alert('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
+        toast.error('عذراً، ميزة استيراد جهات الاتصال غير مدعومة في هذا المتصفح. يرجى إدخال البيانات يدوياً.');
       }
     } catch (ex) {
       console.error(ex);
-      alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف.');
+      toast.error('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف.');
     }
   };
 
@@ -510,7 +513,7 @@ export default function TransactionsPage() {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const result = await addClientToCloud(newClient, targetId);
         if (!result.success) {
-            alert(`فشل إضافة العميل: ${result.error}`);
+            toast.error(`فشل إضافة العميل: ${result.error}`);
             return;
         }
     }
@@ -524,6 +527,7 @@ export default function TransactionsPage() {
     setClientErrors({ phone: '', whatsapp: '' });
     setAddClientOpen(false);
     setTimeout(() => durationRef.current?.focus(), 100);
+    toast.success('تم إضافة العميل بنجاح');
   };
 
   const handleAddAgentQuick = async () => {
@@ -559,7 +563,7 @@ export default function TransactionsPage() {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const result = await addAgentToCloud(newAgent, targetId);
         if (!result.success) {
-            alert(`فشل إضافة المعقب: ${result.error}`);
+            toast.error(`فشل إضافة المعقب: ${result.error}`);
             return;
         }
     }
@@ -572,6 +576,7 @@ export default function TransactionsPage() {
     setNewAgentWhatsapp('');
     setAgentErrors({ phone: '', whatsapp: '' });
     setAddAgentOpen(false);
+    toast.success('تم إضافة المعقب بنجاح');
   };
 
   const updateStatus = async (id: number, newStatus: 'completed' | 'cancelled') => {
@@ -592,7 +597,7 @@ export default function TransactionsPage() {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const success = await updateTransactionStatusInCloud(id, { status: newStatus });
         if (!success) {
-            alert("فشل تحديث الحالة في قاعدة البيانات.");
+            toast.error("فشل تحديث الحالة في قاعدة البيانات.");
             return;
         }
         await updateAccountInCloud(targetId, bank, newBalances[bank] || 0, 0);
@@ -622,7 +627,7 @@ export default function TransactionsPage() {
             window.print();
         } catch (e) {
             console.error("Print error:", e);
-            alert("حدث خطأ أثناء محاولة الطباعة. يرجى التأكد من إعدادات الطابعة في جهازك.");
+            toast.error("حدث خطأ أثناء محاولة الطباعة. يرجى التأكد من إعدادات الطابعة في جهازك.");
         }
     }, 500);
   };

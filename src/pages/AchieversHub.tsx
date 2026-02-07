@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 export default function AchieversHub() {
   const navigate = useNavigate();
@@ -93,12 +94,12 @@ export default function AchieversHub() {
 
   const handleSaveAgent = async () => {
     if(!newAgentName || !newAgentPhone) {
-        alert('يرجى ملء الاسم ورقم الجوال');
+        toast.error('يرجى ملء الاسم ورقم الجوال');
         return;
     }
     
     if (!currentUser || !currentUser.id) {
-        alert('خطأ: لم يتم العثور على معرف المستخدم. يرجى تسجيل الدخول مرة أخرى.');
+        toast.error('خطأ: لم يتم العثور على معرف المستخدم. يرجى تسجيل الدخول مرة أخرى.');
         return;
     }
     
@@ -120,8 +121,9 @@ export default function AchieversHub() {
         if (res.success) {
             setExtAgents(prev => prev.map(a => a.id === myAgentId ? updatedAgent : a));
             setOpenAgent(false);
+            toast.success('تم تحديث البيانات بنجاح');
         } else {
-            alert('فشل تحديث البيانات: ' + res.message);
+            toast.error('فشل تحديث البيانات: ' + res.message);
         }
     } else {
         // Create New
@@ -150,8 +152,9 @@ export default function AchieversHub() {
             setExtAgents(prev => [createdAgent, ...prev]);
             setMyAgentId(createdAgent.id);
             setOpenAgent(false);
+            toast.success('تمت إضافة بياناتك بنجاح');
         } else {
-            alert('فشل إضافة البيانات: ' + (res.message || 'خطأ غير معروف'));
+            toast.error('فشل إضافة البيانات: ' + (res.message || 'خطأ غير معروف'));
         }
     }
     setSaveLoading(false);

@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function ExpensesPage() {
   const navigate = useNavigate();
@@ -273,7 +274,7 @@ export default function ExpensesPage() {
         const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
         const success = await deleteExpenseFromCloud(id);
         if(!success) {
-            alert("فشل حذف المصروف من قاعدة البيانات");
+            toast.error("فشل حذف المصروف من قاعدة البيانات");
         } else {
             // IMMEDIATE REFUND: Update Cloud Account
             const currentPending = pendingBalances[expenseToDelete.bank] || 0;
@@ -281,11 +282,13 @@ export default function ExpensesPage() {
             
             // FIX: Update UI immediately by removing the item from state
             setExpenses(prev => prev.filter(e => e.id !== id));
+            toast.success('تم حذف المصروف بنجاح');
         }
     } else {
         const updatedExpenses = expenses.filter(e => e.id !== id);
         setExpenses(updatedExpenses);
         saveStoredExpenses(updatedExpenses);
+        toast.success('تم حذف المصروف بنجاح');
     }
   };
 

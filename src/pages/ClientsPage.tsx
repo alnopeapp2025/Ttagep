@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
+import { toast } from 'sonner';
 
 function ClientsPage() {
   const navigate = useNavigate();
@@ -151,8 +152,8 @@ function ClientsPage() {
             setNewClientName(rawName); setNewClientPhone(rawPhone); setNewClientWhatsapp(rawPhone);
           }
         }
-      } else { alert('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.'); }
-    } catch (ex) { console.error(ex); alert('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.'); }
+      } else { toast.error('هذه الميزة غير مدعومة في هذا المتصفح أو التطبيق، يرجى إدخال البيانات يدوياً.'); }
+    } catch (ex) { console.error(ex); toast.error('تعذر الوصول لجهات الاتصال. يرجى التأكد من منح التطبيق صلاحية الوصول لجهات الاتصال من إعدادات الهاتف، أو قم بإدخال البيانات يدوياً.'); }
   };
   const checkAddPermission = () => {
       const role = currentUser?.role || 'visitor';
@@ -178,7 +179,7 @@ function ClientsPage() {
         const updatedClient: Client = { ...editingClient, name: newClientName, phone: newClientPhone ? `966${newClientPhone.substring(1)}` : '', whatsapp: newClientWhatsapp ? `966${newClientWhatsapp.substring(1)}` : '' };
         if (currentUser) {
             const success = await updateClientInCloud(updatedClient);
-            if (!success) { alert("فشل تحديث العميل في قاعدة البيانات."); setLoading(false); return; }
+            if (!success) { toast.error("فشل تحديث العميل في قاعدة البيانات."); setLoading(false); return; }
             setClients(clients.map(c => c.id === editingClient.id ? updatedClient : c));
         } else {
             const updatedClients = clients.map(c => c.id === editingClient.id ? updatedClient : c);
@@ -190,7 +191,7 @@ function ClientsPage() {
         if (currentUser) {
             const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
             const result = await addClientToCloud(newClient, targetId);
-            if (!result.success) { alert(`فشل إضافة العميل: ${result.error}`); setLoading(false); return; }
+            if (!result.success) { toast.error(`فشل إضافة العميل: ${result.error}`); setLoading(false); return; }
             setClients([newClient, ...clients]);
         } else {
             const updatedClients = [newClient, ...clients];
@@ -203,6 +204,7 @@ function ClientsPage() {
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
     setEditingClient(null);
+    toast.success(editingClient ? 'تم تحديث بيانات العميل' : 'تم إضافة العميل بنجاح');
   };
   const handleClientClick = (client: Client) => {
     const filtered = allTransactions.filter(t => t.clientName === client.name);
@@ -227,13 +229,14 @@ function ClientsPage() {
       if(confirm('هل أنت متأكد من حذف هذا العميل؟')) {
           if(currentUser) {
               const success = await deleteClientFromCloud(id);
-              if (!success) { alert("فشل حذف العميل من قاعدة البيانات."); return; }
+              if (!success) { toast.error("فشل حذف العميل من قاعدة البيانات."); return; }
           }
           const updatedClients = clients.filter(c => c.id !== id);
           setClients(updatedClients);
           if(!currentUser) saveStoredClients(updatedClients);
           setOpen(false);
           setEditingClient(null);
+          toast.success('تم حذف العميل بنجاح');
       }
   };
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => { e.stopPropagation(); if (!number) return; window.open(`https://wa.me/${number}`, '_blank'); };

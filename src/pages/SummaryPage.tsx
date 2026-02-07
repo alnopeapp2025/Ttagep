@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 // --- Vertical Service Ticker Component ---
 const VerticalServiceTicker = ({ services }: { services: string[] }) => {
@@ -137,7 +138,7 @@ export default function SummaryPage() {
       const limit = role === 'golden' ? 50 : 20;
       
       if (formData.services.length >= limit) {
-          alert(`عفواً، الحد الأقصى للخدمات هو ${limit}. ${role !== 'golden' ? 'رقي حسابك للذهبي لإضافة المزيد.' : ''}`);
+          toast.error(`عفواً، الحد الأقصى للخدمات هو ${limit}. ${role !== 'golden' ? 'رقي حسابك للذهبي لإضافة المزيد.' : ''}`);
           return;
       }
 
@@ -157,17 +158,17 @@ export default function SummaryPage() {
 
   const handleSubmit = async () => {
       if (!currentUser || !currentUser.id) {
-          alert('يرجى تسجيل الدخول أولاً');
+          toast.error('يرجى تسجيل الدخول أولاً');
           return;
       }
       if (!formData.officeName || !formData.phone || !formData.whatsapp) {
-          alert('يرجى ملء البيانات الأساسية');
+          toast.error('يرجى ملء البيانات الأساسية');
           return;
       }
       
       // WhatsApp Validation
       if (!formData.whatsapp.startsWith('5') || formData.whatsapp.length !== 9) {
-          alert('رقم الواتساب يجب أن يبدأ بـ 5 ويتكون من 9 أرقام');
+          toast.error('رقم الواتساب يجب أن يبدأ بـ 5 ويتكون من 9 أرقام');
           return;
       }
 
@@ -199,9 +200,9 @@ export default function SummaryPage() {
               services: [],
               newService: ''
           });
-          alert('تم إضافة مكتبك بنجاح!');
+          toast.success('تم إضافة مكتبك بنجاح!');
       } else {
-          alert('فشل إضافة المكتب: ' + (result.message || 'خطأ غير معروف'));
+          toast.error('فشل إضافة المكتب: ' + (result.message || 'خطأ غير معروف'));
       }
       setLoading(false);
   };

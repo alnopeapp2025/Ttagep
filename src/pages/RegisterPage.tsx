@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { registerUser } from '@/lib/store';
+import { toast } from 'sonner';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -47,7 +48,7 @@ export default function RegisterPage() {
   const handleRegister = async () => {
     // Strict Validation
     if (!formData.officeName || !formData.phone || !formData.password || !formData.securityQuestion || !formData.securityAnswer) {
-      alert('يرجى ملء جميع الحقول المطلوبة (بما في ذلك سؤال الأمان وإجابته)');
+      toast.error('يرجى ملء جميع الحقول المطلوبة (بما في ذلك سؤال الأمان وإجابته)');
       return;
     }
 
@@ -76,10 +77,10 @@ export default function RegisterPage() {
                 } 
             });
         } else {
-            alert(result.message || 'فشل التسجيل');
+            toast.error(result.message || 'فشل التسجيل');
         }
     } catch (error) {
-        alert('حدث خطأ غير متوقع');
+        toast.error('حدث خطأ غير متوقع');
     } finally {
         setLoading(false);
     }

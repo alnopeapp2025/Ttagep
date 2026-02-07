@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Dashboard from './pages/Dashboard';
 import TransactionsPage from './pages/TransactionsPage';
 import AccountsPage from './pages/AccountsPage';
@@ -49,6 +50,7 @@ function App() {
     // basename set to '/' for root domain deployment (manhobat.com)
     <Router basename="/">
       <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
+        <Toaster position="top-center" dir="rtl" richColors closeButton />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/login" element={<LoginPage />} />
