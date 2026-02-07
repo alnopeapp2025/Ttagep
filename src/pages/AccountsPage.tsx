@@ -633,13 +633,7 @@ export default function AccountsPage() {
 
         <div className="flex gap-4 justify-center px-4 -mt-6 relative z-20">
             <button 
-            onClick={() => {
-                if(canAccessFeature('transfer')) {
-                    setTransferOpen(true);
-                } else {
-                    navigate('/?openPro=true');
-                }
-            }}
+            onClick={() => setTransferOpen(true)}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all bg-[#eef2f6] text-blue-600 border border-white/50"
             >
             <ArrowLeftRight className="w-5 h-5" />
