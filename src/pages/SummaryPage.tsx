@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ClipboardList, Plus, Search, Filter, Phone, MessageCircle, Briefcase, MapPin, Crown, CheckCircle2, Loader2, X } from 'lucide-react';
+import { ArrowRight, Plus, Search, Filter, Phone, MessageCircle, Briefcase, MapPin, Crown, CheckCircle2, Loader2, X, Pencil } from 'lucide-react';
 import { 
     getCurrentUser, User, 
     SAUDI_CITIES, 
     addOfficeListingToCloud, 
+    updateOfficeListingInCloud,
     fetchOfficeListingsFromCloud, 
     OfficeListing 
 } from '@/lib/store';
@@ -92,6 +93,7 @@ export default function SummaryPage() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [listings, setListings] = useState<OfficeListing[]>([]);
+  const [myListing, setMyListing] = useState<OfficeListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   
@@ -126,9 +128,28 @@ export default function SummaryPage() {
       return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Sync Logic: Check if user status changed and update listing if needed
+  useEffect(() => {
+      if (currentUser && myListing) {
+          const isUserGolden = currentUser.role === 'golden';
+          // If status mismatch, update DB automatically
+          if (myListing.isGolden !== isUserGolden) {
+              const updatedListing = { ...myListing, isGolden: isUserGolden };
+              updateOfficeListingInCloud(updatedListing);
+          }
+      }
+  }, [currentUser, myListing]);
+
   const loadListings = async () => {
       const data = await fetchOfficeListingsFromCloud();
       setListings(data);
+      
+      // Find my listing
+      const user = getCurrentUser();
+      if (user) {
+          const mine = data.find(l => l.userId === user.id);
+          setMyListing(mine || null);
+      }
   };
 
   const handleAddService = () => {
@@ -156,6 +177,38 @@ export default function SummaryPage() {
       }));
   };
 
+  const openAddModal = () => {
+      if (!currentUser) {
+          navigate('/register');
+          return;
+      }
+
+      if (myListing) {
+          // Pre-fill form for editing
+          setFormData({
+              officeName: myListing.officeName,
+              phone: myListing.phone,
+              whatsapp: myListing.whatsapp.replace('https://wa.me/966', ''),
+              workType: myListing.workType,
+              city: myListing.city || '',
+              services: myListing.services,
+              newService: ''
+          });
+      } else {
+          // Reset form for new
+          setFormData({
+              officeName: '',
+              phone: '',
+              whatsapp: '',
+              workType: 'office',
+              city: '',
+              services: [],
+              newService: ''
+          });
+      }
+      setAddOpen(true);
+  };
+
   const handleSubmit = async () => {
       if (!currentUser || !currentUser.id) {
           toast.error('يرجى تسجيل الدخول أولاً');
@@ -174,8 +227,8 @@ export default function SummaryPage() {
 
       setLoading(true);
       
-      const newListing: OfficeListing = {
-          id: Date.now(), // Temp ID
+      const listingData: OfficeListing = {
+          id: myListing ? myListing.id : Date.now(), // Use existing ID if editing
           userId: currentUser.id,
           officeName: formData.officeName,
           phone: formData.phone,
@@ -183,26 +236,34 @@ export default function SummaryPage() {
           workType: formData.workType as 'online' | 'office',
           city: formData.workType === 'office' ? formData.city : undefined,
           services: formData.services,
-          isGolden: currentUser.role === 'golden',
-          createdAt: Date.now()
+          isGolden: currentUser.role === 'golden', // Always sync with current role
+          createdAt: myListing ? myListing.createdAt : Date.now()
       };
 
-      const result = await addOfficeListingToCloud(newListing);
+      let result;
+      if (myListing) {
+          result = await updateOfficeListingInCloud(listingData);
+      } else {
+          result = await addOfficeListingToCloud(listingData);
+      }
       
       if (result.success) {
           setAddOpen(false);
-          setFormData({
-              officeName: '',
-              phone: '',
-              whatsapp: '',
-              workType: 'office',
-              city: '',
-              services: [],
-              newService: ''
-          });
-          toast.success('تم إضافة مكتبك بنجاح!');
+          toast.success(myListing ? 'تم تحديث بيانات مكتبك بنجاح' : 'تم إضافة مكتبك بنجاح!');
+          // Reset form only if adding new
+          if (!myListing) {
+              setFormData({
+                  officeName: '',
+                  phone: '',
+                  whatsapp: '',
+                  workType: 'office',
+                  city: '',
+                  services: [],
+                  newService: ''
+              });
+          }
       } else {
-          toast.error('فشل إضافة المكتب: ' + (result.message || 'خطأ غير معروف'));
+          toast.error('فشل العملية: ' + (result.message || 'خطأ غير معروف'));
       }
       setLoading(false);
   };
@@ -229,13 +290,16 @@ export default function SummaryPage() {
         {currentUser ? (
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
                 <DialogTrigger asChild>
-                    <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all">
-                        <Plus className="w-5 h-5" />
-                        <span className="hidden sm:inline">أضف مكتبك هنا</span>
+                    <button 
+                        onClick={openAddModal}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all ${myListing ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                    >
+                        {myListing ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                        <span className="hidden sm:inline">{myListing ? 'تعديل بيانات مكتبي' : 'أضف مكتبك هنا'}</span>
                     </button>
                 </DialogTrigger>
                 <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
-                    <DialogHeader><DialogTitle className="text-center font-black text-xl text-gray-800">إضافة مكتب جديد</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-center font-black text-xl text-gray-800">{myListing ? 'تعديل بيانات المكتب' : 'إضافة مكتب جديد'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>اسم المكتب (حد أقصى 29 حرف)</Label>
@@ -317,7 +381,7 @@ export default function SummaryPage() {
                         </div>
 
                         <button onClick={handleSubmit} disabled={loading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 mt-4 disabled:opacity-70">
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'حفظ ونشر المكتب'}
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (myListing ? 'حفظ التعديلات' : 'حفظ ونشر المكتب')}
                         </button>
                     </div>
                 </DialogContent>

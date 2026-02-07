@@ -1294,6 +1294,29 @@ export const addOfficeListingToCloud = async (listing: OfficeListing) => {
     }
 };
 
+export const updateOfficeListingInCloud = async (listing: OfficeListing) => {
+    try {
+        const { error } = await supabase
+            .from('public_offices')
+            .update({
+                office_name: listing.officeName,
+                phone: listing.phone,
+                whatsapp: listing.whatsapp,
+                work_type: listing.workType,
+                city: listing.city,
+                services: listing.services || [],
+                is_golden: listing.isGolden
+            })
+            .eq('id', listing.id);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (err: any) {
+        console.error('Update office listing error:', err);
+        return { success: false, message: err.message || "Failed to update office" };
+    }
+};
+
 export const fetchOfficeListingsFromCloud = async (): Promise<OfficeListing[]> => {
     try {
         const { data, error } = await supabase
@@ -1391,7 +1414,7 @@ export const fetchExternalAgentsFromCloud = async (): Promise<ExternalAgent[]> =
     }
 };
 
-// --- Transaction Management (Cloud) ---
+// ... (Transaction Management (Cloud) ...
 export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
   try {
     const { data, error } = await supabase
