@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -300,10 +301,10 @@ export default function Dashboard() {
 
       setResetLoading(false);
       if (success) {
-          alert('تم تنفيذ العملية بنجاح');
+          toast.success('تم تنفيذ العملية بنجاح');
           window.location.reload();
       } else {
-          alert('حدث خطأ أثناء التنفيذ');
+          toast.error('حدث خطأ أثناء التنفيذ');
       }
       setResetOpen(false);
       setResetStep('menu');
@@ -428,10 +429,10 @@ export default function Dashboard() {
     if (!restoreText) return;
     const success = restoreBackup(restoreText);
     if (success) {
-      alert('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل الصفحة.');
+      toast.success('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل الصفحة.');
       window.location.reload();
     } else {
-      alert('فشل استعادة النسخة. تأكد من صحة الكود.');
+      toast.error('فشل استعادة النسخة. تأكد من صحة الكود.');
     }
   };
 
@@ -475,7 +476,7 @@ export default function Dashboard() {
 
   const handleSubscribe = async () => {
     if (!currentUser) {
-        alert('يجب تسجيل الدخول أولاً');
+        toast.error('يجب تسجيل الدخول أولاً');
         navigate('/login');
         return;
     }
@@ -491,7 +492,7 @@ export default function Dashboard() {
             setSelectedDuration('');
         }, 3000);
     } else {
-        alert(res.message);
+        toast.error(res.message);
     }
   };
 
@@ -544,7 +545,7 @@ export default function Dashboard() {
       const link = `${window.location.origin}/register?ref=${currentUser.id}`;
       const msg = `سجل في تطبيق مان هوبات لإدارة مكاتب الخدمات العامه واستفد من المزايا المتعدده..\n${link}`;
       navigator.clipboard.writeText(msg);
-      alert('تم نسخ رابط الدعوة بنجاح');
+      toast.success('تم نسخ رابط الدعوة بنجاح');
   };
 
   const handleWithdraw = async () => {
@@ -616,9 +617,9 @@ export default function Dashboard() {
                   <DropdownMenuTrigger className="outline-none">
                     <div className="flex flex-col items-center justify-center mr-2 cursor-pointer group">
                         
-                        {/* Affiliate Earnings Button - Double Click */}
+                        {/* Affiliate Earnings Button - Single Click */}
                         <button 
-                            onDoubleClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
+                            onClick={(e) => { e.stopPropagation(); setAffiliateOpen(true); }}
                             className="bg-green-50 text-green-600 rounded-2xl px-3 py-2 mb-2 flex flex-col items-center justify-center shadow-sm border border-green-100 hover:bg-green-100 transition-colors select-none"
                         >
                             <span className="text-[10px] font-bold">أرباحك:</span>
@@ -646,7 +647,7 @@ export default function Dashboard() {
                             {currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}
                         </span>
                         {currentUser.role === 'golden' && currentUser.subscriptionExpiry && (
-                            <span className="block text-[10px] text-red-500 mt-1">
+                            <span className="block text-[10px] text-yellow-700 font-bold mt-1">
                                 ينتهي اشتراكك في : {new Date(currentUser.subscriptionExpiry).toLocaleDateString('ar-SA')}
                             </span>
                         )}

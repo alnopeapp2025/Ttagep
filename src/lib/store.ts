@@ -866,7 +866,8 @@ export const approveSubscription = async (requestId: number) => {
             .eq('id', req.user_id)
             .single();
 
-        if (user && user.referred_by) {
+        // Only apply referral bonus if the subscription is Annual ('سنة')
+        if (user && user.referred_by && req.duration === 'سنة') {
             const { data: referrer } = await supabase
                 .from('users')
                 .select('affiliate_balance')
@@ -954,7 +955,7 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
           role: role,
           subscription_expiry: null,
           referred_by: referredBy,
-          affiliate_balance: 0
+          affiliate_balance: 4 // Registration Bonus: 4 SAR
         }
       ]);
 
