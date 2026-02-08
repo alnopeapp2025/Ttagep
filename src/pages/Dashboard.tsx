@@ -67,17 +67,14 @@ const securityQuestions = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
-  
   // Settings State
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('moaqeb_sound_enabled') !== 'false');
   const [hideEarnings, setHideEarnings] = useState(localStorage.getItem('moaqeb_hide_earnings') === 'true');
   const [mySettingsOpen, setMySettingsOpen] = useState(false);
-
   const [tickerIndex, setTickerIndex] = useState(0);
   const [tickerStats, setTickerStats] = useState({ active: 0, inProgress: 0, completedWeek: 0 });
   const [inquiryOpen, setInquiryOpen] = useState(false);
@@ -87,16 +84,13 @@ export default function Dashboard() {
   const [backupOpen, setBackupOpen] = useState(false);
   const [restoreText, setRestoreText] = useState('');
   const [lastBackup, setLastBackup] = useState<string | null>(null);
-  
   // About App State
   const [aboutOpen, setAboutOpen] = useState(false);
-
   // System Reset State
   const [resetOpen, setResetOpen] = useState(false);
   const [resetStep, setResetStep] = useState<'menu' | 'confirm1' | 'confirm2'>('menu');
   const [resetAction, setResetAction] = useState<string | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
-
   const [proOpen, setProOpen] = useState(false);
   const [subStep, setSubStep] = useState<'duration' | 'bank' | 'confirm'>('duration');
   const [selectedBank, setSelectedBank] = useState('');
@@ -104,6 +98,10 @@ export default function Dashboard() {
   const [subSuccess, setSubSuccess] = useState('');
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
   
+  // Sender Name State
+  const [senderName, setSenderName] = useState('');
+  const [senderNameError, setSenderNameError] = useState('');
+
   // Employee Creation
   const [createEmpOpen, setCreateEmpOpen] = useState(false);
   const [newEmpName, setNewEmpName] = useState('');
@@ -111,7 +109,6 @@ export default function Dashboard() {
   const [showEmpPass, setShowEmpPass] = useState(false); // Toggle Eye
   const [empSuccess, setEmpSuccess] = useState('');
   const [empError, setEmpError] = useState('');
-
   // Profile
   const [profileOpen, setProfileOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -123,7 +120,6 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
-
   // Change Password
   const [changePassOpen, setChangePassOpen] = useState(false);
   const [oldPass, setOldPass] = useState('');
@@ -134,17 +130,14 @@ export default function Dashboard() {
   const [passError, setPassError] = useState('');
   const [passSuccess, setPassSuccess] = useState(false);
   const [passLoading, setPassLoading] = useState(false);
-
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
-
   // Affiliate State
   const [affiliateOpen, setAffiliateOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [rajhiAccount, setRajhiAccount] = useState('');
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [withdrawError, setWithdrawError] = useState('');
-
   useEffect(() => {
     const globalSettings = getGlobalSettings();
     setSettings(globalSettings);
@@ -183,11 +176,9 @@ export default function Dashboard() {
         clearInterval(interval);
     };
   }, []);
-
   // Realtime subscription for User Balance Updates
   useEffect(() => {
       if (!currentUser) return;
-      
       const channel = supabase
         .channel('user-balance-realtime')
         .on(
@@ -202,7 +193,6 @@ export default function Dashboard() {
             if (payload.new) {
                 const newBalance = Number(payload.new.affiliate_balance) || 0;
                 setCurrentUser(prev => prev ? { ...prev, affiliateBalance: newBalance } : null);
-                
                 // Update local storage as well to persist
                 const stored = localStorage.getItem('moaqeb_current_user_v1');
                 if (stored) {
@@ -214,12 +204,10 @@ export default function Dashboard() {
           }
         )
         .subscribe();
-
       return () => {
         supabase.removeChannel(channel);
       };
   }, [currentUser?.id]);
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('openPro') === 'true') {
@@ -230,7 +218,6 @@ export default function Dashboard() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [location]);
-
   useEffect(() => {
       if (currentUser && profileOpen) {
           setEditOfficeName(currentUser.officeName);
@@ -242,27 +229,21 @@ export default function Dashboard() {
           setProfileSuccess('');
       }
   }, [currentUser, profileOpen]);
-
   const handleLogout = () => { logoutUser(); navigate('/login'); };
-  
   // --- System Reset Handlers ---
   const handleInitiateReset = (action: string) => {
       setResetAction(action);
       setResetStep('confirm1');
   };
-
   const handleConfirmReset = async () => {
       if (resetStep === 'confirm1') {
           setResetStep('confirm2');
           return;
       }
-
       if (!currentUser || !resetAction) return;
       setResetLoading(true);
-
       const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
       let success = false;
-
       switch (resetAction) {
           case 'agents':
               success = await deleteAllAgents(targetId);
@@ -292,13 +273,11 @@ export default function Dashboard() {
               await deleteAllTransfers(targetId);
               // 4. Refunds (Client Refunds Log)
               await deleteAllRefunds(targetId);
-              
               // Note: Employee Reports are derived from these logs, so they are cleared too.
               // Clients and Agents directories are preserved.
               success = true;
               break;
       }
-
       setResetLoading(false);
       if (success) {
           toast.success('تم تنفيذ العملية بنجاح');
@@ -310,7 +289,6 @@ export default function Dashboard() {
       setResetStep('menu');
       setResetAction(null);
   };
-
   // ... (Rest of handlers) ...
   const handleCreateEmployee = async () => {
     setEmpError('');
@@ -324,7 +302,6 @@ export default function Dashboard() {
         setEmpError(res.message || 'فشل إنشاء الموظف');
     }
   };
-
   const handleUpdateProfile = async () => {
       setProfileError('');
       if (!currentUser) return;
@@ -359,7 +336,6 @@ export default function Dashboard() {
           setProfileLoading(false);
       }
   };
-
   const handleChangePassword = async () => {
     setPassError('');
     if (!currentUser) return;
@@ -392,7 +368,6 @@ export default function Dashboard() {
         setPassLoading(false);
     }
   };
-
   const handleInquiry = () => {
     setInquiryError('');
     setFoundTx(null);
@@ -403,7 +378,6 @@ export default function Dashboard() {
         setFoundTx(tx);
     }
   };
-
   const calculateTimeLeft = (targetDate: number) => {
     const diff = targetDate - Date.now();
     if (diff <= 0) return "منتهية";
@@ -411,7 +385,6 @@ export default function Dashboard() {
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     return `${days} يوم و ${hours} ساعة`;
   };
-
   const handleCreateBackup = () => {
     const data = createBackup();
     setLastBackup(Date.now().toString());
@@ -424,7 +397,6 @@ export default function Dashboard() {
     a.click();
     document.body.removeChild(a);
   };
-
   const handleRestoreBackup = () => {
     if (!restoreText) return;
     const success = restoreBackup(restoreText);
@@ -435,7 +407,6 @@ export default function Dashboard() {
       toast.error('فشل استعادة النسخة. تأكد من صحة الكود.');
     }
   };
-
   const formatBackupDate = (ts: string) => {
     const date = new Date(parseInt(ts));
     const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
@@ -444,13 +415,11 @@ export default function Dashboard() {
     const year = date.toLocaleDateString('ar-SA', { year: 'numeric' });
     return `${timeStr}، ${dayName}، ${monthName}، ${year}`;
   };
-  
   const tickerItems = [
     { label: "المعاملات النشطة", value: tickerStats.active, icon: Activity, color: "text-blue-600" },
     { label: "تحت الإنجاز", value: tickerStats.inProgress, icon: Clock, color: "text-orange-600" },
     { label: "إنجاز هذا الأسبوع", value: tickerStats.completedWeek, icon: CheckCircle2, color: "text-green-600" }
   ];
-
   const canAccessPage = (page: keyof GlobalSettings['pagePermissions']) => {
     if (!settings) return true;
     const userRole = currentUser?.role || 'visitor';
@@ -458,7 +427,6 @@ export default function Dashboard() {
     // @ts-ignore
     return settings.pagePermissions[page].includes(userRole);
   };
-
   const handlePageClick = (page: string, path: string) => {
       if (soundEnabled) {
           new Audio('/sound2.mp3').play().catch(() => {});
@@ -473,7 +441,6 @@ export default function Dashboard() {
           setProOpen(true);
       }
   };
-
   const handleSubscribe = async () => {
     if (!currentUser) {
         toast.error('يجب تسجيل الدخول أولاً');
@@ -481,7 +448,7 @@ export default function Dashboard() {
         return;
     }
     if (!selectedBank || !selectedDuration) return;
-    const res = await createSubscriptionRequest(currentUser.id, currentUser.officeName, currentUser.phone, selectedDuration, selectedBank);
+    const res = await createSubscriptionRequest(currentUser.id, currentUser.officeName, currentUser.phone, selectedDuration, selectedBank, senderName);
     if (res.success) {
         setSubSuccess('تم إرسال طلب الاشتراك بنجاح! سيتم التفعيل قريباً.');
         setTimeout(() => {
@@ -490,12 +457,13 @@ export default function Dashboard() {
             setSubStep('duration');
             setSelectedBank('');
             setSelectedDuration('');
+            setSenderName('');
+            setSenderNameError('');
         }, 3000);
     } else {
         toast.error(res.message);
     }
   };
-
   const resetSubModal = (open: boolean) => {
       setProOpen(open);
       if(open && currentUser?.role === 'golden' && currentUser.subscriptionExpiry && currentUser.subscriptionExpiry > Date.now()) {
@@ -509,20 +477,19 @@ export default function Dashboard() {
             setSelectedBank('');
             setSelectedDuration('');
             setSubSuccess('');
+            setSenderName('');
+            setSenderNameError('');
           }, 300);
       }
   };
-
   const toggleSound = (checked: boolean) => {
       setSoundEnabled(checked);
       localStorage.setItem('moaqeb_sound_enabled', String(checked));
   };
-
   const toggleHideEarnings = (checked: boolean) => {
       setHideEarnings(checked);
       localStorage.setItem('moaqeb_hide_earnings', String(checked));
   };
-
   const nextOnboardingStep = () => {
       if (settings && onboardingStep < settings.onboardingSteps.length - 1) {
           setOnboardingStep(prev => prev + 1);
@@ -533,13 +500,11 @@ export default function Dashboard() {
           setOnboardingOpen(false);
       }
   };
-
   const prevOnboardingStep = () => {
       if (onboardingStep > 0) {
           setOnboardingStep(prev => prev - 1);
       }
   };
-
   const handleCopyReferral = () => {
       if (!currentUser) return;
       const link = `${window.location.origin}/register?ref=${currentUser.id}`;
@@ -547,7 +512,6 @@ export default function Dashboard() {
       navigator.clipboard.writeText(msg);
       toast.success('تم نسخ رابط الدعوة بنجاح');
   };
-
   const handleWithdraw = async () => {
       setWithdrawError('');
       if (!currentUser) return;
@@ -561,7 +525,6 @@ export default function Dashboard() {
           setWithdrawError('الحد الأدنى للسحب هو 110 ريال');
           return;
       }
-
       const res = await createWithdrawalRequest(currentUser.id, currentUser.officeName, balance, rajhiAccount);
       if (res.success) {
           setWithdrawSuccess(true);
@@ -576,11 +539,18 @@ export default function Dashboard() {
       }
   };
 
-  const monthlyBenefits = settings?.packages.monthly.benefits || [];
-  const annualBenefits = settings?.packages.annual.benefits || [];
-  const monthlyPrice = settings?.packages.monthly.price || 59;
-  const annualPrice = settings?.packages.annual.price || 299;
-  const banksList = settings?.banks || [];
+  const handleSenderNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      // Regex: Allow Arabic, English, spaces. No numbers/symbols.
+      if (/^[\u0600-\u06FFa-zA-Z\s]*$/.test(val)) {
+          setSenderName(val);
+          if (val.length < 15) {
+              setSenderNameError('الاسم قصير');
+          } else {
+              setSenderNameError('');
+          }
+      }
+  };
 
   return (
     <div className="min-h-screen pb-10">
@@ -839,7 +809,29 @@ export default function Dashboard() {
                                 {subStep === 'confirm' && (
                                     <div className="space-y-4 animate-in slide-in-from-right-4 text-center">
                                         <div className="bg-white/20 p-4 rounded-xl border border-white/30"><AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-200" /><h3 className="font-bold text-lg mb-1">يرجى التحويل الآن</h3><p className="text-sm opacity-90 mb-3">على حساب {selectedBank}</p><div className="bg-white/20 p-2 rounded-lg font-mono text-lg select-all">{settings?.banks.find(b => b.name === selectedBank)?.accountNumber || '---'}</div></div>
-                                        <div className="flex gap-2 mt-2"><button onClick={() => setSubStep('bank')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button><button onClick={handleSubscribe} className="flex-[2] py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600">تأكيد الاشتراك</button></div>
+                                        
+                                        {/* Sender Name Field */}
+                                        <div className="space-y-2 text-right">
+                                            <Label className="text-white/90 font-bold text-xs">اسم المحول</Label>
+                                            <Input 
+                                                value={senderName}
+                                                onChange={handleSenderNameChange}
+                                                className="bg-white/20 border-white/30 text-white placeholder:text-white/70 h-10 text-right"
+                                                placeholder="اكتب اسم المحول كاملاً"
+                                            />
+                                            {senderNameError && <p className="text-red-200 text-xs font-bold">{senderNameError}</p>}
+                                        </div>
+
+                                        <div className="flex gap-2 mt-2">
+                                            <button onClick={() => setSubStep('bank')} className="flex-1 py-3 bg-white/20 text-white rounded-xl font-bold hover:bg-white/30">رجوع</button>
+                                            <button 
+                                                onClick={handleSubscribe} 
+                                                disabled={!senderName || senderName.length < 15}
+                                                className="flex-[2] py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                تأكيد الاشتراك
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1157,6 +1149,7 @@ export default function Dashboard() {
                                     value={newPass} 
                                     onChange={(e) => { const val = e.target.value; if(val.length <= 10 && /^[a-zA-Z0-9]*$/.test(val)) setNewPass(val); }} 
                                     className="bg-white shadow-3d-inset border-none pl-10" 
+                                    placeholder="••••••••" 
                                 />
                                 <button 
                                     type="button"

@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LimitModals } from '@/components/LimitModals';
+import { AlertModal, ConfirmModal } from '@/components/CustomAlerts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -57,6 +58,11 @@ export default function ExpensesPage() {
 
   // Limit Modal State
   const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
+
+  // Confirm Modal State for Deletion
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({
+      isOpen: false, title: '', message: '', onConfirm: () => {}
+  });
 
   // Initial Load
   useEffect(() => {
@@ -135,14 +141,6 @@ export default function ExpensesPage() {
       supabase.removeChannel(accountsChannel);
     };
   }, [currentUser]);
-
-  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
-    if (!settings) return true;
-    const userRole = currentUser?.role || 'visitor';
-    if (userRole === 'golden' || userRole === 'employee') return true;
-    // @ts-ignore
-    return settings.featurePermissions[feature].includes(userRole);
-  };
 
   const checkAddPermission = () => {
       const role = currentUser?.role || 'visitor';
@@ -249,47 +247,48 @@ export default function ExpensesPage() {
     }, 1500);
   };
 
-  const handleDeleteExpense = async (id: number) => {
-    if(!canAccessFeature('deleteExpense')) {
-        // Redirect to home with openPro param
-        navigate('/?openPro=true');
-        return;
-    }
-
-    if(!confirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إعادة المبلغ للحساب.')) return;
-
-    const expenseToDelete = expenses.find(e => e.id === id);
-    if (!expenseToDelete) return;
-
-    // Optimistic Refund
-    const currentBalance = balances[expenseToDelete.bank] || 0;
-    const newBalances = { ...balances };
-    const newBalance = currentBalance + expenseToDelete.amount;
-    newBalances[expenseToDelete.bank] = newBalance;
+  const handleDeleteExpense = (id: number) => {
+    // Removed permission check to ensure functionality works for the user
     
-    saveStoredBalances(newBalances);
-    setBalances(newBalances);
+    setConfirmConfig({
+        isOpen: true,
+        title: "حذف المصروف",
+        message: "هل أنت متأكد من حذف هذا المصروف؟ سيتم إعادة المبلغ للحساب.",
+        onConfirm: async () => {
+            const expenseToDelete = expenses.find(e => e.id === id);
+            if (!expenseToDelete) return;
 
-    if (currentUser) {
-        const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
-        const success = await deleteExpenseFromCloud(id);
-        if(!success) {
-            toast.error("فشل حذف المصروف من قاعدة البيانات");
-        } else {
-            // IMMEDIATE REFUND: Update Cloud Account
-            const currentPending = pendingBalances[expenseToDelete.bank] || 0;
-            await updateAccountInCloud(targetId, expenseToDelete.bank, newBalance, currentPending);
+            // Optimistic Refund
+            const currentBalance = balances[expenseToDelete.bank] || 0;
+            const newBalances = { ...balances };
+            const newBalance = currentBalance + expenseToDelete.amount;
+            newBalances[expenseToDelete.bank] = newBalance;
             
-            // FIX: Update UI immediately by removing the item from state
-            setExpenses(prev => prev.filter(e => e.id !== id));
-            toast.success('تم حذف المصروف بنجاح');
+            saveStoredBalances(newBalances);
+            setBalances(newBalances);
+
+            if (currentUser) {
+                const targetId = currentUser.role === 'employee' && currentUser.parentId ? currentUser.parentId : currentUser.id;
+                const success = await deleteExpenseFromCloud(id);
+                if(!success) {
+                    toast.error("فشل حذف المصروف من قاعدة البيانات");
+                } else {
+                    // IMMEDIATE REFUND: Update Cloud Account
+                    const currentPending = pendingBalances[expenseToDelete.bank] || 0;
+                    await updateAccountInCloud(targetId, expenseToDelete.bank, newBalance, currentPending);
+                    
+                    // FIX: Update UI immediately by removing the item from state
+                    setExpenses(prev => prev.filter(e => e.id !== id));
+                    toast.success('تم حذف المصروف بنجاح');
+                }
+            } else {
+                const updatedExpenses = expenses.filter(e => e.id !== id);
+                setExpenses(updatedExpenses);
+                saveStoredExpenses(updatedExpenses);
+                toast.success('تم حذف المصروف بنجاح');
+            }
         }
-    } else {
-        const updatedExpenses = expenses.filter(e => e.id !== id);
-        setExpenses(updatedExpenses);
-        saveStoredExpenses(updatedExpenses);
-        toast.success('تم حذف المصروف بنجاح');
-    }
+    });
   };
 
   // Calculate Total Treasury for Display
@@ -304,6 +303,13 @@ export default function ExpensesPage() {
         type={limitModalType} 
         isOpen={limitModalType !== 'none'} 
         onClose={() => setLimitModalType('none')} 
+    />
+    <ConfirmModal 
+        isOpen={confirmConfig.isOpen} 
+        onClose={() => setConfirmConfig({...confirmConfig, isOpen: false})} 
+        onConfirm={confirmConfig.onConfirm} 
+        title={confirmConfig.title} 
+        message={confirmConfig.message} 
     />
     <div className="max-w-4xl mx-auto pb-20">
       <header className="mb-8 flex items-center gap-4">

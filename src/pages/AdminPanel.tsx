@@ -374,6 +374,8 @@ export default function AdminPanel() {
                                                 <h4 className="font-bold text-gray-800 text-sm">{req.userName}</h4>
                                                 <p className="text-xs text-gray-500 font-mono">{req.phone}</p>
                                                 <div className="flex gap-2 text-[10px] mt-1"><span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">المدة: {req.duration}</span><span className="text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-SA')}</span>{req.bank && <span className="text-gray-500">({req.bank})</span>}</div>
+                                                {/* Display Sender Name */}
+                                                {req.senderName && <span className="text-xs text-purple-600 font-bold block mt-1">المحول: {req.senderName}</span>}
                                             </div>
                                         </div>
                                         {req.status === 'pending' ? (
