@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info
+  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info, Headset
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -653,9 +653,14 @@ export default function Dashboard() {
                 </SheetHeader>
                 <div className="flex flex-col gap-3">
                   {currentUser ? (
-                    <button onClick={handleLogout} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
-                        <LogOut className="w-5 h-5" /> تسجيل خروج
-                    </button>
+                    <>
+                        <button onClick={handleLogout} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
+                            <LogOut className="w-5 h-5" /> تسجيل خروج
+                        </button>
+                        <a href="https://wa.me/966556246166" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <Headset className="w-5 h-5 text-green-600" /> دعم فني
+                        </a>
+                    </>
                   ) : (
                     <button onClick={() => navigate('/login')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                         <LogIn className="w-5 h-5 text-blue-600" /> تسجيل دخول
