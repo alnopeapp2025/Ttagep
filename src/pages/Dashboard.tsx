@@ -3,7 +3,7 @@ import {
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
   Search, Database, Trash2, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key, X, Check, Shield, Sliders, Volume2, VolumeX,
-  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info, Headset
+  Building2, Pencil, Loader2, ArrowLeft, ArrowRight, Copy, Coins, Eye, EyeOff, Smartphone, MessageCircle, RefreshCw, Info, Headset, Share2
 } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -709,7 +709,7 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* ... (Existing Dialogs) ... */}
+                  {/* Inquiry Dialog */}
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -740,6 +740,7 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
                   
+                  {/* Backup Dialog */}
                   <Dialog open={backupOpen} onOpenChange={setBackupOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -919,6 +920,27 @@ export default function Dashboard() {
                         )}
                     </DialogContent>
                   </Dialog>
+
+                  {/* WhatsApp Share Button */}
+                  <button 
+                      onClick={() => {
+                          const text = `تطبيق مان هوبات لمكاتب الخدمات العامة والتعقيب
+إدارة شامله لمكتبك وانت بعيد
+للمعقبين ولمن يعملون في مكاتب الخدمات
+إدارة شامله للتقارير
+إدارة تفصليله للموظفين
+المعاملات والمنصرفات
+تقرير الأرباح للمكتب
+جمل التطبيق الان من جوجل بلاي
+https://play.google.com/store/apps/details?id=apli3885642.ofh
+أو أدخل علي الرابط
+http://Www.manhobat.com.com`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                      }}
+                      className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold"
+                  >
+                      <Share2 className="w-5 h-5 text-green-600" /> ارسل لصديق واكسب
+                  </button>
 
                   <a href="mailto:Tageep2026@gmail.com" className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                     <Mail className="w-5 h-5 text-blue-500" /> اتصل بنا
