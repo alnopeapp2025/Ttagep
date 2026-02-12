@@ -45,6 +45,9 @@ function AgentsPage() {
   const [banksList, setBanksList] = useState<string[]>([]);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [limitModalType, setLimitModalType] = useState<'none' | 'visitor' | 'member' | 'golden'>('none');
+  
+  // New state to track the last paid transaction for notification
+  const [lastPaidTx, setLastPaidTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -314,13 +317,25 @@ function AgentsPage() {
 
     const refreshedTxs = updatedTxs.filter(t => t.agent === selectedAgent.name);
     setAgentTxs(refreshedTxs);
+    
+    // Set the last paid transaction for the notification
+    setLastPaidTx(targetTx);
     setTransferStep('success');
   };
   // -----------------------------------------------------------------------
 
   const sendTransferWhatsApp = () => {
     if (!selectedAgent?.whatsapp) return;
-    const message = `مرحباً ${selectedAgent.name}،\nتم تحويل مبلغ مستحقات المعاملات المنجزة.\nالمبلغ: ${totalDue} ر.س\nتم الخصم من: ${selectedBank}\nشكراً لجهودك.`;
+    
+    const txName = lastPaidTx?.type || 'معاملة';
+    const amount = lastPaidTx?.agentPrice || '0';
+
+    const message = `عزيزي المعقب، تم بنجاح تحويل مبلغ مستحقاتك عن إنجاز المعاملة التالية:
+المعاملة: ${txName}
+المبلغ المحول: ${amount} ر.س
+الحالة: تم إنجاز المعاملة وتحويل المبلغ.
+شكراً لجهودك.`;
+
     window.open(`https://wa.me/${selectedAgent.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
