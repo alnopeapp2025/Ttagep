@@ -43,9 +43,6 @@ export default function AchieversHub() {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [myAgentId, setMyAgentId] = useState<number | null>(null);
   
-  // Supervisor Editing State
-  const [editingAgentId, setEditingAgentId] = useState<number | null>(null);
-
   useEffect(() => {
     const loadData = async () => {
         setLoading(true);
@@ -108,17 +105,11 @@ export default function AchieversHub() {
     
     setSaveLoading(true);
     
-    // Determine Target ID (My Agent OR Supervisor Editing)
-    const targetId = editingAgentId || myAgentId;
-    const targetUserId = editingAgentId 
-        ? extAgents.find(a => a.id === editingAgentId)?.userId || currentUser.id 
-        : currentUser.id;
-
     // Check if updating existing
-    if (targetId) {
+    if (myAgentId) {
         const updatedAgent: ExternalAgent = {
-            id: targetId,
-            userId: targetUserId,
+            id: myAgentId,
+            userId: currentUser.id,
             name: newAgentName,
             phone: newAgentPhone,
             whatsapp: newAgentWhatsapp,
@@ -128,9 +119,8 @@ export default function AchieversHub() {
         
         const res = await updateExternalAgentInCloud(updatedAgent);
         if (res.success) {
-            setExtAgents(prev => prev.map(a => a.id === targetId ? updatedAgent : a));
+            setExtAgents(prev => prev.map(a => a.id === myAgentId ? updatedAgent : a));
             setOpenAgent(false);
-            setEditingAgentId(null);
             toast.success('تم تحديث البيانات بنجاح');
         } else {
             toast.error('فشل تحديث البيانات: ' + res.message);
@@ -170,23 +160,16 @@ export default function AchieversHub() {
     setSaveLoading(false);
   };
 
-  const openAddModal = (agentToEdit?: ExternalAgent) => {
+  const openAddModal = () => {
       if (!currentUser) {
           navigate('/login'); // Redirect visitors
           return;
       }
 
-      if (agentToEdit) {
-          setEditingAgentId(agentToEdit.id);
-          setNewAgentName(agentToEdit.name);
-          setNewAgentPhone(agentToEdit.phone);
-          setNewAgentWhatsapp(agentToEdit.whatsapp || '');
-          setServices(agentToEdit.services || []);
-      } else if (myAgentId) {
+      if (myAgentId) {
           // Editing own profile
           const myAgent = extAgents.find(a => a.id === myAgentId);
           if (myAgent) {
-              setEditingAgentId(null); // Not supervisor mode, just self edit
               setNewAgentName(myAgent.name);
               setNewAgentPhone(myAgent.phone);
               setNewAgentWhatsapp(myAgent.whatsapp || '');
@@ -194,7 +177,6 @@ export default function AchieversHub() {
           }
       } else {
           // Reset for new
-          setEditingAgentId(null);
           setNewAgentName(currentUser.officeName.substring(0, 27)); // Auto-fill name
           setNewAgentPhone(currentUser.phone);
           setNewAgentWhatsapp('');
@@ -271,7 +253,7 @@ export default function AchieversHub() {
         <div className="space-y-6">
             
             {/* Add/Edit Button */}
-            <Dialog open={openAgent} onOpenChange={(open) => { setOpenAgent(open); if(!open) setEditingAgentId(null); }}>
+            <Dialog open={openAgent} onOpenChange={setOpenAgent}>
                 <button 
                     onClick={() => openAddModal()}
                     className={`w-full py-4 rounded-2xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 ${myAgentId ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-[#eef2f6] text-blue-600'}`}
@@ -281,7 +263,7 @@ export default function AchieversHub() {
                 </button>
                 
                 <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-md" dir="rtl">
-                    <DialogHeader><DialogTitle>{myAgentId || editingAgentId ? 'تعديل بيانات المعقب' : 'إضافة نفسي كمعقب'}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{myAgentId ? 'تعديل بيانات المعقب' : 'إضافة نفسي كمعقب'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>الاسم (27 حرف كحد أقصى)</Label>
@@ -347,15 +329,14 @@ export default function AchieversHub() {
                     {extAgents.map(agent => {
                         const isMyCard = currentUser && agent.userId === currentUser.id;
                         const canAccess = isGolden || isMyCard;
-                        const canEdit = currentUser && (isMyCard || currentUser.isSupervisor);
 
                         return (
                             <div key={agent.id} className={`p-4 rounded-2xl shadow-3d border relative transition-all ${isMyCard ? 'bg-blue-50 border-blue-200' : 'bg-[#eef2f6] border-white/50'}`}>
                                 
-                                {/* Supervisor Controls */}
-                                {canEdit && !isMyCard && (
+                                {/* Owner Controls */}
+                                {isMyCard && (
                                     <div className="absolute top-2 left-2 flex gap-1 z-20">
-                                        <button onClick={() => openAddModal(agent)} className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"><Edit className="w-3 h-3" /></button>
+                                        <button onClick={() => openAddModal()} className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"><Edit className="w-3 h-3" /></button>
                                         <button onClick={() => handleDeleteAgent(agent.id)} className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 className="w-3 h-3" /></button>
                                     </div>
                                 )}
