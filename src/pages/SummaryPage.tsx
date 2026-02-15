@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Search, Filter, Phone, MessageCircle, Briefcase, MapPin, Crown, CheckCircle2, Loader2, X, Pencil } from 'lucide-react';
+import { ArrowRight, Plus, Search, Filter, Phone, MessageCircle, Briefcase, MapPin, Crown, CheckCircle2, Loader2, X, Pencil, Trash2 } from 'lucide-react';
 import { 
     getCurrentUser, User, 
     SAUDI_CITIES, 
@@ -112,6 +112,9 @@ export default function SummaryPage() {
       newService: ''
   });
 
+  // Edit Mode for Supervisor
+  const [editingListing, setEditingListing] = useState<OfficeListing | null>(null);
+
   useEffect(() => {
       const user = getCurrentUser();
       setCurrentUser(user);
@@ -177,24 +180,28 @@ export default function SummaryPage() {
       }));
   };
 
-  const openAddModal = () => {
+  const openAddModal = (listingToEdit?: OfficeListing) => {
       if (!currentUser) {
           navigate('/register');
           return;
       }
 
-      if (myListing) {
+      const targetListing = listingToEdit || myListing;
+
+      if (targetListing) {
+          setEditingListing(listingToEdit || null); // Set if supervisor editing
           // Pre-fill form for editing
           setFormData({
-              officeName: myListing.officeName,
-              phone: myListing.phone,
-              whatsapp: myListing.whatsapp.replace('https://wa.me/966', ''),
-              workType: myListing.workType,
-              city: myListing.city || '',
-              services: myListing.services,
+              officeName: targetListing.officeName,
+              phone: targetListing.phone,
+              whatsapp: targetListing.whatsapp.replace('https://wa.me/966', ''),
+              workType: targetListing.workType,
+              city: targetListing.city || '',
+              services: targetListing.services,
               newService: ''
           });
       } else {
+          setEditingListing(null);
           // Reset form for new
           setFormData({
               officeName: '',
@@ -227,21 +234,26 @@ export default function SummaryPage() {
 
       setLoading(true);
       
+      // Determine target ID and User ID
+      const targetId = editingListing ? editingListing.id : (myListing ? myListing.id : Date.now());
+      const targetUserId = editingListing ? editingListing.userId : currentUser.id;
+      const targetIsGolden = editingListing ? editingListing.isGolden : (currentUser.role === 'golden');
+
       const listingData: OfficeListing = {
-          id: myListing ? myListing.id : Date.now(), // Use existing ID if editing
-          userId: currentUser.id,
+          id: targetId,
+          userId: targetUserId,
           officeName: formData.officeName,
           phone: formData.phone,
           whatsapp: `https://wa.me/966${formData.whatsapp}`,
           workType: formData.workType as 'online' | 'office',
           city: formData.workType === 'office' ? formData.city : undefined,
           services: formData.services,
-          isGolden: currentUser.role === 'golden', // Always sync with current role
-          createdAt: myListing ? myListing.createdAt : Date.now()
+          isGolden: targetIsGolden, 
+          createdAt: editingListing ? editingListing.createdAt : (myListing ? myListing.createdAt : Date.now())
       };
 
       let result;
-      if (myListing) {
+      if (myListing || editingListing) {
           result = await updateOfficeListingInCloud(listingData);
       } else {
           result = await addOfficeListingToCloud(listingData);
@@ -249,9 +261,10 @@ export default function SummaryPage() {
       
       if (result.success) {
           setAddOpen(false);
-          toast.success(myListing ? 'تم تحديث بيانات مكتبك بنجاح' : 'تم إضافة مكتبك بنجاح!');
+          toast.success(myListing || editingListing ? 'تم تحديث بيانات المكتب بنجاح' : 'تم إضافة مكتبك بنجاح!');
+          setEditingListing(null);
           // Reset form only if adding new
-          if (!myListing) {
+          if (!myListing && !editingListing) {
               setFormData({
                   officeName: '',
                   phone: '',
@@ -266,6 +279,18 @@ export default function SummaryPage() {
           toast.error('فشل العملية: ' + (result.message || 'خطأ غير معروف'));
       }
       setLoading(false);
+  };
+
+  const handleDeleteListing = async (id: number) => {
+      if(confirm('هل أنت متأكد من حذف هذا المكتب؟')) {
+          const { error } = await supabase.from('public_offices').delete().eq('id', id);
+          if(error) {
+              toast.error('فشل الحذف');
+          } else {
+              toast.success('تم الحذف بنجاح');
+              loadListings();
+          }
+      }
   };
 
   const filteredListings = listings.filter(l => {
@@ -288,10 +313,10 @@ export default function SummaryPage() {
         </div>
         
         {currentUser ? (
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if(!open) setEditingListing(null); }}>
                 <DialogTrigger asChild>
                     <button 
-                        onClick={openAddModal}
+                        onClick={() => openAddModal()}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg transition-all ${myListing ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                     >
                         {myListing ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
@@ -299,7 +324,7 @@ export default function SummaryPage() {
                     </button>
                 </DialogTrigger>
                 <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
-                    <DialogHeader><DialogTitle className="text-center font-black text-xl text-gray-800">{myListing ? 'تعديل بيانات المكتب' : 'إضافة مكتب جديد'}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-center font-black text-xl text-gray-800">{myListing || editingListing ? 'تعديل بيانات المكتب' : 'إضافة مكتب جديد'}</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>اسم المكتب (حد أقصى 29 حرف)</Label>
@@ -356,7 +381,7 @@ export default function SummaryPage() {
                         )}
 
                         <div className="space-y-2">
-                            <Label>الخدمات ({formData.services.length}/{currentUser.role === 'golden' ? 50 : 20})</Label>
+                            <Label>الخدمات ({formData.services.length}/{currentUser.role === 'golden' || editingListing?.isGolden ? 50 : 20})</Label>
                             <div className="flex gap-2">
                                 <Input 
                                     value={formData.newService} 
@@ -381,7 +406,7 @@ export default function SummaryPage() {
                         </div>
 
                         <button onClick={handleSubmit} disabled={loading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 mt-4 disabled:opacity-70">
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (myListing ? 'حفظ التعديلات' : 'حفظ ونشر المكتب')}
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (myListing || editingListing ? 'حفظ التعديلات' : 'حفظ ونشر المكتب')}
                         </button>
                     </div>
                 </DialogContent>
@@ -423,7 +448,11 @@ export default function SummaryPage() {
 
       {/* Listings Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredListings.map(listing => (
+          {filteredListings.map(listing => {
+              // Supervisor Check
+              const canEdit = currentUser && (currentUser.id === listing.userId || currentUser.isSupervisor);
+
+              return (
               <div 
                 key={listing.id} 
                 className={`relative overflow-hidden rounded-3xl p-6 transition-all hover:-translate-y-1 duration-300 ${
@@ -436,6 +465,16 @@ export default function SummaryPage() {
                       <div className="absolute top-0 left-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-br-xl flex items-center gap-1 shadow-sm z-10">
                           <Crown className="w-3 h-3" />
                           مكتب مميز
+                      </div>
+                  )}
+
+                  {/* Supervisor Controls */}
+                  {canEdit && (
+                      <div className="absolute top-2 left-2 flex gap-1 z-20">
+                          <button onClick={() => openAddModal(listing)} className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"><Pencil className="w-3 h-3" /></button>
+                          {currentUser?.isSupervisor && (
+                              <button onClick={() => handleDeleteListing(listing.id)} className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><Trash2 className="w-3 h-3" /></button>
+                          )}
                       </div>
                   )}
 
@@ -485,7 +524,7 @@ export default function SummaryPage() {
                       </a>
                   </div>
               </div>
-          ))}
+          )})}
       </div>
 
       {/* Upgrade CTA for Regular Members */}

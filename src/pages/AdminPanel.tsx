@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare, FileWarning, Coins, Globe } from 'lucide-react';
+import { Settings, CheckCircle2, Shield, Key, LogOut, Trash2, Save, Palette, Type, Sliders, CreditCard, Plus, X, MessageSquare, FileWarning, Coins, Globe, ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
@@ -9,8 +9,10 @@ import {
     getGlobalSettings, GlobalSettings, saveGlobalSettings,
     fetchSubscriptionRequestsFromCloud, approveSubscription, SubscriptionRequest,
     getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest,
-    BankAccount, fetchWithdrawalRequests, completeWithdrawal, WithdrawalRequest
+    BankAccount, fetchWithdrawalRequests, completeWithdrawal, WithdrawalRequest,
+    assignSupervisor
 } from '@/lib/store';
+import { toast } from 'sonner';
 
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -88,6 +90,17 @@ export default function AdminPanel() {
           setRequests(reqs); 
           setActiveGolden(getGoldenUsers()); 
       } 
+  };
+
+  const handleMakeSupervisor = async (userId: number) => {
+      if(confirm('هل أنت متأكد من تعيين هذا العضو كمشرف؟ سيتم منحه صلاحيات الحذف والتعديل في دليل المكاتب ومركز المنجزين.')) {
+          const res = await assignSupervisor(userId);
+          if(res.success) {
+              toast.success('تم تعيين العضو كمشرف بنجاح');
+          } else {
+              toast.error('فشل تعيين المشرف: ' + res.message);
+          }
+      }
   };
 
   const handleReject = async (id: number) => { 
@@ -379,7 +392,15 @@ export default function AdminPanel() {
                                             </div>
                                         </div>
                                         {req.status === 'pending' ? (
-                                            <div className="flex gap-2"><button onClick={() => handleApprove(req.id)} className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2 text-xs"><CheckCircle2 className="w-3 h-3" /> تفعيل العضوية</button><button onClick={() => handleReject(req.id)} className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"><Trash2 className="w-3 h-3" /> رفض</button></div>
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleApprove(req.id)} className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2 text-xs"><CheckCircle2 className="w-3 h-3" /> تفعيل العضوية</button>
+                                                    <button onClick={() => handleReject(req.id)} className="px-4 py-2 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition-all flex items-center gap-2 text-xs"><Trash2 className="w-3 h-3" /> رفض</button>
+                                                </div>
+                                                <button onClick={() => handleMakeSupervisor(req.userId)} className="px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold hover:bg-blue-200 transition-all flex items-center justify-center gap-2 text-xs border border-blue-200">
+                                                    <ShieldCheck className="w-3 h-3" /> تعيينه مشرف
+                                                </button>
+                                            </div>
                                         ) : (
                                             <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-3 py-1 rounded-xl text-xs"><CheckCircle2 className="w-4 h-4" /> تم التفعيل</div>
                                         )}

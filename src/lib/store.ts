@@ -47,6 +47,7 @@ export interface User {
   subscriptionExpiry?: number; 
   affiliateBalance?: number;
   referredBy?: number;
+  isSupervisor?: boolean; // New Supervisor Flag
 }
 
 export interface Client {
@@ -899,6 +900,22 @@ export const approveSubscription = async (requestId: number) => {
     }
 };
 
+// --- Supervisor Function ---
+export const assignSupervisor = async (userId: number) => {
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ is_supervisor: true })
+            .eq('id', userId);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        console.error("Error assigning supervisor:", e);
+        return { success: false, message: e.message };
+    }
+};
+
 export const cancelSubscription = async (userId: number) => {
     const goldenUsers = getGoldenUsers();
     const updatedGolden = goldenUsers.filter(u => u.userId !== userId);
@@ -1031,7 +1048,8 @@ export const loginUser = async (phone: string, pass: string) => {
                 role: user.role,
                 subscriptionExpiry: user.subscription_expiry ? new Date(user.subscription_expiry).getTime() : undefined,
                 affiliateBalance: user.affiliate_balance,
-                referredBy: user.referred_by
+                referredBy: user.referred_by,
+                isSupervisor: user.is_supervisor // Map from DB
             };
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userObj));
             return { success: true, user: userObj };
