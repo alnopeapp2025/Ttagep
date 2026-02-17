@@ -71,6 +71,8 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  // Admin Secret Click State
+  const [adminClickCount, setAdminClickCount] = useState(0);
   // Settings State
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('moaqeb_sound_enabled') !== 'false');
   const [hideEarnings, setHideEarnings] = useState(localStorage.getItem('moaqeb_hide_earnings') === 'true');
@@ -176,6 +178,20 @@ export default function Dashboard() {
         clearInterval(interval);
     };
   }, []);
+  
+  // Admin Click Logic
+  useEffect(() => {
+    if (adminClickCount >= 3) { // Changed to 3 clicks
+        navigate('/admins');
+        setAdminClickCount(0);
+    }
+    // Reset counter if no click within 2 seconds
+    const timer = setTimeout(() => {
+        if (adminClickCount > 0) setAdminClickCount(0);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [adminClickCount, navigate]);
+
   // Realtime subscription for User Balance Updates
   useEffect(() => {
       if (!currentUser) return;
