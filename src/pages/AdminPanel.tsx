@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-    getGlobalSettings, GlobalSettings, saveGlobalSettings,
+    getGlobalSettings, GlobalSettings, saveGlobalSettingsToCloud, fetchGlobalSettingsFromCloud,
     fetchSubscriptionRequestsFromCloud, approveSubscription, SubscriptionRequest,
     getGoldenUsers, GoldenUserRecord, cancelSubscription, rejectSubscriptionRequest,
     BankAccount, fetchWithdrawalRequests, completeWithdrawal, WithdrawalRequest
@@ -58,6 +58,22 @@ export default function AdminPanel() {
   const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
 
   useEffect(() => {
+    // Load fresh settings from cloud on mount
+    fetchGlobalSettingsFromCloud().then(fetched => {
+        setSettings(fetched);
+        // Sync local form states
+        setSiteTitle(fetched.siteTitle);
+        setMarqueeText(fetched.marquee.text);
+        setMarqueeBg(fetched.marquee.bgColor);
+        setMarqueeColor(fetched.marquee.textColor);
+        setDeleteDescription(fetched.deletePageTexts?.description || '');
+        setDeleteWarning(fetched.deletePageTexts?.warning || '');
+        setDeleteFooter(fetched.deletePageTexts?.footer || '');
+        setSeoTitle(fetched.seo?.title || '');
+        setSeoDescription(fetched.seo?.description || '');
+        setSeoKeywords(fetched.seo?.keywords || '');
+    });
+
     const loadRequests = async () => {
         const reqs = await fetchSubscriptionRequestsFromCloud();
         setRequests(reqs);
@@ -121,7 +137,7 @@ export default function AdminPanel() {
 
   // --- Handlers for Settings ---
 
-  const handleChangeAdminPassword = () => {
+  const handleChangeAdminPassword = async () => {
     if (newAdminPass !== confirmAdminPass) {
         setPassMsg('كلمات المرور غير متطابقة');
         return;
@@ -131,14 +147,14 @@ export default function AdminPanel() {
     const newHash = hashPassword(newAdminPass);
     const newSettings = { ...settings, adminPasswordHash: newHash };
     setSettings(newSettings);
-    saveGlobalSettings(newSettings);
+    await saveGlobalSettingsToCloud(newSettings);
     setPassMsg('تم تحديث كلمة المرور بنجاح');
     setNewAdminPass('');
     setConfirmAdminPass('');
     setTimeout(() => setPassMsg(''), 3000);
   };
 
-  const handleSaveAppearance = () => {
+  const handleSaveAppearance = async () => {
       const newSettings = {
           ...settings,
           siteTitle,
@@ -149,7 +165,7 @@ export default function AdminPanel() {
           }
       };
       setSettings(newSettings);
-      saveGlobalSettings(newSettings);
+      await saveGlobalSettingsToCloud(newSettings);
       setAppearanceMsg('تم حفظ إعدادات المظهر بنجاح');
       setTimeout(() => setAppearanceMsg(''), 3000);
   };
@@ -168,8 +184,8 @@ export default function AdminPanel() {
       }));
   };
 
-  const handleSaveLimits = () => {
-      saveGlobalSettings(settings);
+  const handleSaveLimits = async () => {
+      await saveGlobalSettingsToCloud(settings);
       setLimitsMsg('تم حفظ الحدود بنجاح');
       setTimeout(() => setLimitsMsg(''), 3000);
   };
@@ -264,8 +280,8 @@ export default function AdminPanel() {
       });
   };
 
-  const handleSaveSubscriptionSettings = () => {
-      saveGlobalSettings(settings);
+  const handleSaveSubscriptionSettings = async () => {
+      await saveGlobalSettingsToCloud(settings);
       setSubMsg('تم حفظ إعدادات الاشتراك والبنوك بنجاح');
       setTimeout(() => setSubMsg(''), 3000);
   };
@@ -279,14 +295,14 @@ export default function AdminPanel() {
       });
   };
 
-  const handleSaveOnboarding = () => {
-      saveGlobalSettings(settings);
+  const handleSaveOnboarding = async () => {
+      await saveGlobalSettingsToCloud(settings);
       setOnboardingMsg('تم حفظ نصوص الترحيب بنجاح');
       setTimeout(() => setOnboardingMsg(''), 3000);
   };
 
   // Delete Page Management
-  const handleSaveDeletePage = () => {
+  const handleSaveDeletePage = async () => {
       const newSettings = {
           ...settings,
           deletePageTexts: {
@@ -296,13 +312,13 @@ export default function AdminPanel() {
           }
       };
       setSettings(newSettings);
-      saveGlobalSettings(newSettings);
+      await saveGlobalSettingsToCloud(newSettings);
       setDeletePageMsg('تم حفظ نصوص صفحة الحذف بنجاح');
       setTimeout(() => setDeletePageMsg(''), 3000);
   };
 
   // SEO Management
-  const handleSaveSeo = () => {
+  const handleSaveSeo = async () => {
       const newSettings = {
           ...settings,
           seo: {
@@ -312,7 +328,7 @@ export default function AdminPanel() {
           }
       };
       setSettings(newSettings);
-      saveGlobalSettings(newSettings);
+      await saveGlobalSettingsToCloud(newSettings);
       setSeoMsg('تم حفظ إعدادات SEO بنجاح');
       setTimeout(() => setSeoMsg(''), 3000);
   };

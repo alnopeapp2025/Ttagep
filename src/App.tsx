@@ -16,34 +16,46 @@ import AdminPanel from './pages/AdminPanel';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import DeleteDataPage from './pages/DeleteDataPage';
 import SummaryPage from './pages/SummaryPage';
-import { getGlobalSettings } from './lib/store';
+import { getGlobalSettings, fetchGlobalSettingsFromCloud, saveGlobalSettings } from './lib/store';
+import { supabase } from './lib/supabase';
 
 function App() {
-  // SEO Injection Effect
+  // SEO & Realtime Settings Effect
   useEffect(() => {
-    const settings = getGlobalSettings();
-    if (settings.seo) {
-        // Update Title
-        document.title = settings.seo.title || 'مان هويات لمكاتب الخدمات';
-
-        // Update Meta Description
-        let metaDesc = document.querySelector('meta[name="description"]');
-        if (!metaDesc) {
-            metaDesc = document.createElement('meta');
-            metaDesc.setAttribute('name', 'description');
-            document.head.appendChild(metaDesc);
+    // Initial Fetch
+    const updateSEO = (settings: any) => {
+        if (settings.seo) {
+            document.title = settings.seo.title || 'مان هويات لمكاتب الخدمات';
+            let metaDesc = document.querySelector('meta[name="description"]');
+            if (!metaDesc) { metaDesc = document.createElement('meta'); metaDesc.setAttribute('name', 'description'); document.head.appendChild(metaDesc); }
+            metaDesc.setAttribute('content', settings.seo.description || '');
+            let metaKeywords = document.querySelector('meta[name="keywords"]');
+            if (!metaKeywords) { metaKeywords = document.createElement('meta'); metaKeywords.setAttribute('name', 'keywords'); document.head.appendChild(metaKeywords); }
+            metaKeywords.setAttribute('content', settings.seo.keywords || '');
         }
-        metaDesc.setAttribute('content', settings.seo.description || '');
+    };
 
-        // Update Meta Keywords
-        let metaKeywords = document.querySelector('meta[name="keywords"]');
-        if (!metaKeywords) {
-            metaKeywords = document.createElement('meta');
-            metaKeywords.setAttribute('name', 'keywords');
-            document.head.appendChild(metaKeywords);
+    fetchGlobalSettingsFromCloud().then(settings => updateSEO(settings));
+
+    // Realtime Subscription
+    const channel = supabase
+      .channel('app-settings-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
+        (payload) => {
+            if (payload.new && payload.new.settings) {
+                const newSettings = payload.new.settings;
+                saveGlobalSettings(newSettings); // Update local storage
+                updateSEO(newSettings); // Update SEO immediately
+            }
         }
-        metaKeywords.setAttribute('content', settings.seo.keywords || '');
-    }
+      )
+      .subscribe();
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

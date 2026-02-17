@@ -47,6 +47,7 @@ export interface User {
   subscriptionExpiry?: number; 
   affiliateBalance?: number;
   referredBy?: number;
+  isSupervisor?: boolean; // Removed but kept in type for compatibility if needed, though logic removed
 }
 
 export interface Client {
@@ -366,6 +367,62 @@ export const getGlobalSettings = (): GlobalSettings => {
 export const saveGlobalSettings = (settings: GlobalSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
+
+// --- New Cloud Settings Functions ---
+
+export const fetchGlobalSettingsFromCloud = async (): Promise<GlobalSettings> => {
+    try {
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('settings')
+            .eq('id', 1)
+            .single();
+        
+        if (error || !data) return getGlobalSettings(); // Fallback to local
+
+        const cloudSettings = data.settings;
+        // Merge with defaults to ensure all fields exist
+        const merged = {
+            ...DEFAULT_SETTINGS,
+            ...cloudSettings,
+            marquee: { ...DEFAULT_SETTINGS.marquee, ...(cloudSettings.marquee || {}) },
+            limits: { 
+                ...DEFAULT_SETTINGS.limits, 
+                ...(cloudSettings.limits || {}),
+                golden: { ...DEFAULT_SETTINGS.limits.golden, ...(cloudSettings.limits?.golden || {}) }
+            },
+            packages: {
+                monthly: { ...DEFAULT_SETTINGS.packages.monthly, ...(cloudSettings.packages?.monthly || {}) },
+                annual: { ...DEFAULT_SETTINGS.packages.annual, ...(cloudSettings.packages?.annual || {}) }
+            },
+            deletePageTexts: { ...DEFAULT_SETTINGS.deletePageTexts, ...(cloudSettings.deletePageTexts || {}) },
+            seo: { ...DEFAULT_SETTINGS.seo, ...(cloudSettings.seo || {}) }
+        };
+        
+        saveGlobalSettings(merged); // Update local cache
+        return merged;
+    } catch (e) {
+        return getGlobalSettings();
+    }
+};
+
+export const saveGlobalSettingsToCloud = async (settings: GlobalSettings) => {
+    saveGlobalSettings(settings); // Update local first
+    try {
+        // Upsert row 1
+        const { error } = await supabase
+            .from('app_settings')
+            .upsert({ id: 1, settings: settings });
+        
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error("Failed to save settings to cloud", e);
+        return false;
+    }
+};
+
+// ... (Rest of existing functions) ...
 
 export const getBankNames = (): string[] => {
     const settings = getGlobalSettings();

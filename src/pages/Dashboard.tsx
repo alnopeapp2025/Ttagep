@@ -25,6 +25,7 @@ import {
   getLastBackupTime,
   fetchTransactionsFromCloud,
   getGlobalSettings,
+  fetchGlobalSettingsFromCloud,
   GlobalSettings,
   createEmployee,
   createSubscriptionRequest,
@@ -140,9 +141,11 @@ export default function Dashboard() {
   const [rajhiAccount, setRajhiAccount] = useState('');
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
   const [withdrawError, setWithdrawError] = useState('');
+  
   useEffect(() => {
-    const globalSettings = getGlobalSettings();
-    setSettings(globalSettings);
+    // Initial Load
+    fetchGlobalSettingsFromCloud().then(setSettings);
+    
     const user = getCurrentUser();
     setCurrentUser(user);
     if (user && user.role === 'golden') {
@@ -179,6 +182,23 @@ export default function Dashboard() {
     };
   }, []);
   
+  // Realtime Settings Subscription
+  useEffect(() => {
+      const channel = supabase
+        .channel('dashboard-settings-realtime')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.1' },
+          (payload) => {
+              if (payload.new && payload.new.settings) {
+                  setSettings(prev => ({ ...prev, ...payload.new.settings }));
+              }
+          }
+        )
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Admin Click Logic
   useEffect(() => {
     if (adminClickCount >= 3) { // Changed to 3 clicks
@@ -464,7 +484,18 @@ export default function Dashboard() {
         return;
     }
     if (!selectedBank || !selectedDuration) return;
-    const res = await createSubscriptionRequest(currentUser.id, currentUser.officeName, currentUser.phone, selectedDuration, selectedBank, senderName);
+    // Validate sender name
+    if (!senderName || !/^[a-zA-Z\u0600-\u06FF\s]+$/.test(senderName) || senderName.length < 15) {
+        return; // Button should be disabled, but double check
+    }
+    const res = await createSubscriptionRequest(
+        currentUser.id, 
+        currentUser.officeName, 
+        currentUser.phone, 
+        selectedDuration, 
+        selectedBank,
+        senderName
+    );
     if (res.success) {
         setSubSuccess('تم إرسال طلب الاشتراك بنجاح! سيتم التفعيل قريباً.');
         setTimeout(() => {
@@ -492,9 +523,8 @@ export default function Dashboard() {
             setSubStep('duration');
             setSelectedBank('');
             setSelectedDuration('');
-            setSubSuccess('');
             setSenderName('');
-            setSenderNameError('');
+            setSubSuccess('');
           }, 300);
       }
   };
@@ -1129,7 +1159,10 @@ http://Www.manhobat.com.com`;
                                         <Input 
                                             type={showVerifyPass ? "text" : "password"} 
                                             value={verifyOldPass} 
-                                            onChange={(e) => setVerifyOldPass(e.target.value)} 
+                                            onChange={(e) => {
+                                                setVerifyOldPass(e.target.value);
+                                                if(profileError) setProfileError('');
+                                            }} 
                                             className="bg-white shadow-3d-inset border-none pl-10" 
                                             placeholder="••••••••" 
                                         />
